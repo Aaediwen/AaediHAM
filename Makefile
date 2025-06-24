@@ -1,4 +1,4 @@
-COBJECTS = aaediclock.o  
+COBJECTS = aaediclock.o utils.o modules.o
 PKGCONFIG_LIBS = `pkg-config --libs sdl3` `pkg-config --libs sdl3-ttf`  `pkg-config --libs zlib` '-lm'
 PKGCONFIG_CFLAGS = `pkg-config --cflags sdl3`  `pkg-config --cflags sdl3-ttf` `pkg-config --cflags zlib`
 
