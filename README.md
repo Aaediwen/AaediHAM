@@ -5,7 +5,7 @@ This is my attempt at re-implementing the idea behind HamClock from Clear Sky In
 
 Library dependancies:
 <UL>
- <LI>nlohmann json -- https://github.com/nlohmann/json</LI>
+ <LI>nlohmann json -- https://github.com/nlohmann/json   (included)</LI>
  <LI>SDL3          -- https://wiki.libsdl.org/SDL3/FrontPage</LI>
  <LI>SDL3-TTF      -- https://wiki.libsdl.org/SDL3_ttf/FrontPage</LI>
  <LI>GNU LibMath   -- https://www.gnu.org/software/libc/</LI>
