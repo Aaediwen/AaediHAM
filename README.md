@@ -9,6 +9,7 @@ Library dependancies:
  <LI>SDL3          -- https://wiki.libsdl.org/SDL3/FrontPage</LI>
  <LI>SDL3-TTF      -- https://wiki.libsdl.org/SDL3_ttf/FrontPage</LI>
  <LI>GNU LibMath   -- https://www.gnu.org/software/libc/</LI>
+ <LI>LibCurl      -- https://curl.se/libcurl/</LI>
  </UL>
 <HR>
 
