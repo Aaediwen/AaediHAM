@@ -15,7 +15,7 @@ struct ScreenFrame 	NightMap;
 struct ScreenFrame 	CountriesMap;
 struct surfaces 	winboxes;
 struct map_pin 		*map_pins;
-
+struct data_blob	*data_cache;
 
 void resize_panels(struct surfaces* panels) {
         int win_x;
@@ -208,11 +208,12 @@ int window_init() {
             return(1);
         }
         // load assets
-        Sans = TTF_OpenFont("arial.ttf", 24);
+        Sans = TTF_OpenFont("arial.ttf", 72);
         if (!Sans) {
             printf("Error opening font: %s\n", SDL_GetError());
             return(1);
         }
+        TTF_SetFontHinting(Sans, TTF_HINTING_LIGHT_SUBPIXEL);
         load_maps();
 
         // initial draws
@@ -264,6 +265,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 
     // init globals
     map_pins			=	0;
+    data_cache			=	0;
     winboxes.callsign.texture	=	0;
     winboxes.map.texture	=	0;
     winboxes.dx.texture		=	0;
@@ -288,7 +290,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 time_t oldtime;
 int resizing 			= 	0;
 SDL_AppResult SDL_AppIterate(void *appstate) {
-    SDL_Delay(10);			// slow down the program
+    SDL_Delay(100);			// slow down the program
     if (!resizing) {
         currenttime=time(NULL);
         if (currenttime != oldtime) {	// temporary one second timer
@@ -299,6 +301,21 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             draw_panel_border(winboxes.de);
             draw_de_dx(winboxes.dx, Sans, 0, 0, 0);
             draw_panel_border(winboxes.dx);
+
+
+        draw_panel_border(winboxes.de);
+
+        draw_panel_border(winboxes.dx);
+
+
+        draw_panel_border(winboxes.rowbox1);
+        pota_spots(winboxes.rowbox1, Sans);
+
+        draw_panel_border(winboxes.rowbox2);
+
+        draw_panel_border(winboxes.rowbox3);
+
+        draw_panel_border(winboxes.rowbox4);
             SDL_RenderPresent(surface);
             oldtime = currenttime;
         }
