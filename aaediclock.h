@@ -40,15 +40,32 @@ struct surfaces {
 
 } extern winboxes;
 
+enum mod_name {
+        MOD_MAP		,
+        MOD_DE		,
+        MOD_DX		,
+        MOD_CLOCK       ,
+        MOD_CALL	,
+        MOD_POTA	,
+        MOD_PSK
+};
+
 struct map_pin {
+    enum mod_name owner;
     double lat;
     double lon;
     SDL_Texture* icon;
     SDL_Color color;
     char label[16];
+    char tooltip[512];
     struct map_pin *next;
 }  extern *map_pins;
 
-
-
+struct data_blob {
+    enum mod_name owner;
+    time_t fetch_time;
+    Uint32 size;
+    void *data;
+    struct data_blob *next;
+} extern *data_cache;
 #endif

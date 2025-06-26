@@ -8,7 +8,7 @@ void draw_callsign(struct ScreenFrame panel, TTF_Font* font, const char* callsig
 void load_maps();
 int draw_map(struct ScreenFrame panel);
 int draw_clock(struct ScreenFrame panel, TTF_Font* font);
-
+void pota_spots(struct ScreenFrame panel, TTF_Font* font);
 
 #endif
 
