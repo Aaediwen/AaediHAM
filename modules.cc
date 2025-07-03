@@ -105,8 +105,8 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     }
 
     if (reload_flag) {
-        data_size = curl_loader("https://aaediwen.theaudioauthority.net/morse/celestrak", &amateur_tle);	// debug
-//	data_size = curl_loader("https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle", &amateur_tle);	// live
+
+	data_size = curl_loader("https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle", &amateur_tle);	// live
         if (data_size) {
             add_data_cache(MOD_SAT, data_size, amateur_tle);
         }
@@ -259,8 +259,8 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
         reload_flag=1;
     }
     if (reload_flag) {
-//         data_size = curl_loader("https://api.pota.app/spot/activator", &json_spots);				// live
-         data_size = curl_loader("https://aaediwen.theaudioauthority.net/morse/activator", &json_spots);	// debug
+         data_size = curl_loader("https://api.pota.app/spot/activator", &json_spots);				// live
+
          if (data_size) {
              add_data_cache(MOD_POTA, data_size, json_spots);
          }
