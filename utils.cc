@@ -2,8 +2,10 @@
 #include <SDL3/SDL.h>
 #include "aaediclock.h"
 #include "utils.h"
+#include <string>
+#include <curl/curl.h>
 
-void draw_panel_border(struct ScreenFrame panel) {
+/*void draw_panel_border(ScreenFrame panel) {
     SDL_SetRenderDrawColor(surface, 128, 128, 128, 255);
     SDL_FRect border;
     border.x=0;
@@ -16,7 +18,7 @@ void draw_panel_border(struct ScreenFrame panel) {
     SDL_RenderTexture(surface, panel.texture, NULL, &(panel.dims));
     return;
 }
-
+*/
 double solar_altitude(double lat_deg, double lon_deg, struct tm *utc, double decl_deg) {
     //Converts latitude and solar declination from degrees to radians
     double lat = lat_deg * M_PI / 180.0;
@@ -48,6 +50,13 @@ void maidenhead(double lat, double lon, char* maiden) {
     maiden[5] = (int)((fmod(madlat,1.0))*24)+97;
     return;
 }
+
+void cords_to_px(double lat, double lon, int w, int h, SDL_FPoint* result) {
+    result->x=(lon/180.0)*(w/2)+(w/2);
+    result->y=((-1*lat)/90.0)*(h/2)+(h/2);
+    return ;
+}
+
 
 void sun_times(double lat, double lon, time_t* sunrise, time_t* sunset, double *solar_alt, time_t now) {
     // fet sunrise and sunset times
@@ -97,7 +106,8 @@ void render_text(SDL_Renderer *renderer, SDL_Texture *target, SDL_FRect * text_b
     // render a text string
 //    textsurface = TTF_RenderText_Shaded(font, str, strlen(str), color, color);
     SDL_Color bg_color = {0, 0, 0,255};
-    textsurface = TTF_RenderText_LCD(font, str, strlen(str), color, bg_color);
+    textsurface = TTF_RenderText_Shaded(font, str, strlen(str), color, bg_color);
+//    textsurface = TTF_RenderText_LCD(font, str, strlen(str), color, bg_color);
     if (textsurface==NULL) {
         SDL_Log("Text render error: %s", SDL_GetError());
         return;
@@ -243,12 +253,17 @@ int add_data_cache(enum mod_name owner, const Uint32 size, void* data) {
         data_cache = (struct data_blob*)malloc(sizeof(struct data_blob));
         empty_locker=data_cache;
     }
+    if (!empty_locker) {
+        SDL_Log("Cache Allocation Error!");
+        return (0);
+    }
     empty_locker->next=0;
     empty_locker->owner = owner;
     empty_locker->fetch_time=time(NULL);
     empty_locker->size = size;
     empty_locker->data = malloc(size+1);
     if (empty_locker->data) {
+        memset(empty_locker->data, 0, size + 1);
         memcpy(empty_locker->data, data, size);
     } else {
         return (0);
@@ -260,6 +275,7 @@ int add_data_cache(enum mod_name owner, const Uint32 size, void* data) {
 }
 
 int fetch_data_cache(enum mod_name owner, time_t *age, Uint32 *size, void* data) {
+    // function to check for and return locally cached web data
     struct data_blob* current = 0;
     if (data_cache) {
         struct data_blob* current = data_cache;
@@ -269,14 +285,93 @@ int fetch_data_cache(enum mod_name owner, time_t *age, Uint32 *size, void* data)
                 memcpy(age, &(current->fetch_time), sizeof(time_t));
                 memcpy(size, &(current->size), sizeof(Uint32));
                 if (data != NULL) {
-                    memset(data, 0, current->size + 1);
                     memcpy(data, current->data, current->size);
-//                    SDL_Log("Cache returning %i bytes", current->size);
+                    SDL_Log("Cache returning %i bytes", current->size);
                 }
                 return (1);
-            }
+            }	// found a cache hit
             current = current->next;
-        }
-    }
+        }	// itterate through the current cache
+    } // do we have anything at all cached yet?
+    SDL_Log("Cache miss");
     return (0);
 }
+
+
+uint cache_http_callback( char* in, uint size, uint nmemb, void* out) {
+    std::string* buffer = static_cast<std::string*>(out);
+    buffer->append(in, (size*nmemb));
+    return (size*nmemb);
+}
+
+int curl_loader(const char* source_url, char** result) {
+    CURLcode curlres;
+    std::string httpbuffer;
+    SDL_Log("Fetching data from %s", source_url);
+    CURL *curl = curl_easy_init();
+    if (curl) {
+        curl_easy_setopt(curl, CURLOPT_URL, source_url);
+        curl_easy_setopt(curl, CURLOPT_HTTP_VERSION,
+                        (long)CURL_HTTP_VERSION_3);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15);
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, "aaediwens-module-agent/1.0");
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, cache_http_callback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&httpbuffer);
+        curlres = curl_easy_perform(curl);
+        curl_easy_cleanup(curl);
+//      add_data_cache(owner, httpbuffer.size(), (void*)httpbuffer.c_str());
+        if (!curlres) {
+            SDL_Log("Fetched %i Bytes", httpbuffer.size());
+            *result = (char*)realloc(*result, httpbuffer.size()+1);
+
+            if (*result) {
+                // return our result text in *result
+                memset(*result, 0, httpbuffer.size() + 1);
+                memcpy(*result, httpbuffer.c_str(), httpbuffer.size());
+                return(httpbuffer.size());
+            } else {
+                SDL_Log ("Curl result MALLOC error");
+                return 0;
+            }
+        } else {
+            SDL_Log ("Curl Fetch Error");
+            return 0;
+        }
+    } else {
+        SDL_Log("Failed ot init Curl!");
+        return 0;
+    }
+
+}
+
+Uint32 cache_loader(const enum mod_name owner, char** result, time_t *result_time) {
+    Uint32 cache_size;
+//    time_t cache_age;
+    int cache_success = 0;
+    *result_time = 0;
+    // attempt to fetch from cache
+    if (fetch_data_cache(owner, result_time, &cache_size, NULL)) {
+         // cache hit
+        SDL_Log("Fetching %i Bytes from cache", cache_size);
+        *result = (char*)realloc(*result, cache_size+1);
+        if (*result) {
+            memset(*result, 0, cache_size + 1);
+            cache_success = fetch_data_cache(owner, result_time, &cache_size, *result);
+            if (cache_success) {
+                return (cache_size);
+            } else {
+                SDL_Log("Cache Loader fetch error!");
+                return 0;
+            }
+            // cache hit
+        } else {
+            SDL_Log("Cache loader MALLOC error");
+            return 0;
+        }
+//        SDL_Log("Got from Cache %i Bytes", strlen(json_spots));
+
+    } else {
+        return 0; // cache miss
+    }
+}
+
