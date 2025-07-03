@@ -3,121 +3,342 @@
 #include "aaediclock.h"
 #include "modules.h"
 #include "utils.h"
-#include <curl/curl.h>
-#include "json.hpp"
+
+
 using json = nlohmann::json;
-uint pota_http_callback( char* in, uint size, uint nmemb, void* out) {
-//    SDL_Log("Got %i bytes from HTTP", nmemb);
-    std::string* buffer = static_cast<std::string*>(out);
-    buffer->append(in, (size*nmemb));
-    return (size*nmemb);
+// https://retrieve.pskreporter.info/query?senderCallsign=YOUR_CALLSIGN
+// VOACAP (or VOACAPL)
+//HamQSL.com / NOAA API
+
+void circle_helper(std::vector<SDL_FPoint> *circle_points, int radius, SDL_FPoint center, int segments) {
+    for (int i = 0; i <= segments; ++i) {
+        float theta = (2.0f * M_PI * i) / segments;
+        SDL_FPoint pt = {
+            center.x + radius * cosf(theta),
+            center.y + radius * sinf(theta)
+        };
+        circle_points->push_back(pt);
+    }
+    return;
 }
-void pota_spots(struct ScreenFrame panel, TTF_Font* font) {
 
-    Uint32 cache_size;
-    time_t cache_age;
-    char* json_spots = 0 ;
-    delete_owner_pins(MOD_POTA);
-    if (fetch_data_cache(MOD_POTA, &cache_age, &cache_size, NULL)) {
-//        SDL_Log("Fetching %i Bytes from cache", cache_size);
-        json_spots = (char*)malloc(cache_size+1);
-        fetch_data_cache(MOD_POTA, &cache_age, &cache_size, json_spots);
-//        SDL_Log("Got from Cache %i Bytes", strlen(json_spots));
-    }
+void pass_tracker(ScreenFrame& panel, TrackedSatellite& sat) {
+    SDL_FPoint circle_points[8];
 
-    if ( (!json_spots)|| ( (time(NULL) - cache_age > 300) ) ) {
-        std::string spotbuffer;
-        SDL_Log("Fetching new POTA SPOTS");
-        CURL *curl = curl_easy_init();
-        if (curl) {
-            //  https://api.pota.app/spot/activator
-    //        curl_easy_setopt(curl, CURLOPT_URL, "https://api.pota.app/spot/activator");
-            curl_easy_setopt(curl, CURLOPT_URL, "https://aaediwen.theaudioauthority.net/morse/activator");
-            curl_easy_setopt(curl, CURLOPT_HTTP_VERSION,
-                             (long)CURL_HTTP_VERSION_3);
-            curl_easy_setopt(curl, CURLOPT_USERAGENT, "aaediwens-pota-module-agent/1.0");
-            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, pota_http_callback);
-            curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&spotbuffer);
-            CURLcode res = curl_easy_perform(curl);
-            curl_easy_cleanup(curl);
-            add_data_cache(MOD_POTA, spotbuffer.size(), (void*)spotbuffer.c_str());
-        } else {
-            SDL_Log("Failed ot init Curl!");
-        }
-        json_spots = 0 ;
-        if (fetch_data_cache(MOD_POTA, &cache_age, &cache_size, NULL)) {
-            json_spots = (char*)malloc(cache_size);
-            fetch_data_cache(MOD_POTA, &cache_age, &cache_size, json_spots);
-        }
-        if (!json_spots) {
-            SDL_Log("Unable to retrieve POTA SPOTS!");
-            return;
-        }
-        bool goodread=true;
-    } else {
-        SDL_Log("Using cached POTA SPOTS %i Bytes", strlen(json_spots));
-    }
-
-    int goodread;
-    goodread = 1;
-    json spot_list;
-    try {
-        spot_list=json::parse(json_spots);
-    } catch (const json::parse_error &e) {
-        SDL_Log("POTA Json Parse Error %i bytes\n", strlen(json_spots));
-        goodread=0;
-    }
-
+    // clear the box
     SDL_SetRenderTarget(surface, panel.texture);
     SDL_SetRenderDrawBlendMode(surface, SDL_BLENDMODE_NONE);  // Clear solid
     SDL_SetRenderDrawColor(surface, 0, 0, 0, 255);
     SDL_RenderClear(surface);  // Fills the entire target with the draw color
     SDL_SetRenderDrawBlendMode(surface, SDL_BLENDMODE_BLEND);  // Clear solid
+    char tempstr[30];
+    SDL_FRect TextRect;
+    TextRect.w=panel.dims.w/2;
+    TextRect.h=panel.dims.h/11;
+    TextRect.x=5;
+    TextRect.y=2;
+    sprintf(tempstr, "%s", sat.get_name().c_str());
+    render_text(surface, panel.texture, &TextRect, Sans, sat.color, tempstr);
+    SDL_SetRenderTarget(surface, panel.texture);
+    std::vector<SDL_FPoint> circle_pts;
+    int segments = 64;
+    float radius = panel.dims.w/2;
+    if (panel.dims.h < panel.dims.w) {
+        radius = panel.dims.h/2;
+    }
+    radius *=.8;
+    std::vector<SDL_FPoint> pass_pts;
+    SDL_FRect pass_box;
+    pass_box.x=(panel.dims.w - (2*radius))/2;
+    pass_box.y=(panel.dims.h - (2*radius))/2;
+    pass_box.w=2*radius;
+    pass_box.h=2*radius;
 
+
+    SDL_FPoint center = SDL_FPoint{panel.dims.w/2, panel.dims.h/2};
+    SDL_SetRenderDrawColor(surface, 64, 64, 0, 255);
+    SDL_RenderLine(surface, center.x, center.y, center.x-radius, center.y);
+    SDL_RenderLine(surface, center.x, center.y, center.x+radius, center.y);
+    SDL_RenderLine(surface, center.x, center.y, center.x, center.y+radius);
+    SDL_RenderLine(surface, center.x, center.y, center.x, center.y-radius);
+    SDL_SetRenderDrawColor(surface, 64, 0, 64, 255);
+    circle_helper (&circle_pts, radius, center, 16);
+    SDL_RenderLines(surface, circle_pts.data(), circle_pts.size());
+    circle_pts.clear();
+    radius /=2;
+    circle_helper (&circle_pts, radius, center, 16);
+    SDL_RenderLines(surface, circle_pts.data(), circle_pts.size());
+    circle_pts.clear();
+    radius /=2;
+    circle_helper (&circle_pts, radius, center, 16);
+    SDL_RenderLines(surface, circle_pts.data(), circle_pts.size());
+    circle_pts.clear();
+    radius *=3;
+    circle_helper (&circle_pts, radius, center, 16);
+    SDL_RenderLines(surface, circle_pts.data(), circle_pts.size());
+    SDL_RenderPoint(surface, center.x, center.y);
+    sat.draw_pass(sat.pass_start(), sat.pass_end(),  &pass_pts, &pass_box);
+    SDL_SetRenderDrawColor(surface, 0, 128, 0, 255);
+    SDL_RenderLines(surface, pass_pts.data(), pass_pts.size());
+
+
+    return;
+}
+
+int pass_pager[2] = {0,0};
+void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
+    char* amateur_tle = 0 ;
+    char* weather_tle = 0 ;
+    Uint32 data_size;
+    time_t cache_time;
+
+    char tempstr[64];
+    SDL_FRect TextRect;
+
+    delete_owner_pins(MOD_SAT);
+    bool reload_flag = false;
+    data_size = cache_loader(MOD_SAT, &amateur_tle, &cache_time);
+    if (!data_size) {
+        reload_flag=true;
+    } else if ((time(NULL) - cache_time) > 14400) {
+        reload_flag=true;
+    }
+
+    if (reload_flag) {
+        data_size = curl_loader("https://aaediwen.theaudioauthority.net/morse/celestrak", &amateur_tle);	// debug
+//	data_size = curl_loader("https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle", &amateur_tle);	// live
+        if (data_size) {
+            add_data_cache(MOD_SAT, data_size, amateur_tle);
+        }
+    }
+
+
+    // clear the box
+    SDL_SetRenderTarget(surface, panel.texture);
+    SDL_SetRenderDrawBlendMode(surface, SDL_BLENDMODE_NONE);  // Clear solid
+    SDL_SetRenderDrawColor(surface, 0, 0, 0, 255);
+    SDL_RenderClear(surface);  // Fills the entire target with the draw color
+    SDL_SetRenderDrawBlendMode(surface, SDL_BLENDMODE_BLEND);  // Clear solid
+    // render the header
+    TextRect.w=panel.dims.w/2-10;
+    TextRect.h=panel.dims.h/11;
+    TextRect.x=5;
+    TextRect.y=2;
+    sprintf(tempstr, "SAT TRACKERS");
+    render_text(surface, panel.texture, &TextRect, font, {128,128,0,255}, tempstr);
+    TextRect.w=panel.dims.w-10;
+    TextRect.y += ((panel.dims.h/11)+(panel.dims.h/150));
+
+    if (data_size) {
+    	SDL_Log ("We have tracking data: %i Bytes", data_size);
+    } else {
+        SDL_Log ("Tracking Data Fetch Error!");
+    	return;
+    }
+
+    Uint32 read_flag = 1;
+    std::istringstream iostring_buffer;
+    std::string sanitized(amateur_tle);  // Make a copy (if amateur_tle is char*)
+    sanitized.erase(std::remove(sanitized.begin(), sanitized.end(), '\r'), sanitized.end());
+    iostring_buffer.clear();
+    iostring_buffer.str(sanitized);
+    std::string temp[3]; // name line1, line 2
+    std::vector<TrackedSatellite> satlist;
+    libsgp4::Observer obs(clockconfig.DE.lat, clockconfig.DE.lon, 0.27); // need a way to manage altitude here (last arg)
+    SDL_Color trackcols = {255,0,0,255};
+    // read the TLE data from Celestrak
+    while (read_flag) {
+        // read the TLE for a sat
+        std::getline(iostring_buffer, temp[0]);
+	std::getline(iostring_buffer, temp[1]);
+	std::getline(iostring_buffer, temp[2]);
+	if (temp[0].length() && temp[1].length() && temp[2].length()) {
+	    // is it one we want to show?
+            bool draw_flag=false;
+	    for (std::string& stropt : clockconfig.sats) {
+	        if (temp[0].compare(0,stropt.length(),stropt)==0) {
+	            draw_flag=true;
+                }
+            }
+            trackcols.r -= 20;
+            trackcols.g += 20;
+            trackcols.b += 10;
+            // if so, calculate the track for it
+            if (draw_flag) {
+		TrackedSatellite nextsat(temp[0], temp[1], temp[2]);
+		nextsat.color=trackcols;
+		if (nextsat.gen_telemetry(30, obs)) {
+		    satlist.push_back(nextsat);
+                }
+            }
+	} else { break; }
+    } // read from Celestrak
+    if (amateur_tle) {
+        free(amateur_tle);
+        amateur_tle = nullptr;
+    }
+    // display the selected satellites
+    if (pass_pager[0] >= satlist.size()) {
+        pass_pager[0]=0;
+    }
+    pass_tracker(panel, satlist[pass_pager[0]]);
+    if (pass_pager[1] >5) {
+        pass_pager[0]++;
+        pass_pager[1]=0;
+    }
+    pass_pager[1]++;
+    for (TrackedSatellite& Sat : satlist) {
+        bool draw_flag=false;
+        for (std::string& stropt : clockconfig.sats) {
+            if (Sat.get_name().compare(0,stropt.length(),stropt)==0) {
+                draw_flag=true;
+            }
+        }
+        if (draw_flag) {
+//           if (Sat.get_name().compare(0,7,"NOAA 15")==0) {
+//            if (pass_tracker) {
+
+
+//            }
+
+//            TextRect.y += ((panel.dims.h/11)+(panel.dims.h/150));
+            Sat.draw_telemetry(map);
+            // plot the sat's current location
+            struct map_pin sat_pin;
+            SDL_FPoint sat_loc;
+            Sat.location(&sat_loc);
+            sat_pin.owner	=		MOD_SAT;
+            sprintf(sat_pin.label, "%s", Sat.get_name().c_str());
+            sat_pin.lat 	= 		sat_loc.x;
+            sat_pin.lon 	= 		sat_loc.y;
+            sat_pin.icon	=		0;
+            sat_pin.color	=		Sat.color;;
+            sat_pin.tooltip[0]	=		0;
+            add_pin(&sat_pin);
+	}
+    }
+
+    SDL_Log("Loaded %i SATS", satlist.size());
+    satlist.clear();
+       // clean up
+    SDL_SetRenderTarget(surface, NULL);
+    SDL_RenderTexture(surface, panel.texture, NULL, &(panel.dims));
+
+    return;
+}
+
+
+int pota_page[2]={0,2};
+void pota_spots(ScreenFrame& panel, TTF_Font* font) {
+
+    char* json_spots = 0 ;
+//    char** cache_data_address;
+
+    int c, tot;
+    c=0;
+    tot=0;
+
+
+    char tempstr[64];
+    SDL_FRect TextRect;
 
     SDL_Color pota_color;
     pota_color.r = 0;
     pota_color.g = 128;
     pota_color.b = 0;
     pota_color.a = 200;
+    Uint32 data_size;
+    time_t cache_time;
+    int reload_flag =0;
+    // fetch the POTA spot data
+    delete_owner_pins(MOD_POTA);
+    data_size = cache_loader(MOD_POTA, &json_spots, &cache_time);
+    if (!data_size) {
+        reload_flag=1;
+    } else if ((time(NULL) - cache_time) > 300) {
+        reload_flag=1;
+    }
+    if (reload_flag) {
+//         data_size = curl_loader("https://api.pota.app/spot/activator", &json_spots);				// live
+         data_size = curl_loader("https://aaediwen.theaudioauthority.net/morse/activator", &json_spots);	// debug
+         if (data_size) {
+             add_data_cache(MOD_POTA, data_size, json_spots);
+         }
+    }
 
-    char tempstr[64];
-    SDL_FRect TextRect;
-    TextRect.w=panel.dims.w-10;
+//    json_spots = *cache_data_address;
+//    SDL_Log("POTA Cache loader call complete");
+    // convert the POTA JSON to an object
+    int goodread;
+    goodread = 1;
+    json spot_list;
+    if (data_size && json_spots) {
+        SDL_Log("WE have SPOT data: %i bytes", strlen(json_spots));
+        try {
+            spot_list=json::parse(json_spots);
+        } catch (const json::parse_error &e) {
+            SDL_Log("POTA Json Parse Error %i bytes %s\n", strlen(json_spots), json_spots);
+            goodread=0;
+        }
+        free(json_spots);
+    } else {
+        SDL_Log("POTA Json FETCH Error");
+        goodread=0;
+    }
+//    SDL_Log("Parsed JSON Data");
+    // clear the box
+    SDL_SetRenderTarget(surface, panel.texture);
+    SDL_SetRenderDrawBlendMode(surface, SDL_BLENDMODE_NONE);  // Clear solid
+    SDL_SetRenderDrawColor(surface, 0, 0, 0, 255);
+    SDL_RenderClear(surface);  // Fills the entire target with the draw color
+    SDL_SetRenderDrawBlendMode(surface, SDL_BLENDMODE_BLEND);  // Clear solid
+//    SDL_Log("Cleared da bawx");
+    // render the header
+    TextRect.w=panel.dims.w/2-10;
     TextRect.h=panel.dims.h/11;
     TextRect.x=5;
     TextRect.y=2;
     pota_color.a = 0;
     sprintf(tempstr, "POTA ACTIVATORS");
     render_text(surface, panel.texture, &TextRect, font, pota_color, tempstr);
+
+    // set up for rendering the lista and submitting the pins
     pota_color.a = 200;
     TextRect.w=(panel.dims.w/4)-10;
     TextRect.h=panel.dims.h/11;
     TextRect.x=5;
     TextRect.y=((panel.dims.h/11)+(panel.dims.h/150));;
-    int c;
-    c=0;
-    std::string tempstdstring;
+//    SDL_Log("rendered header");
     if (goodread) {
         for (auto spot : spot_list) {
-            if (spot.contains("spotId") ) {
-                // submit the map pin
-                int id = spot.value("spotId", -1);
-//          	SDL_Log("%i\n",id);
-                struct map_pin pota_pin;
-//                pota_pin.lat=spot.value("latitude", -1);;
-                pota_pin.lat = spot["latitude"].template get<double>();
-                pota_pin.owner=MOD_POTA;
-                tempstdstring=spot["activator"].template get<std::string>();
-                sprintf(pota_pin.label, "%s", tempstdstring.c_str());
-//                sprintf(pota_pin.label, spot.value("activator");
-                pota_pin.lon=spot.value("longitude", -1);;
-                pota_pin.icon=0;
-                pota_pin.color=pota_color;
-                pota_pin.tooltip[0]=0;
-                add_pin(&pota_pin);
+            if (spot.contains("latitude") &&
+                spot["latitude"].is_number() &&
+                spot.contains("longitude") &&
+                spot["longitude"].is_number() &&
+                spot.contains("activator") &&
+                spot.contains("frequency") &&
+                spot.contains("reference") &&
+                spot.contains("mode") ) {
 
-                if (c < 9) {
+                tot++;
+                // submit the map pin
+//                SDL_Log("adding pin");
+                struct map_pin pota_pin;
+
+                pota_pin.owner	=		MOD_POTA;
+                std::string tempstdstring	=		spot["activator"].template get<std::string>();
+                sprintf(pota_pin.label, "%s", tempstdstring.c_str());
+
+                pota_pin.lat 	= 		spot["latitude"].template get<double>();
+                pota_pin.lon	=  		spot["longitude"].template get<double>();
+                pota_pin.icon	=		0;
+                pota_pin.color	=		pota_color;
+                pota_pin.tooltip[0]=		0;
+                add_pin(&pota_pin);
+//                SDL_Log("pin added");
+                // add to screen list
+                if ((c >= pota_page[0]*9) && (c<(pota_page[0]*9)+9)) {
+//                    SDL_Log("adding list");
                     std::string mode = spot["mode"].template get<std::string>();
                     std::string strfreq = spot["frequency"].template get<std::string>();
                     double freq = stod(strfreq)/1000;
@@ -134,27 +355,47 @@ void pota_spots(struct ScreenFrame panel, TTF_Font* font) {
                     sprintf(tempstr, "%4.3f", (freq));
                     render_text(surface, panel.texture, &TextRect, font, pota_color, tempstr);
                     TextRect.x += (panel.dims.w/4)+2;
-                    sprintf(tempstr, "%s", mode.c_str());
-                    render_text(surface, panel.texture, &TextRect, font, pota_color, tempstr);
+                    if (mode.size() >0) {
+                        sprintf(tempstr, "%s", mode.c_str());
+                        render_text(surface, panel.texture, &TextRect, font, pota_color, tempstr);
+                    }
                     TextRect.x += (panel.dims.w/4);
                     sprintf(tempstr, "%s", park.c_str());
                     render_text(surface, panel.texture, &TextRect, font, pota_color, tempstr);
                     TextRect.x = 5;
                     TextRect.y += ((panel.dims.h/11)+(panel.dims.h/150));
                     pota_color.a = 200;
-                    c++;
-                }
-
-            }
+//                    SDL_Log("added list");
+                } // add to list?
+                c++;
+            } // spot valid?
+        } // foreach spot
+        pota_page[1]++;
+        if (pota_page[1] > 5) {
+            pota_page[0]++;
+            pota_page[1]=0;
         }
+        if (pota_page[0] > (tot/9)) {
+            pota_page[0]=0;
+        }
+//        SDL_Log("rendering count");
+        // render the total count of POTA activators
+        TextRect.w=panel.dims.w/2-10;
+        TextRect.h=panel.dims.h/11;
+        TextRect.x=5+(panel.dims.w/2);
+        TextRect.y=2;
+        pota_color.a = 0;
+        sprintf(tempstr, "%i", tot);
+        render_text(surface, panel.texture, &TextRect, font, pota_color, tempstr);
+//        SDL_Log("done rendering spots");
+    } // good read
     // clean up
     SDL_SetRenderTarget(surface, NULL);
     SDL_RenderTexture(surface, panel.texture, NULL, &(panel.dims));
-    }
 }
 
 
-void draw_de_dx(struct ScreenFrame panel, TTF_Font* font, double lat, double lon, int de_dx) {
+void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int de_dx) {
 
     if (!surface) {
         SDL_Log("Missing Surface!");
@@ -307,7 +548,7 @@ void draw_de_dx(struct ScreenFrame panel, TTF_Font* font, double lat, double lon
 
 }
 
-void draw_callsign(struct ScreenFrame panel, TTF_Font* font, const char* callsign) {
+void draw_callsign(ScreenFrame& panel, TTF_Font* font, const char* callsign) {
     if (!surface) {
         SDL_Log("Missing Surface!");
         return ;
@@ -409,13 +650,8 @@ void load_maps() {
 
 }
 
-//https://celestrak.org/NORAD/elements/gp.php?GROUP=amateur&FORMAT=tle
-// https://api.pota.app/spot/activator
-// https://retrieve.pskreporter.info/query?senderCallsign=YOUR_CALLSIGN
-// VOACAP (or VOACAPL)
-//HamQSL.com / NOAA API
 
-void render_pin(struct ScreenFrame *panel, struct map_pin *current_pin) {
+void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
 
     SDL_Texture* icon_tex = SDL_CreateTexture(surface, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 16, 16);
     if (!icon_tex) {
@@ -430,23 +666,25 @@ void render_pin(struct ScreenFrame *panel, struct map_pin *current_pin) {
     } else {
         SDL_FRect temprect;
 
-         SDL_SetRenderDrawColor(surface, current_pin->color.r, current_pin->color.g, current_pin->color.b, current_pin->color.a);
+         SDL_FRect shadow_rect = {1.5f, 1.5f, 13.0f, 13.0f};
+         SDL_FRect pin_rect = {4.0f, 4.0f, 8.0f, 8.0f};
+         SDL_SetRenderDrawColor(surface, 16, 16, 16, 128);
          SDL_RenderFillRect(surface, NULL);
-         SDL_SetRenderDrawColor(surface, 16, 16, 16, 255);
-         SDL_RenderRect(surface, NULL );
-         temprect={2,2,15,15};
-         SDL_RenderRect(surface, &temprect );
-         temprect={3,3,14,14};
-         SDL_RenderRect(surface, &temprect );
-         temprect={4,4,13,13};
-         SDL_RenderRect(surface, &temprect );
+         SDL_SetRenderDrawColor(surface, current_pin->color.r, current_pin->color.g, current_pin->color.b, current_pin->color.a);
+         SDL_RenderFillRect(surface, &pin_rect );
     }
     SDL_FRect target_rect;
     target_rect.h=8;
     target_rect.w=8;
-    target_rect.x=(current_pin->lon/180.0)*(panel->texture->w/2)+(panel->texture->w/2);
+//    target_rect.x=(current_pin->lon/180.0)*(panel->texture->w/2)+(panel->texture->w/2);
+//    target_rect.x -= (target_rect.w/2);
+//    target_rect.y=((-1*current_pin->lat)/90.0)*(panel->texture->h/2)+(panel->texture->h/2);
+//    target_rect.y -= (target_rect.h/2);
+    SDL_FPoint tgt_px;
+    cords_to_px(current_pin->lat, current_pin->lon, (int)panel->texture->w, (int)panel->texture->h, &tgt_px);
+    target_rect.x=tgt_px.x;
     target_rect.x -= (target_rect.w/2);
-    target_rect.y=((-1*current_pin->lat)/90.0)*(panel->texture->h/2)+(panel->texture->h/2);
+    target_rect.y=tgt_px.y;
     target_rect.y -= (target_rect.h/2);
     SDL_SetTextureBlendMode(icon_tex, SDL_BLENDMODE_BLEND);
     SDL_SetRenderTarget(surface, panel->texture);
@@ -457,7 +695,7 @@ void render_pin(struct ScreenFrame *panel, struct map_pin *current_pin) {
     return;
 }
 
-int draw_map(struct ScreenFrame panel) {
+int draw_map(ScreenFrame& panel) {
 
 
     tm* utc = gmtime(&currenttime);
@@ -571,9 +809,10 @@ int draw_map(struct ScreenFrame panel) {
 }
 
 
-int draw_clock(struct ScreenFrame panel, TTF_Font* font) {
+int draw_clock(ScreenFrame& panel, TTF_Font* font) {
 
 //    SDL_Log("Drawing Clock");
+SDL_Log("Drawing clock panel at %.0fx%.0f", panel.dims.x, panel.dims.y);
     SDL_Color fontcolor;
     fontcolor.r=128;
     fontcolor.g=128;

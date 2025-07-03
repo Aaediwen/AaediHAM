@@ -1,0 +1,16 @@
+{
+     "CallSign": "KQ4SIZ",
+     "DE": {
+          "Latitude":  37.978,
+          "Longitude":  -84.495
+     },
+     "DX": {
+          "Latitude":  0.0,
+          "Longitude":  0
+     },
+     "SatList":["LES-5", 
+                "NOAA 15", 
+                "ISS (ZARYA)",
+                "COSMOS 2409",
+                "NOAA 18"]
+}
