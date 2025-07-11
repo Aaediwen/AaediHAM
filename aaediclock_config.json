@@ -1,16 +1,29 @@
 {
-     "CallSign": "KQ4SIZ",
-     "DE": {
-          "Latitude":  37.978,
-          "Longitude":  -84.495
+     "CallSign": "N0CALL",             // your callsign here
+     "DE": {                           // your location
+          "Latitude": 37.978,         
+          "Longitude": -84.495
      },
-     "DX": {
-          "Latitude":  0.0,
-          "Longitude":  0
+     "DX": {                          // the location you want in the DX box
+          "Latitude": 0.0,
+          "Longitude": 0.0
      },
-     "SatList":["LES-5", 
-                "NOAA 15", 
-                "ISS (ZARYA)",
-                "COSMOS 2409",
-                "NOAA 18"]
+     "QRZ": [                        // QRZ password, added by command line argument.
+          104,                       // if you want to type yours in here, use:
+          68,                        // "QRZ": "QRZ_PASSWORD"
+          112,                       // this will work, instead, but it will mean your password is in cleartext
+          106,                        // better to use --QRZ_Pass command line option to set this
+          106,
+          55,
+          54,
+          55,
+          61
+     ],
+     "SatList": [                    // a list of satellites to track from 
+          "LES-5",                  // "https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle"
+          "NOAA 15",
+          "ISS (ZARYA)",
+          "COSMOS 2409",
+          "NOAA 18"
+     ]
 }
