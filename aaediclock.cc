@@ -146,79 +146,11 @@ void resize_panels(struct surfaces* panels) {
         return;
 }
 
-void load_config() {
-
-    bool goodread = false;
-    json data;
-
-    clockconfig = {
-        "N0CALL",                      // CallSign
-        {},     // sats
-        { 0, 0 },        // DE (lat/lon)
-        { 0, 0 }           // DX (lat/lon)
-    };
-
-    SDL_Log ("Loading CONFIG");
-    std::ifstream f("aaediclock_config.json");
-    if (f.good()) {
-        SDL_Log("CONFIG file opened.");
-        try {
-//            data = json::parse(f);
-            f >> data;
-            SDL_Log("CONFIG file parsed.");
-            goodread=true;
-        } catch (const json::parse_error &e) {
-            SDL_Log ("JSON parse error: %s",  e.what());
-            goodread=false;
-        }
-    } else {
-        SDL_Log ("File Read error: ");
-        goodread=false;
-    }
-
-    if (goodread) {
-        SDL_Log ("Reading CONFIG");
-         if (data.contains("DE")) {
-             if (data["DE"].contains("Latitude") && data["DE"].contains("Longitude")) {
-                 if (data["DE"]["Latitude"].is_number() && data["DE"]["Longitude"].is_number() ) {
-                     clockconfig.DE.lat=data["DE"]["Latitude"];
-                     clockconfig.DE.lon=data["DE"]["Longitude"];
-                 }
-             }
-         }
-         if (data.contains("DX")) {
-             if (data["DX"].contains("Latitude") && data["DX"].contains("Longitude")) {
-                 if (data["DX"]["Latitude"].is_number() && data["DX"]["Longitude"].is_number() ) {
-                     clockconfig.DX.lat=data["DX"]["Latitude"];
-                     clockconfig.DX.lon=data["DX"]["Longitude"];
-                 }
-             }
-         }
-         if (data.contains("CallSign")) {
-             if (data["CallSign"].is_string()) {
-                 clockconfig.CallSign=data["CallSign"];
-             }
-         }
-         if (data.contains("SatList")) {
-             if (data["SatList"].is_array()) {
-                 for (const auto& item : data["SatList"]) {
-                     if (item.is_string()) {
-                         clockconfig.sats.push_back(item);
-                     }
-                 }
-             }
-         }
-    } else {
-        SDL_Log ("ERROR Reading CONFIG");
-    }
-}
-
-
-
-int window_init() {
+bool headless=false;
+int window_init(int x, int y) {
     if (!window) {
         // create the main window
-        window = SDL_CreateWindow("Aaediwen Ham Clock", 800, 480, 0);
+        window = SDL_CreateWindow("Aaediwen Ham Clock", x, y, 0);
         if (!window) {
             SDL_Log("Failed to create window: %s", SDL_GetError());
             return(1);
@@ -240,13 +172,12 @@ int window_init() {
 
         // initial draws
         currenttime=time(NULL);
-//        winboxes.callsign.draw_border(surface);
-        draw_callsign(winboxes.callsign, Sans, clockconfig.CallSign.c_str());
-
+//        draw_callsign(winboxes.callsign, Sans, clockconfig.CallSign.c_str());
+          draw_callsign(winboxes.callsign, Sans, clockconfig.CallSign().c_str());
+        dx_cluster (winboxes.rowbox3);
 //        winboxes.clock.draw_border(surface);
 //        draw_clock(winboxes.clock, Sans);
 
-//        winboxes.map.draw_border(surface);
 //        draw_map(winboxes.map);
 /*
         winboxes.de.draw_border(surface);
@@ -262,6 +193,7 @@ int window_init() {
         winboxes.rowbox4.draw_border(surface);
 */
         SDL_RenderPresent(surface);
+
     }
     return 0;
 }
@@ -272,19 +204,72 @@ int window_destroy() {
     SDL_Quit();
     return 0;
 }
-
+std::string outfile;
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     // initialize required subsystems
+    (void)appstate;
+    int x, y;
+    x=800;
+    y=480;
+
+    outfile.clear();
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--headless") {
+            printf("Running Headless\n");
+            setenv("SDL_VIDEO_DRIVER", "dummy", 1);
+            headless=true;
+        } else if (arg.rfind("--geometry",0)==0) {
+             std::string geom = arg.substr(11); // skip "--geometry="
+             printf("Attempting to use default geometry: %s\n", geom.c_str());
+             size_t x_pos = geom.find('x');
+             if (x_pos != std::string::npos) {
+                 std::string w = geom.substr(0, x_pos);
+                 std::string h = geom.substr(x_pos + 1);
+                 try {
+                     x = std::stoi(w);
+                     y = std::stoi(h);
+                } catch (const std::exception& e) {
+                    printf("Invalid Renderer Geometry: %s\n", geom.c_str());
+                    return (SDL_APP_FAILURE);
+                }
+             } else {
+                 printf("Invalid Renderer Geometry: %s\n", geom.c_str());
+             }
+        } else if (arg.rfind("--outfile",0)==0) {
+            outfile = arg.substr(10); // skip "--geometry="
+            printf("Attempting to use output file: %s", outfile.c_str());
+        } else if (arg == "--help") {
+            printf("Usage: %s [--headless] [geometry=<width>x<height>] [--output=<outfile>]\n", argv[0]);
+            printf("Options:\n");
+            printf("\t--headless\tRun in a headless mode with graphical output redirected to a disk file\n");
+            printf("\t--geometry\tResolution of the output from --headless, or the starting window resolution in a GUI environment\n");
+            printf("\t--output\tOutput file path for --headless\n");
+            printf("\t--QRZ_Pass\tSet the password to use for QRZ.com (uses the Callsign for UserName\n");
+            printf("\t--help\t\tThis help text\n");
+            return (SDL_APP_FAILURE);
+        } else if (arg.rfind("--QRZ_Pass",0)==0) {
+            std::string password;
+            password = arg.substr(11);
+            printf("Attempting to set QRZ pass: %s... ", password.c_str());
+            clockconfig.set_qrz_pass(password);
+            printf("Done.\n");
+
+
+            return (SDL_APP_FAILURE);
+        }
+    }
+
     if (!(SDL_InitSubSystem(SDL_INIT_VIDEO))) {
         SDL_Log("Unable to initialize SDL: %s", SDL_GetError());
         return (SDL_APP_FAILURE);
     }
 
-    if(TTF_Init()==-1) {
+    if(!TTF_Init()) {
         printf("TTF_Init: %s\n", SDL_GetError());
         return(SDL_APP_FAILURE);
     }
-    load_config();
+//    load_config();
     // init globals
     map_pins			=	0;
     data_cache			=	0;
@@ -302,7 +287,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     CountriesMap.Reset();
 
     // create the main window
-    if (window_init()) {
+    if (window_init(x, y)) {
         return (SDL_APP_FAILURE);
     }
     SDL_Log("WINDOW INIT DONE");
@@ -316,35 +301,47 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 time_t oldtime;
 int resizing 			= 	0;
 SDL_AppResult SDL_AppIterate(void *appstate) {
+    (void)appstate;
     SDL_Delay(100);			// slow down the program
     if (!resizing) {
         currenttime=time(NULL);
         if (currenttime != oldtime) {	// temporary one second timer
-        draw_callsign(winboxes.callsign, Sans, clockconfig.CallSign.c_str());
+        draw_callsign(winboxes.callsign, Sans, clockconfig.CallSign().c_str());
             draw_clock(winboxes.clock, Sans);
             draw_map(winboxes.map);
 //            winboxes.map.draw_border(surface);
-            draw_de_dx(winboxes.de, Sans, clockconfig.DE.lat, clockconfig.DE.lon, 1);
-            draw_de_dx(winboxes.dx, Sans, clockconfig.DX.lat, clockconfig.DX.lon, 0);
+            draw_de_dx(winboxes.de, Sans, clockconfig.DE().latitude, clockconfig.DE().longitude, 1);
+            draw_de_dx(winboxes.dx, Sans, clockconfig.DX().latitude, clockconfig.DX().longitude, 0);
 
 
-            winboxes.de.draw_border(surface);
+            winboxes.de.draw_border();
 
-            winboxes.dx.draw_border(surface);
+            winboxes.dx.draw_border();
 
 
 
             pota_spots(winboxes.rowbox1, Sans);
-            winboxes.rowbox1.draw_border(surface);
+            winboxes.rowbox1.draw_border();
 
 
             sat_tracker (winboxes.rowbox2, Sans, winboxes.map);
-            winboxes.rowbox2.draw_border(surface);
+            winboxes.rowbox2.draw_border();
 
-            winboxes.rowbox3.draw_border(surface);
+            winboxes.rowbox3.draw_border();
 
-            winboxes.rowbox4.draw_border(surface);
+            winboxes.rowbox4.draw_border();
+            dx_cluster (winboxes.rowbox3);
             SDL_RenderPresent(surface);
+            if (headless && (!outfile.empty())) {
+                // dump surface to image file here
+                int width, height;
+                SDL_GetCurrentRenderOutputSize(surface, &width, &height);
+//                SDL_Surface* saveSurface = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_ARGB8888);
+                SDL_Surface* savesurface = SDL_RenderReadPixels(surface, NULL);
+//                SDL_SaveBMP(saveSurface, output_file_path.c_str());  // output_file_path from --output
+                SDL_SaveBMP(savesurface, outfile.c_str());  // output_file_path from --output
+                SDL_DestroySurface(savesurface);
+            }
             oldtime = currenttime;
         }
     }
@@ -355,11 +352,14 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     /* This function runs once at shutdown. */
 void SDL_AppQuit(void *appstate, SDL_AppResult result)
 {
+     (void)appstate;
+    (void)result;
     /* SDL will clean up the window/renderer for us. */
 }
 
     // SDL Event Handler
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
+ (void)appstate;
     if (event->type==SDL_EVENT_QUIT) {
         window_destroy();
         return SDL_APP_FAILURE;
@@ -371,7 +371,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
             resize_panels(&winboxes);
 //            SDL_Delay(1000);
             SDL_Log("drawing call");
-            draw_callsign(winboxes.callsign, Sans, clockconfig.CallSign.c_str());
+            draw_callsign(winboxes.callsign, Sans, clockconfig.CallSign().c_str());
 //            SDL_Delay(1000);
             resizing=0;
         }

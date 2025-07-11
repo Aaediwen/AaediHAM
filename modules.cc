@@ -4,11 +4,238 @@
 #include "modules.h"
 #include "utils.h"
 
-
+#include <sys/socket.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include "json.hpp"
 using json = nlohmann::json;
 // https://retrieve.pskreporter.info/query?senderCallsign=YOUR_CALLSIGN
 // VOACAP (or VOACAPL)
 //HamQSL.com / NOAA API
+// https://www.dxfuncluster.com:8000/
+// telnet:
+//dxfun.com:8000
+//dxc.k1ttt.net:23
+//dxspots.com:7300
+
+int dxsocket = 0;
+std::vector<dxspot>dxspots;
+
+void init_fd() {
+        std::string serverip="dxfun.com";
+        std::string serverport=std::to_string(8000);
+//        std::cout << "Client connecting to server: "<< serverip << "\n";
+        struct addrinfo *serveraddr;
+
+        struct addrinfo hints;
+        memset(&hints, 0, sizeof hints);
+        hints.ai_family = AF_INET;       // or AF_UNSPEC to allow IPv4/IPv6
+        hints.ai_socktype = SOCK_STREAM;
+        getaddrinfo(serverip.c_str(), serverport.c_str(), &hints, &serveraddr);
+        dxsocket = socket(serveraddr->ai_family, serveraddr->ai_socktype, serveraddr->ai_protocol);
+        if ( connect(dxsocket, serveraddr->ai_addr, serveraddr->ai_addrlen) == -1) {
+                std::cout << "server connect error on client: " << errno << "\n";
+                shutdown (dxsocket, SHUT_RDWR);
+                dxsocket=0;
+        } else {
+//                std::cout << "client reporting connected to server on fd " << dxsocket << "with errno: " << errno << "\n";
+        }
+        freeaddrinfo(serveraddr);
+        return;
+}
+
+void duplicate_spot(dxspot& needle) {
+    size_t old_index;
+    bool found=false;
+    for (size_t c = 0 ; c < dxspots.size() ; c++) {
+        if (dxspots[c].dx == needle.dx) {
+            old_index = c;
+            found=true;
+            break;
+        }
+    }
+    if (found) {
+        if (needle.mode.empty()) {
+            needle.mode = dxspots[old_index].mode;
+        }
+        needle.lat = dxspots[old_index].lat;
+        needle.lon = dxspots[old_index].lon;
+        needle.qrz_valid=dxspots[old_index].qrz_valid;
+        needle.country = dxspots[old_index].country;
+        dxspots.erase(dxspots.begin() + old_index);
+    } else {
+        needle.fill_qrz();
+    }
+    dxspots.push_back(needle);
+}
+
+
+void dx_cluster (ScreenFrame& panel) {
+    if (!dxsocket) {
+        init_fd();
+    }
+
+    // clear the box
+    panel.Clear();
+    const int max_age=1800;
+    for (size_t c = dxspots.size() ; c-- > 0 ;) {
+        if ((currenttime - dxspots[c].timestamp) > max_age) {
+            SDL_Log("Erasing entry %s", dxspots[c].dx.c_str());
+            dxspots.erase(dxspots.begin()+c);
+        }
+    }
+
+    if (!dxsocket) {
+            SDL_Log("Error Connecting to DX Spot Telnet Session");
+            SDL_Color tempcolor={128,0,0,0};
+            SDL_FRect TextRect;
+            TextRect.x=2;
+            TextRect.y=2;
+                    TextRect.w=panel.dims.w-4;
+                    TextRect.h=panel.dims.h/7;
+                    panel.render_text(TextRect, Sans, tempcolor, "NOT CONNECTED");
+            return;
+        }
+
+    std::vector<std::string> dxbuffer;
+    std::string tempstr;
+    int readcount=0;
+    int read_limit=0;
+    while (!readcount && read_limit < 5) {
+        read_limit++;
+        readcount = read_socket(dxsocket, tempstr);
+    }
+    if (read_limit <5) {
+//    SDL_Log ("Read input");
+    while (readcount) {
+        if (!tempstr.empty()) {
+            dxbuffer.push_back(tempstr);
+            tempstr.clear();;
+        }
+        readcount = read_socket(dxsocket, tempstr);
+    }
+//        SDL_Log ("DONE Reading %li lines of input", dxbuffer.size());
+    for (std::string buffstr : dxbuffer) {
+    // scan variables for line ID
+    float freq;
+    char call[32] = {0};
+    char date[16] = {0};
+    char timez[8] = {0};
+
+
+
+
+        if (!buffstr.compare(1,5, "ogin:")) {
+               send(dxsocket, clockconfig.CallSign().c_str(), clockconfig.CallSign().length(),0);
+               send(dxsocket, "\n", 1,0);
+//               SDL_Log ("Sent Callsign");
+        } else if (!buffstr.compare(0,5, "Hello")) {
+               send(dxsocket, "SH/DX 15\n", 9,0);
+//               SDL_Log ("Sent SH15");
+        } else if (buffstr.rfind("DX de ", 0) == 0) {
+//               SDL_Log ("Got DX entry\n%s", buffstr.c_str());
+               dxspot new_spot;
+               int consumed = 0;
+               std::string tempstring;
+               size_t spotter_end = buffstr.find_first_of(':');
+               new_spot.spotter = buffstr.substr(6, spotter_end-1 );
+               tempstring=buffstr.substr(spotter_end+1,std::string::npos);
+               buffstr= tempstring;
+//               SDL_Log ("Extracted Spotter %s", new_spot.spotter.c_str());
+               sscanf (buffstr.c_str(), "%lf %13s %n", &(new_spot.frequency), call, &consumed);
+//               SDL_Log ("Extracted Frequency %f", new_spot.frequency);
+              tempstring=buffstr.substr(consumed,std::string::npos);
+              buffstr= tempstring;
+              new_spot.dx=call;
+//              SDL_Log ("Extracted DX %s", new_spot.dx.c_str());
+              spotter_end = buffstr.find_last_of('Z', (std::string::npos));
+              tempstring = buffstr.substr(spotter_end-4, spotter_end-1 );
+              struct tm *new_time;
+              std::memset(&new_time, 0, sizeof(new_time));
+              new_time = gmtime(&currenttime);
+              if (sscanf(tempstring.c_str(), "%2d%2d",
+                &(new_time->tm_hour), &(new_time->tm_min)) != 2) {
+                   SDL_Log("Date Parse Error %i %i", new_time->tm_hour, new_time->tm_min);
+                 }
+              new_spot.timestamp=0;
+              new_spot.timestamp = timegm(new_time);
+//              SDL_Log("Timestamp:%s \n Remaining:%s", tempstring.c_str(), buffstr.c_str());
+              new_spot.note=buffstr.substr(0, spotter_end-4 );
+              new_spot.find_mode();
+              duplicate_spot(new_spot);
+//              new_spot.fill_qrz();
+//              dxspots.push_back(new_spot);
+              // need routine here to find and merge duplicates instead of repeating fill qrz
+
+        } else if (sscanf(buffstr.c_str(), "%f %31s %15s %7s", &freq, call, date, timez)==4) {
+//              SDL_Log ("Got cached DX entry\n%s", buffstr.c_str());
+
+              dxspot new_spot;
+              int consumed=0;
+              std::string tempstring;
+              sscanf (buffstr.c_str(), "%lf %13s %n", &(new_spot.frequency), call, &consumed);
+              tempstring=buffstr.substr(consumed,std::string::npos);
+              buffstr= tempstring;
+              new_spot.dx=call;
+
+              consumed = buffstr.find('Z');
+               tempstring=buffstr.substr(0,consumed);
+
+               struct tm new_time;
+               std::memset(&new_time, 0, sizeof(new_time));
+               char month_str[4];
+               int year;
+                if (sscanf(tempstring.c_str(), "%d-%3s-%d %2d%2d",
+               &new_time.tm_mday, month_str, &year, &new_time.tm_hour, &new_time.tm_min) != 5) {
+                   SDL_Log("Date Parse Error\n %s\t%i, %s, %i %i %i", tempstring.c_str(),  new_time.tm_mday, month_str, year, new_time.tm_hour, new_time.tm_min);
+                 }
+                 new_time.tm_year = year - 1900;
+                 new_time.tm_mon = month_to_int(month_str);
+                 new_spot.timestamp = timegm(&new_time);
+
+               tempstring=buffstr.substr(consumed,std::string::npos);
+               buffstr= tempstring;
+                size_t note_end = buffstr.find_last_of('<', (std::string::npos-1));
+                size_t spotter_end = buffstr.find_last_of('>', (std::string::npos));
+                new_spot.spotter = buffstr.substr(note_end+1, spotter_end-1 );
+                new_spot.note=buffstr.substr(1, note_end-1 );
+                new_spot.find_mode();
+                duplicate_spot(new_spot);
+//                new_spot.fill_qrz();
+//                dxspots.push_back(new_spot);
+
+
+        }
+    }
+    dxbuffer.clear();
+    }
+    int y=2;
+    size_t start = dxspots.size() > 15 ? dxspots.size() - 15 : 0;
+    for (size_t n=start ; n < dxspots.size(); n++) {
+    if (y < panel.dims.h) {
+          dxspots[n].display_spot(panel, y, max_age);
+          y+= panel.dims.h/15;
+
+      }
+
+    }
+    delete_owner_pins(MOD_DXSPOT);
+    for (auto& current_spot : dxspots) {
+        if (current_spot.qrz_valid) {
+            struct map_pin dx_pin;
+            dx_pin.owner       =               MOD_DXSPOT;
+            sprintf(dx_pin.label, "%s", current_spot.dx.c_str());
+            dx_pin.lat         =               current_spot.lat;
+            dx_pin.lon         =               current_spot.lon;
+            dx_pin.icon        =               0;
+            dx_pin.color 	   =		{128,0,0,255};
+            dx_pin.tooltip[0]  = 	0;
+            add_pin(&dx_pin);
+        }
+    }
+}
+
 
 void circle_helper(std::vector<SDL_FPoint> *circle_points, int radius, SDL_FPoint center, int segments) {
     for (int i = 0; i <= segments; ++i) {
@@ -23,14 +250,9 @@ void circle_helper(std::vector<SDL_FPoint> *circle_points, int radius, SDL_FPoin
 }
 
 void pass_tracker(ScreenFrame& panel, TrackedSatellite& sat) {
-    SDL_FPoint circle_points[8];
-
     // clear the box
-    SDL_SetRenderTarget(surface, panel.texture);
-    SDL_SetRenderDrawBlendMode(surface, SDL_BLENDMODE_NONE);  // Clear solid
-    SDL_SetRenderDrawColor(surface, 0, 0, 0, 255);
-    SDL_RenderClear(surface);  // Fills the entire target with the draw color
-    SDL_SetRenderDrawBlendMode(surface, SDL_BLENDMODE_BLEND);  // Clear solid
+    panel.Clear();
+
     char tempstr[30];
     SDL_FRect TextRect;
     TextRect.w=panel.dims.w/2;
@@ -38,10 +260,24 @@ void pass_tracker(ScreenFrame& panel, TrackedSatellite& sat) {
     TextRect.x=5;
     TextRect.y=2;
     sprintf(tempstr, "%s", sat.get_name().c_str());
-    render_text(surface, panel.texture, &TextRect, Sans, sat.color, tempstr);
+    panel.render_text(TextRect, Sans, sat.color, tempstr);
+    time_t pass_time = sat.pass_start();
+    if (pass_time) {
+        tm* test_time;
+        TextRect.y=panel.dims.h - (panel.dims.h/11)-4;
+        TextRect.w=panel.dims.w /3;
+        test_time = localtime(&pass_time);
+        strftime(tempstr, 12, "%H:%M", test_time);
+        panel.render_text(TextRect, Sans, sat.color, tempstr);
+        TextRect.x=panel.dims.w - (panel.dims.w/3);
+        pass_time = sat.pass_end();
+        test_time = localtime(&pass_time);
+        strftime(tempstr, 12, "%H:%M", test_time);
+        panel.render_text(TextRect, Sans, sat.color, tempstr);
+    }
+
     SDL_SetRenderTarget(surface, panel.texture);
     std::vector<SDL_FPoint> circle_pts;
-    int segments = 64;
     float radius = panel.dims.w/2;
     if (panel.dims.h < panel.dims.w) {
         radius = panel.dims.h/2;
@@ -62,19 +298,19 @@ void pass_tracker(ScreenFrame& panel, TrackedSatellite& sat) {
     SDL_RenderLine(surface, center.x, center.y, center.x, center.y+radius);
     SDL_RenderLine(surface, center.x, center.y, center.x, center.y-radius);
     SDL_SetRenderDrawColor(surface, 64, 0, 64, 255);
-    circle_helper (&circle_pts, radius, center, 16);
+    circle_helper (&circle_pts, radius, center, 32);
     SDL_RenderLines(surface, circle_pts.data(), circle_pts.size());
     circle_pts.clear();
     radius /=2;
-    circle_helper (&circle_pts, radius, center, 16);
+    circle_helper (&circle_pts, radius, center, 32);
     SDL_RenderLines(surface, circle_pts.data(), circle_pts.size());
     circle_pts.clear();
     radius /=2;
-    circle_helper (&circle_pts, radius, center, 16);
+    circle_helper (&circle_pts, radius, center, 32);
     SDL_RenderLines(surface, circle_pts.data(), circle_pts.size());
     circle_pts.clear();
     radius *=3;
-    circle_helper (&circle_pts, radius, center, 16);
+    circle_helper (&circle_pts, radius, center, 32);
     SDL_RenderLines(surface, circle_pts.data(), circle_pts.size());
     SDL_RenderPoint(surface, center.x, center.y);
     sat.draw_pass(sat.pass_start(), sat.pass_end(),  &pass_pts, &pass_box);
@@ -85,14 +321,12 @@ void pass_tracker(ScreenFrame& panel, TrackedSatellite& sat) {
     return;
 }
 
-int pass_pager[2] = {0,0};
+Uint16 pass_pager[2] = {0,0};
 void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     char* amateur_tle = 0 ;
-    char* weather_tle = 0 ;
     Uint32 data_size;
     time_t cache_time;
 
-    char tempstr[64];
     SDL_FRect TextRect;
 
     delete_owner_pins(MOD_SAT);
@@ -105,7 +339,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     }
 
     if (reload_flag) {
-
+//        data_size = curl_loader("https://aaediwen.theaudioauthority.net/morse/celestrak", &amateur_tle);	// debug
 	data_size = curl_loader("https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle", &amateur_tle);	// live
         if (data_size) {
             add_data_cache(MOD_SAT, data_size, amateur_tle);
@@ -114,23 +348,20 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
 
 
     // clear the box
-    SDL_SetRenderTarget(surface, panel.texture);
-    SDL_SetRenderDrawBlendMode(surface, SDL_BLENDMODE_NONE);  // Clear solid
-    SDL_SetRenderDrawColor(surface, 0, 0, 0, 255);
-    SDL_RenderClear(surface);  // Fills the entire target with the draw color
-    SDL_SetRenderDrawBlendMode(surface, SDL_BLENDMODE_BLEND);  // Clear solid
+    panel.Clear();
+//    SDL_SetRenderTarget(surface, panel.texture);
+
     // render the header
     TextRect.w=panel.dims.w/2-10;
     TextRect.h=panel.dims.h/11;
     TextRect.x=5;
     TextRect.y=2;
-    sprintf(tempstr, "SAT TRACKERS");
-    render_text(surface, panel.texture, &TextRect, font, {128,128,0,255}, tempstr);
+    panel.render_text(TextRect, font, {128,128,0,255}, "SAT TRACKERS");
     TextRect.w=panel.dims.w-10;
     TextRect.y += ((panel.dims.h/11)+(panel.dims.h/150));
 
     if (data_size) {
-    	SDL_Log ("We have tracking data: %i Bytes", data_size);
+//    	SDL_Log ("We have tracking data: %i Bytes", data_size);
     } else {
         SDL_Log ("Tracking Data Fetch Error!");
     	return;
@@ -144,7 +375,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     iostring_buffer.str(sanitized);
     std::string temp[3]; // name line1, line 2
     std::vector<TrackedSatellite> satlist;
-    libsgp4::Observer obs(clockconfig.DE.lat, clockconfig.DE.lon, 0.27); // need a way to manage altitude here (last arg)
+    libsgp4::Observer obs(clockconfig.DE().latitude, clockconfig.DE().longitude, 0.27); // need a way to manage altitude here (last arg)
     SDL_Color trackcols = {255,0,0,255};
     // read the TLE data from Celestrak
     while (read_flag) {
@@ -155,7 +386,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
 	if (temp[0].length() && temp[1].length() && temp[2].length()) {
 	    // is it one we want to show?
             bool draw_flag=false;
-	    for (std::string& stropt : clockconfig.sats) {
+	    for (const std::string& stropt : clockconfig.Sats()) {
 	        if (temp[0].compare(0,stropt.length(),stropt)==0) {
 	            draw_flag=true;
                 }
@@ -189,19 +420,12 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     pass_pager[1]++;
     for (TrackedSatellite& Sat : satlist) {
         bool draw_flag=false;
-        for (std::string& stropt : clockconfig.sats) {
+        for (const std::string& stropt : clockconfig.Sats()) {
             if (Sat.get_name().compare(0,stropt.length(),stropt)==0) {
                 draw_flag=true;
             }
         }
         if (draw_flag) {
-//           if (Sat.get_name().compare(0,7,"NOAA 15")==0) {
-//            if (pass_tracker) {
-
-
-//            }
-
-//            TextRect.y += ((panel.dims.h/11)+(panel.dims.h/150));
             Sat.draw_telemetry(map);
             // plot the sat's current location
             struct map_pin sat_pin;
@@ -218,7 +442,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
 	}
     }
 
-    SDL_Log("Loaded %i SATS", satlist.size());
+//    SDL_Log("Loaded %li SATS", satlist.size());
     satlist.clear();
        // clean up
     SDL_SetRenderTarget(surface, NULL);
@@ -260,7 +484,7 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
     }
     if (reload_flag) {
          data_size = curl_loader("https://api.pota.app/spot/activator", &json_spots);				// live
-
+//         data_size = curl_loader("https://aaediwen.theaudioauthority.net/morse/activator", &json_spots);	// debug
          if (data_size) {
              add_data_cache(MOD_POTA, data_size, json_spots);
          }
@@ -273,34 +497,30 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
     goodread = 1;
     json spot_list;
     if (data_size && json_spots) {
-        SDL_Log("WE have SPOT data: %i bytes", strlen(json_spots));
+//        SDL_Log("WE have SPOT data: %li bytes", strlen(json_spots));
         try {
             spot_list=json::parse(json_spots);
         } catch (const json::parse_error &e) {
-            SDL_Log("POTA Json Parse Error %i bytes %s\n", strlen(json_spots), json_spots);
+            SDL_Log("POTA Json Parse Error %li bytes %s\n", strlen(json_spots), json_spots);
             goodread=0;
         }
         free(json_spots);
+        json_spots = nullptr;
     } else {
         SDL_Log("POTA Json FETCH Error");
         goodread=0;
     }
 //    SDL_Log("Parsed JSON Data");
     // clear the box
-    SDL_SetRenderTarget(surface, panel.texture);
-    SDL_SetRenderDrawBlendMode(surface, SDL_BLENDMODE_NONE);  // Clear solid
-    SDL_SetRenderDrawColor(surface, 0, 0, 0, 255);
-    SDL_RenderClear(surface);  // Fills the entire target with the draw color
-    SDL_SetRenderDrawBlendMode(surface, SDL_BLENDMODE_BLEND);  // Clear solid
-//    SDL_Log("Cleared da bawx");
+    panel.Clear();
+
     // render the header
     TextRect.w=panel.dims.w/2-10;
     TextRect.h=panel.dims.h/11;
     TextRect.x=5;
     TextRect.y=2;
     pota_color.a = 0;
-    sprintf(tempstr, "POTA ACTIVATORS");
-    render_text(surface, panel.texture, &TextRect, font, pota_color, tempstr);
+    panel.render_text(TextRect, font, pota_color, "POTA ACTIVATORS");
 
     // set up for rendering the lista and submitting the pins
     pota_color.a = 200;
@@ -349,19 +569,16 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
 
 
                     pota_color.a = 0;
-                    sprintf(tempstr, "%s", pota_pin.label);
-                    render_text(surface, panel.texture, &TextRect, font, pota_color, tempstr);
+                    panel.render_text(TextRect, font, pota_color, pota_pin.label);
                     TextRect.x += (panel.dims.w/4)+2;
                     sprintf(tempstr, "%4.3f", (freq));
-                    render_text(surface, panel.texture, &TextRect, font, pota_color, tempstr);
+                    panel.render_text(TextRect, font, pota_color, tempstr);
                     TextRect.x += (panel.dims.w/4)+2;
                     if (mode.size() >0) {
-                        sprintf(tempstr, "%s", mode.c_str());
-                        render_text(surface, panel.texture, &TextRect, font, pota_color, tempstr);
+                        panel.render_text(TextRect, font, pota_color, mode.c_str());
                     }
                     TextRect.x += (panel.dims.w/4);
-                    sprintf(tempstr, "%s", park.c_str());
-                    render_text(surface, panel.texture, &TextRect, font, pota_color, tempstr);
+                    panel.render_text(TextRect, font, pota_color, park.c_str());
                     TextRect.x = 5;
                     TextRect.y += ((panel.dims.h/11)+(panel.dims.h/150));
                     pota_color.a = 200;
@@ -386,7 +603,7 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
         TextRect.y=2;
         pota_color.a = 0;
         sprintf(tempstr, "%i", tot);
-        render_text(surface, panel.texture, &TextRect, font, pota_color, tempstr);
+        panel.render_text(TextRect, font, pota_color, tempstr);
 //        SDL_Log("done rendering spots");
     } // good read
     // clean up
@@ -407,10 +624,6 @@ void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int 
     }
     char tempstr[64];
     SDL_FRect TextRect;
-//    SDL_Surface* textsurface;
-//    SDL_Texture *TextTexture;
-
-    SDL_SetRenderTarget(surface, panel.texture);
     SDL_Color fontcolor;
     if (de_dx) {
         fontcolor.r=128;
@@ -432,14 +645,9 @@ void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int 
 //    SDL_Log("Set Font");
 
     // blank the box
-    SDL_SetRenderTarget(surface, panel.texture);
-    SDL_SetRenderDrawBlendMode(surface, SDL_BLENDMODE_NONE);  // Clear solid
-    SDL_SetRenderDrawColor(surface, 0, 0, 0, 255);
-    SDL_RenderClear(surface);  // Fills the entire target with the draw color
-    SDL_SetRenderDrawBlendMode(surface, SDL_BLENDMODE_BLEND);  // Clear solid
+    panel.Clear();
+//    SDL_SetRenderTarget(surface, panel.texture);
 
-    // fet sunrise and sunset times
-//    tm* utc = gmtime(&currenttime);
     time_t sunrise;
     time_t sunset;
     double solar_alt;
@@ -453,12 +661,12 @@ void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int 
     TextRect.w=(panel.dims.w)-4;
     struct map_pin de_dx_pin;
     if (de_dx) {
-        render_text(surface, panel.texture, &TextRect, font, fontcolor, "DE:");
+        panel.render_text(TextRect, font, fontcolor, "DE:");
         de_dx_pin.owner=MOD_DE;
         sprintf(de_dx_pin.label, "DE");
 
     } else {
-        render_text(surface, panel.texture, &TextRect, font, fontcolor, "DX:");
+        panel.render_text(TextRect, font, fontcolor, "DX:");
         de_dx_pin.owner=MOD_DX;
         sprintf(de_dx_pin.label, "DX");
     }
@@ -501,8 +709,7 @@ void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int 
     TextRect.y=(panel.dims.h)/4;
     TextRect.h=(panel.dims.h)/4;
     TextRect.w=panel.dims.w-4;
-
-    render_text(surface, panel.texture, &TextRect, font, fontcolor, tempstr);
+    panel.render_text(TextRect, font, fontcolor, tempstr);
 
     // render maidenhead
     TextRect.x=2;
@@ -510,8 +717,7 @@ void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int 
     TextRect.h=(panel.dims.h)/4;
     TextRect.w=panel.dims.w-4;
     sprintf(tempstr, "%s", maiden);
-
-    render_text(surface, panel.texture, &TextRect, font, fontcolor, tempstr);
+    panel.render_text(TextRect, font, fontcolor, tempstr);
 
     // render sunrise time
     TextRect.x=2;
@@ -520,7 +726,7 @@ void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int 
     TextRect.w=(panel.dims.w/3)-4;
     tm* test_time = localtime(&sunrise);
     strftime(tempstr, 12, "R%H:%M", test_time);
-    render_text(surface, panel.texture, &TextRect, font, fontcolor, tempstr);
+    panel.render_text(TextRect, font, fontcolor, tempstr);
 
     // render solar angle
     TextRect.x=(panel.dims.w/3)+4;
@@ -529,7 +735,7 @@ void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int 
     TextRect.w=(panel.dims.w/3)-8;
     test_time = localtime(&sunset);
     sprintf (tempstr, "%2.2f", solar_alt);
-    render_text(surface, panel.texture, &TextRect, font, fontcolor, tempstr);
+    panel.render_text(TextRect, font, fontcolor, tempstr);
 
     // render sunset time
     TextRect.x=(panel.dims.w/3)*2;
@@ -538,10 +744,9 @@ void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int 
     TextRect.w=(panel.dims.w/3)-4;
     test_time = localtime(&sunset);
     strftime(tempstr, 12, "S%H:%M", test_time);
-    render_text(surface, panel.texture, &TextRect, font, fontcolor, tempstr);
+    panel.render_text(TextRect, font, fontcolor, tempstr);
 
     // clean up
-    SDL_SetRenderTarget(surface, NULL);
     SDL_RenderTexture(surface, panel.texture, NULL, &(panel.dims));
     TTF_SetFontSize(font,oldsize);
 
@@ -557,8 +762,8 @@ void draw_callsign(ScreenFrame& panel, TTF_Font* font, const char* callsign) {
         SDL_Log("Missing PANEL!");
         return ;
     }
+    panel.Clear();
 //    SDL_Log("Rendering Callsign");
-    SDL_SetRenderTarget(surface, panel.texture);
     SDL_Color fontcolor;
     fontcolor.r=128;
     fontcolor.g=128;
@@ -568,25 +773,17 @@ void draw_callsign(ScreenFrame& panel, TTF_Font* font, const char* callsign) {
         printf("No font defined\n");
         return;
     }
-    float oldsize = TTF_GetFontSize(font);
-    TTF_SetFontSize(font,72);
 
     SDL_FRect TextRect;
-    SDL_Surface* textsurface;
-    SDL_Texture *TextTexture;
     TextRect.x=2;
     TextRect.y=2;
     TextRect.h=(panel.dims.h)-4;
     TextRect.w=(panel.dims.w)-4;
-    render_text(surface, panel.texture, &TextRect, font, fontcolor, callsign);
-    SDL_SetRenderTarget(surface, NULL);
+    panel.render_text(TextRect, font, fontcolor, callsign);
     SDL_RenderTexture(surface, panel.texture, NULL, &(panel.dims));
-    TTF_SetFontSize(font,oldsize);
-//    SDL_Log("Rendering Callsign Done");
 }
 
 void load_maps() {
-//    DayMap.surface = SDL_LoadBMP("/home/lunatic/.hamclock/map-D-660x330-Countries.bmp");
     DayMap.surface = SDL_LoadBMP("images/Blue_Marble_2002.bmp");
     if (DayMap.surface) {
         DayMap.texture = SDL_CreateTextureFromSurface(surface,DayMap.surface);
@@ -598,7 +795,6 @@ void load_maps() {
         SDL_Log("Unable to load DayMap Surface: %s\n", SDL_GetError());
         exit(1);
     }
-//    NightMap.surface = SDL_LoadBMP("/home/lunatic/.hamclock/map-N-660x330-Countries.bmp");
     NightMap.surface = SDL_LoadBMP("images/Black_Marble_2016.bmp");
     if (NightMap.surface) {
         NightMap.texture = SDL_CreateTextureFromSurface(surface,NightMap.surface);
@@ -612,7 +808,6 @@ void load_maps() {
 
     if ((!DayMap.texture) || (!NightMap.texture)) {
         SDL_Log("Unable to load Maps");
-//        return (SDL_APP_FAILURE);
     }
 
     SDL_SetTextureBlendMode(DayMap.texture, SDL_BLENDMODE_NONE);
@@ -658,15 +853,11 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
         SDL_Log("Failed to create icon texture: %s", SDL_GetError());
         return ;
     }
-//    SDL_SetTextureBlendMode(icon_tex, SDL_BLENDMODE_BLEND);
     // render the icon
      SDL_SetRenderTarget(surface, icon_tex);
     if (current_pin->icon) {
         SDL_RenderTexture(surface, current_pin->icon, NULL, NULL);
     } else {
-        SDL_FRect temprect;
-
-         SDL_FRect shadow_rect = {1.5f, 1.5f, 13.0f, 13.0f};
          SDL_FRect pin_rect = {4.0f, 4.0f, 8.0f, 8.0f};
          SDL_SetRenderDrawColor(surface, 16, 16, 16, 128);
          SDL_RenderFillRect(surface, NULL);
@@ -676,10 +867,6 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
     SDL_FRect target_rect;
     target_rect.h=8;
     target_rect.w=8;
-//    target_rect.x=(current_pin->lon/180.0)*(panel->texture->w/2)+(panel->texture->w/2);
-//    target_rect.x -= (target_rect.w/2);
-//    target_rect.y=((-1*current_pin->lat)/90.0)*(panel->texture->h/2)+(panel->texture->h/2);
-//    target_rect.y -= (target_rect.h/2);
     SDL_FPoint tgt_px;
     cords_to_px(current_pin->lat, current_pin->lon, (int)panel->texture->w, (int)panel->texture->h, &tgt_px);
     target_rect.x=tgt_px.x;
@@ -700,7 +887,7 @@ int draw_map(ScreenFrame& panel) {
 
     tm* utc = gmtime(&currenttime);
     double softness = 10.0;
-    SDL_Rect panel_cords, source_cords, dest_cords;
+    SDL_Rect panel_cords, source_cords;
     double solar_decl = 23.45 * (sin( (2 * M_PI/365) * (284+(utc->tm_yday+1)) ));
 //    SDL_Log("Drawing Map ");
     if (!surface) {
@@ -713,11 +900,7 @@ int draw_map(ScreenFrame& panel) {
     }
 
     // blank the box
-    SDL_SetRenderTarget(surface, panel.texture);
-    SDL_SetRenderDrawBlendMode(surface, SDL_BLENDMODE_NONE);  // Clear solid
-    SDL_SetRenderDrawColor(surface, 0, 0, 0, 255);  // Red, fully opaque
-    SDL_RenderClear(surface);  // Fills the entire target with the draw color
-    SDL_SetRenderDrawBlendMode(surface, SDL_BLENDMODE_BLEND);  // Clear solid
+    panel.Clear();
 
     // start with the day map
     SDL_SetRenderTarget(surface, panel.texture);
@@ -741,7 +924,6 @@ int draw_map(ScreenFrame& panel) {
         double lat = 90.0 - (180.0 * panel_cords.y / (double)panel.dims.h);
         for (panel_cords.x=0 ; panel_cords.x < panel.dims.w ; panel_cords.x++) {
             Uint8 r, g, b;
-            Uint8 bpp;
             double lon = -180.0 + (360.0 * panel_cords.x / (double)panel.dims.w);
             double alt = solar_altitude(lat, lon, utc, solar_decl);
             // calculate per pixel alpha
@@ -804,7 +986,7 @@ int draw_map(ScreenFrame& panel) {
     // map the result to the window
     SDL_SetRenderTarget(surface, NULL);
     SDL_RenderTexture(surface, panel.texture, NULL, &(panel.dims));
-    SDL_Log("Drawing Map Complete\n\n");
+//    SDL_Log("Drawing Map Complete");
     return 0;
 }
 
@@ -812,7 +994,6 @@ int draw_map(ScreenFrame& panel) {
 int draw_clock(ScreenFrame& panel, TTF_Font* font) {
 
 //    SDL_Log("Drawing Clock");
-SDL_Log("Drawing clock panel at %.0fx%.0f", panel.dims.x, panel.dims.y);
     SDL_Color fontcolor;
     fontcolor.r=128;
     fontcolor.g=128;
@@ -829,34 +1010,31 @@ SDL_Log("Drawing clock panel at %.0fx%.0f", panel.dims.x, panel.dims.y);
     }
 
     // blank the box
-    SDL_SetRenderTarget(surface, panel.texture);
-    SDL_SetRenderDrawColor(surface, 0, 0, 0, 255);  // Red, fully opaque
-    SDL_RenderClear(surface);  // Fills the entire target with the draw color
+    panel.Clear();
 
     // generate the time strings
-
      // utc
     TextRect.x=2;
     TextRect.y=2;
     TextRect.h=(panel.dims.h/5)*2;
     TextRect.w=((panel.dims.w/5)*2)-4;
-    struct tm* utc = gmtime(&currenttime);
-    strftime(timestr, sizeof(timestr), "%Y-%m-%d", utc);
-    render_text(surface, panel.texture, &TextRect, font, fontcolor, timestr);
+    struct tm* clocktime = gmtime(&currenttime);
+    strftime(timestr, sizeof(timestr), "%Y-%m-%d", clocktime);
+    panel.render_text(TextRect, font, fontcolor, timestr);
     TextRect.x=((panel.dims.w/5)*3)-4;;
-    strftime(timestr, sizeof(timestr), "%H:%M:%S %Z", utc);
-    render_text(surface, panel.texture, &TextRect, font, fontcolor, timestr);
+    strftime(timestr, sizeof(timestr), "%H:%M:%S %Z", clocktime);
+    panel.render_text(TextRect, font, fontcolor, timestr);
 
 
      // local
     TextRect.x=2;
     TextRect.y=(panel.dims.h/5)*2;
-    struct tm* local = localtime(&currenttime);
-    strftime(timestr, sizeof(timestr), "%Y-%m-%d", utc);
-    render_text(surface, panel.texture, &TextRect, font, fontcolor, timestr);
+    clocktime = localtime(&currenttime);
+    strftime(timestr, sizeof(timestr), "%Y-%m-%d", clocktime);
+    panel.render_text(TextRect, font, fontcolor, timestr);
     TextRect.x=((panel.dims.w/5)*3)-4;;
-    strftime(timestr, sizeof(timestr), "%H:%M:%S %Z", utc);
-    render_text(surface, panel.texture, &TextRect, font, fontcolor, timestr);
+    strftime(timestr, sizeof(timestr), "%H:%M:%S %Z", clocktime);
+    panel.render_text(TextRect, font, fontcolor, timestr);
     SDL_SetRenderTarget(surface, NULL);
     SDL_RenderTexture(surface, panel.texture, NULL, &(panel.dims));
     TTF_SetFontSize(font,oldsize);

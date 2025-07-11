@@ -2,23 +2,96 @@
 #include <SDL3/SDL.h>
 #include "aaediclock.h"
 #include "utils.h"
+#include <map>
+#include <poll.h>
 #include <string>
 #include <curl/curl.h>
+#include <error.h>
 
-/*void draw_panel_border(ScreenFrame panel) {
-    SDL_SetRenderDrawColor(surface, 128, 128, 128, 255);
-    SDL_FRect border;
-    border.x=0;
-    border.y=0;
-    border.w=panel.dims.w;
-    border.h=panel.dims.h;
-    SDL_SetRenderTarget(surface, panel.texture);
-    SDL_RenderRect(surface, &(border));
-    SDL_SetRenderTarget(surface, NULL);
-    SDL_RenderTexture(surface, panel.texture, NULL, &(panel.dims));
-    return;
+int read_socket(int fd, std::string &result) {
+
+    int bytesin = 7;
+    char temp[10];
+    temp[0]=0;
+    int total = 0;
+    pollfd poll_list;
+    poll_list.fd=fd;
+    poll_list.events = POLLIN;
+    result.clear();
+    while (bytesin >0 && temp[0] !=10) {
+        errno = 0;
+        if (poll(&poll_list, 1, 100) >0) {
+            if (poll_list.revents & POLLIN) {
+                    bytesin=0;
+                    bytesin = recv(fd, (void*)temp, 1, 0);
+                    if (bytesin) {
+                        total += bytesin;
+                        result += temp[0];
+                    }
+            } else {
+//                SDL_Log ("Nothing to read");
+                bytesin=-1;
+            }
+        } else {
+//            SDL_Log ("Other POLL error: %s", strerror(errno));
+            bytesin=-1;
+            temp[0]=0;
+//            SDL_Log ("returning empty");
+        }
+    }
+//    SDL_Log ("Returning %s", result.c_str());
+   return total;
 }
-*/
+
+
+int read_socket(int fd, char** result) {
+    int bytesin = 7;
+    char temp[10];
+    temp[0]=0;
+    char* str_ptr;
+    int total = 0;
+    pollfd poll_list;
+    poll_list.fd=fd;
+    poll_list.events = POLLIN;
+    *result=(char*)malloc(1);
+    while (bytesin >0 && temp[0] !=10) {
+        if (poll(&poll_list, 1, 100) >0) {
+            if (poll_list.revents & POLLIN) {
+                *result=(char*)realloc(*result,total+2);
+                SDL_Log("MALLOCED %i", total+2);
+                if (*result) {
+                    bytesin=0;
+                    str_ptr = (*result)+total;
+                    bytesin = recv(fd, (void*)temp, 1, 0);
+                    if (bytesin) {
+                        temp[1]=0;
+                        str_ptr[0]=temp[0];
+                        str_ptr[1]=0;
+                        total += bytesin;
+                        (*result)[total]=0;
+                    }
+//                    SDL_Log("read: %s %i", *result, bytesin);
+                } else {
+                    SDL_Log ("Socket read MALLOC error");
+                    bytesin=-1;
+                }
+            } else {
+                SDL_Log ("Nothing to read");
+                bytesin=-1;
+            }
+        } else {
+            SDL_Log ("Other POLL error");
+            bytesin=-1;
+            temp[0]=0;
+            SDL_Log ("returning empty");
+        }
+    }
+    (*result)[total]=0;
+    SDL_Log ("Returning %s", *result);
+   return total;
+
+}
+
 double solar_altitude(double lat_deg, double lon_deg, struct tm *utc, double decl_deg) {
     //Converts latitude and solar declination from degrees to radians
     double lat = lat_deg * M_PI / 180.0;
@@ -36,8 +109,6 @@ void maidenhead(double lat, double lon, char* maiden) {
     // generate maidenhead grid square
     // result should be at least 7 bytes long
 
-    char latstr[2];
-    char lonstr[2];
     double madlon, madlat;
     madlon = lon + 180;
     madlat = lat + 90;
@@ -55,6 +126,21 @@ void cords_to_px(double lat, double lon, int w, int h, SDL_FPoint* result) {
     result->x=(lon/180.0)*(w/2)+(w/2);
     result->y=((-1*lat)/90.0)*(h/2)+(h/2);
     return ;
+}
+
+int month_to_int(const std::string& month) {
+
+     static const std::map<std::string, int> months = {
+                                                         {"Jan", 0}, {"Feb", 1}, {"Mar", 2}, {"Apr", 3},
+                                                         {"May", 4}, {"Jun", 5}, {"Jul", 6}, {"Aug", 7},
+                                                         {"Sep", 8}, {"Oct", 9}, {"Nov", 10}, {"Dec", 11}
+                                                    };
+    auto temp = months.find(month);
+    if (temp != months.end()) {
+        return temp->second;
+    } else {
+        return -1;
+    }
 }
 
 
@@ -98,28 +184,6 @@ void sun_times(double lat, double lon, time_t* sunrise, time_t* sunset, double *
 
 }
 
-void render_text(SDL_Renderer *renderer, SDL_Texture *target, SDL_FRect * text_box, TTF_Font *font, SDL_Color color, const char* str) {
-
-    SDL_Surface* textsurface;
-    SDL_Texture *TextTexture;
-
-    // render a text string
-//    textsurface = TTF_RenderText_Shaded(font, str, strlen(str), color, color);
-    SDL_Color bg_color = {0, 0, 0,255};
-    textsurface = TTF_RenderText_Shaded(font, str, strlen(str), color, bg_color);
-//    textsurface = TTF_RenderText_LCD(font, str, strlen(str), color, bg_color);
-    if (textsurface==NULL) {
-        SDL_Log("Text render error: %s", SDL_GetError());
-        return;
-    }
-    TextTexture = SDL_CreateTextureFromSurface(renderer, textsurface);
-    SDL_SetRenderTarget(renderer, target);
-    SDL_RenderTexture(renderer, TextTexture, NULL, text_box);
-    SDL_SetRenderTarget(renderer, NULL);
-    SDL_DestroyTexture(TextTexture);
-    SDL_DestroySurface(textsurface);
-}
-
 int add_pin(struct map_pin* new_pin) {
     // add a new map pin for a module
 //    SDL_Log("Adding pin %s", new_pin->label);
@@ -150,7 +214,7 @@ int add_pin(struct map_pin* new_pin) {
     empty_pin->tooltip[0]=0;
     if (new_pin->tooltip[0]) {
         memcpy(empty_pin->tooltip, new_pin->tooltip, 512);
-        empty_pin->label[511]=0;
+        empty_pin->tooltip[511]=0;
     }
     return (0);
 }
@@ -276,7 +340,10 @@ int add_data_cache(enum mod_name owner, const Uint32 size, void* data) {
 
 int fetch_data_cache(enum mod_name owner, time_t *age, Uint32 *size, void* data) {
     // function to check for and return locally cached web data
-    struct data_blob* current = 0;
+    if (!age || !size) {
+        SDL_Log("VERY BAD Data Cache call! No return values!");
+        return 0;
+    }
     if (data_cache) {
         struct data_blob* current = data_cache;
         while (current) {
@@ -286,7 +353,7 @@ int fetch_data_cache(enum mod_name owner, time_t *age, Uint32 *size, void* data)
                 memcpy(size, &(current->size), sizeof(Uint32));
                 if (data != NULL) {
                     memcpy(data, current->data, current->size);
-                    SDL_Log("Cache returning %i bytes", current->size);
+//                    SDL_Log("Cache returning %i bytes", current->size);
                 }
                 return (1);
             }	// found a cache hit
@@ -307,21 +374,21 @@ uint cache_http_callback( char* in, uint size, uint nmemb, void* out) {
 int curl_loader(const char* source_url, char** result) {
     CURLcode curlres;
     std::string httpbuffer;
-    SDL_Log("Fetching data from %s", source_url);
+//    SDL_Log("Fetching data from %s", source_url);
     CURL *curl = curl_easy_init();
     if (curl) {
         curl_easy_setopt(curl, CURLOPT_URL, source_url);
         curl_easy_setopt(curl, CURLOPT_HTTP_VERSION,
                         (long)CURL_HTTP_VERSION_3);
         curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15);
-        curl_easy_setopt(curl, CURLOPT_USERAGENT, "aaediwens-module-agent/1.0");
+        std::string user_agent = clockconfig.CallSign()+"-clock-Agent/1.0";
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, user_agent.c_str());
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, cache_http_callback);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&httpbuffer);
         curlres = curl_easy_perform(curl);
         curl_easy_cleanup(curl);
-//      add_data_cache(owner, httpbuffer.size(), (void*)httpbuffer.c_str());
         if (!curlres) {
-            SDL_Log("Fetched %i Bytes", httpbuffer.size());
+            SDL_Log("Fetched %lu Bytes", httpbuffer.size());
             *result = (char*)realloc(*result, httpbuffer.size()+1);
 
             if (*result) {
@@ -334,11 +401,11 @@ int curl_loader(const char* source_url, char** result) {
                 return 0;
             }
         } else {
-            SDL_Log ("Curl Fetch Error");
+            SDL_Log ("Curl Fetch Error: %s", curl_easy_strerror(curlres));
             return 0;
         }
     } else {
-        SDL_Log("Failed ot init Curl!");
+        SDL_Log("Failed to init Curl!");
         return 0;
     }
 
@@ -352,7 +419,7 @@ Uint32 cache_loader(const enum mod_name owner, char** result, time_t *result_tim
     // attempt to fetch from cache
     if (fetch_data_cache(owner, result_time, &cache_size, NULL)) {
          // cache hit
-        SDL_Log("Fetching %i Bytes from cache", cache_size);
+//        SDL_Log("Fetching %i Bytes from cache", cache_size);
         *result = (char*)realloc(*result, cache_size+1);
         if (*result) {
             memset(*result, 0, cache_size + 1);
@@ -361,6 +428,8 @@ Uint32 cache_loader(const enum mod_name owner, char** result, time_t *result_tim
                 return (cache_size);
             } else {
                 SDL_Log("Cache Loader fetch error!");
+                free(*result);
+                *result=nullptr;
                 return 0;
             }
             // cache hit
