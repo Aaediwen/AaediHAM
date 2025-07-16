@@ -3,11 +3,22 @@
 #include "aaediclock.h"
 #include "modules.h"
 #include "utils.h"
-
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <time.h>
+#define timegm _mkgmtime
+#define SHUT_RDWR SD_BOTH
+#define SHUT_RD   SD_RECEIVE
+#define SHUT_WR   SD_SEND
+#pragma comment(lib, "ws2_32.lib")
+#else
 #include <sys/socket.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#endif
+
 #include "json.hpp"
 using json = nlohmann::json;
 // https://retrieve.pskreporter.info/query?senderCallsign=YOUR_CALLSIGN
@@ -33,7 +44,12 @@ void init_fd() {
         hints.ai_family = AF_INET;       // or AF_UNSPEC to allow IPv4/IPv6
         hints.ai_socktype = SOCK_STREAM;
         getaddrinfo(serverip.c_str(), serverport.c_str(), &hints, &serveraddr);
+#ifdef _WIN32
+        dxsocket = (int)socket(serveraddr->ai_family, serveraddr->ai_socktype, serveraddr->ai_protocol);
+#else
         dxsocket = socket(serveraddr->ai_family, serveraddr->ai_socktype, serveraddr->ai_protocol);
+#endif
+
         if ( connect(dxsocket, serveraddr->ai_addr, serveraddr->ai_addrlen) == -1) {
                 std::cout << "server connect error on client: " << errno << "\n";
                 shutdown (dxsocket, SHUT_RDWR);
@@ -67,6 +83,7 @@ void duplicate_spot(dxspot& needle) {
     } else {
         needle.fill_qrz();
     }
+//    SDL_Log ("Pushing Spot %s : Age: %li Seconds", needle.dx.c_str(), (time(NULL) - needle.timestamp)) ;
     dxspots.push_back(needle);
 }
 
@@ -75,13 +92,13 @@ void dx_cluster (ScreenFrame& panel) {
     if (!dxsocket) {
         init_fd();
     }
-
+//    SDL_Log("DX Cluster");
     // clear the box
     panel.Clear();
     const int max_age=1800;
     for (size_t c = dxspots.size() ; c-- > 0 ;) {
         if ((currenttime - dxspots[c].timestamp) > max_age) {
-            SDL_Log("Erasing entry %s", dxspots[c].dx.c_str());
+//            SDL_Log("Erasing entry %s", dxspots[c].dx.c_str());
             dxspots.erase(dxspots.begin()+c);
         }
     }
@@ -234,6 +251,7 @@ void dx_cluster (ScreenFrame& panel) {
             add_pin(&dx_pin);
         }
     }
+//    SDL_Log("Done with DX cluster");
 }
 
 
@@ -328,7 +346,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     time_t cache_time;
 
     SDL_FRect TextRect;
-
+//    SDL_Log ("In Sat TRracker Module");
     delete_owner_pins(MOD_SAT);
     bool reload_flag = false;
     data_size = cache_loader(MOD_SAT, &amateur_tle, &cache_time);
@@ -339,14 +357,14 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     }
 
     if (reload_flag) {
-//        data_size = curl_loader("https://aaediwen.theaudioauthority.net/morse/celestrak", &amateur_tle);	// debug
-	data_size = curl_loader("https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle", &amateur_tle);	// live
+//        data_size = http_loader("https://aaediwen.theaudioauthority.net/morse/celestrak", &amateur_tle);	// debug
+	data_size = http_loader("https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle", &amateur_tle);	// live
         if (data_size) {
             add_data_cache(MOD_SAT, data_size, amateur_tle);
         }
     }
 
-
+//    SDL_Log ("Read Sat List");
     // clear the box
     panel.Clear();
 //    SDL_SetRenderTarget(surface, panel.texture);
@@ -378,6 +396,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     libsgp4::Observer obs(clockconfig.DE().latitude, clockconfig.DE().longitude, 0.27); // need a way to manage altitude here (last arg)
     SDL_Color trackcols = {255,0,0,255};
     // read the TLE data from Celestrak
+//    SDL_Log ("Reading Sat lists from Celestrak");
     while (read_flag) {
         // read the TLE for a sat
         std::getline(iostring_buffer, temp[0]);
@@ -408,41 +427,44 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
         free(amateur_tle);
         amateur_tle = nullptr;
     }
+//    SDL_Log("Displaying Selected Satellites");
     // display the selected satellites
-    if (pass_pager[0] >= satlist.size()) {
-        pass_pager[0]=0;
-    }
-    pass_tracker(panel, satlist[pass_pager[0]]);
-    if (pass_pager[1] >5) {
-        pass_pager[0]++;
-        pass_pager[1]=0;
-    }
-    pass_pager[1]++;
-    for (TrackedSatellite& Sat : satlist) {
-        bool draw_flag=false;
-        for (const std::string& stropt : clockconfig.Sats()) {
-            if (Sat.get_name().compare(0,stropt.length(),stropt)==0) {
-                draw_flag=true;
+    if (!satlist.empty()){
+        if (pass_pager[0] >= satlist.size()) {
+            pass_pager[0]=0;
+        }
+        pass_tracker(panel, satlist[pass_pager[0]]);
+        if (pass_pager[1] >5) {
+            pass_pager[0]++;
+            pass_pager[1]=0;
+        }
+        pass_pager[1]++;
+        for (TrackedSatellite& Sat : satlist) {
+            bool draw_flag=false;
+            for (const std::string& stropt : clockconfig.Sats()) {
+                if (Sat.get_name().compare(0,stropt.length(),stropt)==0) {
+                    draw_flag=true;
+                }
+            }
+            if (draw_flag) {
+                Sat.draw_telemetry(map);
+                // plot the sat's current location
+                struct map_pin sat_pin;
+                SDL_FPoint sat_loc;
+                Sat.location(&sat_loc);
+                sat_pin.owner	=		MOD_SAT;
+                sprintf(sat_pin.label, "%s", Sat.get_name().c_str());
+                sat_pin.lat 	= 		sat_loc.x;
+                sat_pin.lon 	= 		sat_loc.y;
+                sat_pin.icon	=		0;
+                sat_pin.color	=		Sat.color;;
+                sat_pin.tooltip[0]	=		0;
+                add_pin(&sat_pin);
             }
         }
-        if (draw_flag) {
-            Sat.draw_telemetry(map);
-            // plot the sat's current location
-            struct map_pin sat_pin;
-            SDL_FPoint sat_loc;
-            Sat.location(&sat_loc);
-            sat_pin.owner	=		MOD_SAT;
-            sprintf(sat_pin.label, "%s", Sat.get_name().c_str());
-            sat_pin.lat 	= 		sat_loc.x;
-            sat_pin.lon 	= 		sat_loc.y;
-            sat_pin.icon	=		0;
-            sat_pin.color	=		Sat.color;;
-            sat_pin.tooltip[0]	=		0;
-            add_pin(&sat_pin);
-	}
-    }
 
-//    SDL_Log("Loaded %li SATS", satlist.size());
+//        SDL_Log("Loaded %li SATS", satlist.size());
+    }
     satlist.clear();
        // clean up
     SDL_SetRenderTarget(surface, NULL);
@@ -454,7 +476,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
 
 int pota_page[2]={0,2};
 void pota_spots(ScreenFrame& panel, TTF_Font* font) {
-
+//    SDL_Log("Drawing POTA");
     char* json_spots = 0 ;
 //    char** cache_data_address;
 
@@ -483,8 +505,8 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
         reload_flag=1;
     }
     if (reload_flag) {
-         data_size = curl_loader("https://api.pota.app/spot/activator", &json_spots);				// live
-//         data_size = curl_loader("https://aaediwen.theaudioauthority.net/morse/activator", &json_spots);	// debug
+         data_size = http_loader("https://api.pota.app/spot/activator", &json_spots);				// live
+//         data_size = http_loader("https://aaediwen.theaudioauthority.net/morse/activator", &json_spots);	// debug
          if (data_size) {
              add_data_cache(MOD_POTA, data_size, json_spots);
          }
@@ -622,6 +644,7 @@ void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int 
         SDL_Log("Missing PANEL!");
         return ;
     }
+//    SDL_Log("Drawing DE_DX");
     char tempstr[64];
     SDL_FRect TextRect;
     SDL_Color fontcolor;
@@ -750,7 +773,7 @@ void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int 
     SDL_RenderTexture(surface, panel.texture, NULL, &(panel.dims));
     TTF_SetFontSize(font,oldsize);
 
-
+//    SDL_Log("Done drawing DE/DX");
 }
 
 void draw_callsign(ScreenFrame& panel, TTF_Font* font, const char* callsign) {
@@ -784,6 +807,7 @@ void draw_callsign(ScreenFrame& panel, TTF_Font* font, const char* callsign) {
 }
 
 void load_maps() {
+//    SDL_Log("Reloading Maps");
     DayMap.surface = SDL_LoadBMP("images/Blue_Marble_2002.bmp");
     if (DayMap.surface) {
         DayMap.texture = SDL_CreateTextureFromSurface(surface,DayMap.surface);
@@ -840,7 +864,7 @@ void load_maps() {
         SDL_Log("Unable to load Country Surface: %s\n", SDL_GetError());
         exit(1);
     }
-    SDL_Log("ALL MAPS LOADED %s\n", SDL_GetError());
+//    SDL_Log("ALL MAPS LOADED %s\n", SDL_GetError());
     return;
 
 }
@@ -873,6 +897,12 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
     target_rect.x -= (target_rect.w/2);
     target_rect.y=tgt_px.y;
     target_rect.y -= (target_rect.h/2);
+    if ((target_rect.x+ target_rect.w)  > panel->dims.w) {
+        (target_rect.x -= target_rect.w);
+    }
+    if (target_rect.x <=0) {
+        target_rect.x += target_rect.w;
+    }
     SDL_SetTextureBlendMode(icon_tex, SDL_BLENDMODE_BLEND);
     SDL_SetRenderTarget(surface, panel->texture);
     SDL_RenderTexture(surface, icon_tex, NULL, &target_rect);
@@ -917,12 +947,13 @@ int draw_map(ScreenFrame& panel) {
         SDL_Log("Failed to create mask surface: %s", SDL_GetError());
         return 1;
     }
-
+//    SDL_Log("Created NightMask");
 
     // calculate the NightMap Alpha mask
-    for (panel_cords.y=0 ; panel_cords.y < panel.dims.h ; panel_cords.y++) {
+    for (panel_cords.y=0 ; panel_cords.y < floor(panel.dims.h) ; panel_cords.y++) {
+//        SDL_Log("Calculating alpha row %i of %f", panel_cords.y, panel.dims.h);
         double lat = 90.0 - (180.0 * panel_cords.y / (double)panel.dims.h);
-        for (panel_cords.x=0 ; panel_cords.x < panel.dims.w ; panel_cords.x++) {
+        for (panel_cords.x=0 ; panel_cords.x < floor(panel.dims.w) ; panel_cords.x++) {
             Uint8 r, g, b;
             double lon = -180.0 + (360.0 * panel_cords.x / (double)panel.dims.w);
             double alt = solar_altitude(lat, lon, utc, solar_decl);
@@ -949,7 +980,7 @@ int draw_map(ScreenFrame& panel) {
         }
     }
     // render the masked NightMap to the panel
-
+//    SDL_Log("render the masked NightMap to the panel");
     SDL_Texture* mask_tex = SDL_CreateTextureFromSurface(surface, night_mask);
     SDL_DestroySurface(night_mask);
     if (!mask_tex) {
@@ -971,7 +1002,7 @@ int draw_map(ScreenFrame& panel) {
     SDL_RenderLine(surface, 0,tropic, panel.dims.w, tropic);
     tropic = ((23.4+90) * panel.dims.h)/180;
     SDL_RenderLine(surface, 0,tropic, panel.dims.w, tropic);
-    // draw map pins
+//    SDL_Log("draw map pins");
     if (map_pins) {
         struct map_pin* current_pin;
         current_pin=map_pins;
@@ -1038,6 +1069,6 @@ int draw_clock(ScreenFrame& panel, TTF_Font* font) {
     SDL_SetRenderTarget(surface, NULL);
     SDL_RenderTexture(surface, panel.texture, NULL, &(panel.dims));
     TTF_SetFontSize(font,oldsize);
-
+//    SDL_Log("Done Drawing Clock");
     return 0;
 }

@@ -5,7 +5,9 @@
 #include "aaediclock.h"
 #include "utils.h"
 #include "modules.h"
-
+#ifdef _WIN32
+#include <cstdlib>
+#endif
 SDL_Window		*window;
 SDL_Renderer		*surface;
 TTF_Font		*Sans;
@@ -16,7 +18,7 @@ ScreenFrame 	CountriesMap;
 struct surfaces 	winboxes;
 struct map_pin 		*map_pins;
 struct data_blob	*data_cache;
-struct config 		clockconfig;
+config 		clockconfig;
 
 
 void resize_panels(struct surfaces* panels) {
@@ -61,81 +63,84 @@ void resize_panels(struct surfaces* panels) {
         SDL_Log("Creating Call Panel");
         panel_dims.x			=	0;
         panel_dims.y			=	0;
-        panel_dims.w			=	( win_x / 6 ) * 2;
-        panel_dims.h			=	  win_y / 8;
+        panel_dims.w			=	( win_x / 6.0f ) * 2.0f;
+        panel_dims.h			=	  win_y / 8.0f;
         if (!panels->callsign.Create(surface, panel_dims)) {
             printf("Error Creating callsign tex: %s\n", SDL_GetError());
         }
 
         //Rebuilding Clock panel
         SDL_Log("Creating Clock Panel");
-        panel_dims.x			=	0;
-        panel_dims.y			=	  win_y / 8;
-        panel_dims.w			=	( win_x / 6 ) * 2;
-        panel_dims.h			=	  win_y / 8;
+        panel_dims.x			=	0.0f;
+        panel_dims.y			=	  win_y / 8.0f;
+        panel_dims.w			=	( win_x / 6.0f) * 2.0f;
+        panel_dims.h			=	  win_y / 8.0f;
         if (!panels->clock.Create(surface, panel_dims)) {
             printf("Error Creating Clock: %s\n", SDL_GetError());
         }
 
         //Rebuilding Map panel
-        panel_dims.x			=	  win_x / 6;
-        panel_dims.y			=	  win_y / 4;
-        panel_dims.w			= 	( win_x / 6 ) * 5;
-        panel_dims.h			=	( win_y / 4 ) * 3;
+        SDL_Log("Creating Map Panel");
+        panel_dims.x			=	  win_x / 6.0f;
+        panel_dims.y			=	  win_y / 4.0f;
+        panel_dims.w			= 	( win_x / 6.0f) * 5.0f;
+        panel_dims.h			=	( win_y / 4.0f) * 3.0f;
         if (!panels->map.Create(surface, panel_dims)) {
             printf("Error Creating MAP: %s\n", SDL_GetError());
         }
 
         //Rebuilding DE panel
+        SDL_Log("Creating DE Panel");
         panel_dims.x			=	0;
-        panel_dims.y			=	win_y / 4;
-        panel_dims.w			=	win_x / 6;
-        panel_dims.h			=	win_y / 4;
+        panel_dims.y			=	win_y / 4.0f;
+        panel_dims.w			=	win_x / 6.0f;
+        panel_dims.h			=	win_y / 4.0f;
         if (!panels->de.Create(surface, panel_dims)) {
             printf("Error Creating DE: %s\n", SDL_GetError());
         }
 
         //Rebuilding DX panel");
+        SDL_Log("Creating DX Panel");
         panel_dims.x			=	0;
-        panel_dims.y			=	win_y / 2;
-        panel_dims.w			=	win_x / 6;
-        panel_dims.h			=	win_y / 4;
+        panel_dims.y			=	win_y / 2.0f;
+        panel_dims.w			=	win_x / 6.0f;
+        panel_dims.h			=	win_y / 4.0f;
         if (!panels->dx.Create(surface, panel_dims)) {
             printf("Error Creating DX tex: %s\n", SDL_GetError());
         }
 
         //Rebuilding Rowbox1 panel"
-        panel_dims.x			=	( win_x / 6 ) * 2;
-        panel_dims.y			=	0;
-        panel_dims.w			=	( win_x / 6 );
-        panel_dims.h			=	  win_y / 4;
+        panel_dims.x			=	( win_x / 6.0f) * 2.0f;
+        panel_dims.y			=	0.0f;
+        panel_dims.w			=	( win_x / 6.0f);
+        panel_dims.h			=	  win_y / 4.0f;
         if (!panels->rowbox1.Create(surface, panel_dims)) {
             printf("Error Creating Rowbox1 tex: %s\n", SDL_GetError());
         }
 
         //Rebuilding Rowbox2 panel
-        panel_dims.x			=	( win_x / 6 ) * 3;
-        panel_dims.y			=	0;
-        panel_dims.w			=	( win_x / 6 );
-        panel_dims.h			= 	win_y / 4;
+        panel_dims.x			=	( win_x / 6.0f) * 3.0f;
+        panel_dims.y			=	0.0f;
+        panel_dims.w			=	( win_x / 6.0f);
+        panel_dims.h			= 	win_y / 4.0f;
         if (!panels->rowbox2.Create(surface, panel_dims)) {
             printf("Error Creating Rowbox2 tex: %s\n", SDL_GetError());
         }
 
         //Rebuilding Rowbox3 panel
-        panel_dims.x			=	( win_x / 6 ) * 4;
+        panel_dims.x			=	( win_x / 6.0f) * 4.0f;
         panel_dims.y			= 	0;
-        panel_dims.w			=	( win_x / 6 );
-        panel_dims.h			=	  win_y / 4;
+        panel_dims.w			=	( win_x / 6.0f);
+        panel_dims.h			=	  win_y / 4.0f;
         if (!panels->rowbox3.Create(surface, panel_dims)) {
             printf("Error Creating Rowbox3 tex: %s\n", SDL_GetError());
         }
 
         //"Rebuilding Rowbox4 panel
-        panel_dims.x			=	( win_x / 6 ) * 5;
-        panel_dims.y			=	0;
-        panel_dims.w			=	( win_x / 6 );
-        panel_dims.h			=	  win_y / 4;
+        panel_dims.x			=	( win_x / 6.0f) * 5.0f;
+        panel_dims.y			=	0.0f;
+        panel_dims.w			=	( win_x / 6.0f);
+        panel_dims.h			=	  win_y / 4.0f;
         if (!panels->rowbox4.Create(surface, panel_dims)) {
             printf("Error Creating Rowbox4 tex: %s\n", SDL_GetError());
         }
@@ -217,7 +222,11 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         std::string arg = argv[i];
         if (arg == "--headless") {
             printf("Running Headless\n");
+#ifdef _WIN32
+            _putenv_s("SDL_VIDEO_DRIVER", "dummy");
+#else
             setenv("SDL_VIDEO_DRIVER", "dummy", 1);
+#endif
             headless=true;
         } else if (arg.rfind("--geometry",0)==0) {
              std::string geom = arg.substr(11); // skip "--geometry="
@@ -230,6 +239,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
                      x = std::stoi(w);
                      y = std::stoi(h);
                 } catch (const std::exception& e) {
+                    (void)e;
                     printf("Invalid Renderer Geometry: %s\n", geom.c_str());
                     return (SDL_APP_FAILURE);
                 }
@@ -370,8 +380,9 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
             SDL_Log("RESIZING");
             resize_panels(&winboxes);
 //            SDL_Delay(1000);
-            SDL_Log("drawing call");
+            SDL_Log("drawing call on resize");
             draw_callsign(winboxes.callsign, Sans, clockconfig.CallSign().c_str());
+            SDL_Log("Completed drawing call on resize");
 //            SDL_Delay(1000);
             resizing=0;
         }

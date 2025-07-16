@@ -52,6 +52,8 @@ void ScreenFrame::Reset() {
     }
     this->texture=nullptr;
     this->surface=nullptr;
+    this->renderer = nullptr;
+    this->dims = {};
     return;
 }
 
@@ -68,11 +70,14 @@ void ScreenFrame::draw_border() {
         SDL_SetRenderTarget(renderer, NULL);
         SDL_RenderTexture(renderer, texture, NULL, &(dims));
     }
+    else {
+        SDL_Log("Bad renderer or texture on border draw");
+    }
     return;
 }
 
 void ScreenFrame::render_text(const SDL_FRect& text_box, TTF_Font *font, const SDL_Color& color, const char* str) {
-
+    if (texture && renderer) {
     SDL_Surface* textsurface;
     SDL_Texture *TextTexture;
 
@@ -89,25 +94,37 @@ void ScreenFrame::render_text(const SDL_FRect& text_box, TTF_Font *font, const S
     SDL_SetRenderTarget(renderer, NULL);
     SDL_DestroyTexture(TextTexture);
     SDL_DestroySurface(textsurface);
+
+}
+    else {
+        SDL_Log("Bad renderer or texture on Text Render");
+        }
+
 }
 
 
 void ScreenFrame::Clear(const SDL_Color& color) {
     // clear the box
-    SDL_SetRenderTarget(renderer, texture);
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);  // Clear solid
-    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-    SDL_RenderClear(renderer);  // Fills the entire target with the draw color
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);  // Clear solid
-    SDL_SetRenderTarget(renderer, NULL);
+    if (renderer && texture) {
+        SDL_SetRenderTarget(renderer, texture);
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);  // Clear solid
+        SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+        SDL_RenderClear(renderer);  // Fills the entire target with the draw color
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);  // Clear solid
+        SDL_SetRenderTarget(renderer, NULL);
+    }
+    else {
+        SDL_Log("Bad Renderer or Texture on Clear");
+    }
     return;
 }
 
 void config::qrz_sesskey() {
     char* xml = 0 ;
     Uint32 key_size;
-    std::string url = "https://xmldata.qrz.com/xml/current/?username="+m_CallSign+";password="+m_QRZ.Secret;
-    key_size = curl_loader(url.c_str(), &xml);
+    //std::string url = "https://xmldata.qrz.com/xml/current/?username="+m_CallSign+"&password="+m_QRZ.Secret;
+    std::string url = "https://xmldata.qrz.com/xml/current/?username=" + m_CallSign + ";password=" + m_QRZ.Secret;
+    key_size = http_loader(url.c_str(), &xml);
     if (key_size) {
         // parse XML for session key
         std::istringstream stream(xml);
@@ -310,7 +327,7 @@ void dxspot::display_spot(ScreenFrame& panel, int y, int max_age) {
        SDL_Color tempcolor={128,0,0,0};
        SDL_FRect TextRect;
        TextRect.x=2;
-       TextRect.y=y;
+       TextRect.y= y * 1.0f;
        TextRect.w=panel.dims.w/4;
        TextRect.h=panel.dims.h/15;
 
@@ -318,7 +335,7 @@ void dxspot::display_spot(ScreenFrame& panel, int y, int max_age) {
        age_rect.h = TextRect.h/8;
        age_rect.y = y+((TextRect.h/8)*7);
        age_rect.x = 2;
-       age_rect.w = (panel.dims.w-4)*(static_cast<double>(time(NULL)-timestamp)/max_age);
+       age_rect.w = (panel.dims.w-4)*(static_cast<float>(time(NULL)-timestamp)/max_age);
 //       SDL_Log("Spot age: %li Seconds, Bar width: %f pixels", (time(NULL)-timestamp), age_rect.w );
        SDL_SetRenderTarget(panel.renderer, panel.texture);
        SDL_SetRenderDrawColor(surface, 128, 128, 0, 255);
@@ -365,43 +382,44 @@ void dxspot::query_qrz () {
     if (dx.empty()) {
         return;
     }
+    if (!clockconfig.qrz_key().empty()) {
+        std::string url = "https://xmldata.qrz.com/xml?s=" + clockconfig.qrz_key() + ";callsign=" + dx;
+        xml_size = http_loader(url.c_str(), &xml);
+        if (xml_size) {
+            // parse XML for session key
+            std::istringstream stream(xml);
+            std::string keyline;
+            size_t tag_start, tag_stop;
 
-    std::string url = "http://xmldata.qrz.com/xml?s="+clockconfig.qrz_key()+";callsign="+dx;
-    xml_size = curl_loader(url.c_str(), &xml);
-    if (xml_size) {
-        // parse XML for session key
-        std::istringstream stream(xml);
-        std::string keyline;
-        size_t tag_start, tag_stop;
+            while (std::getline(stream, keyline)) {
+                tag_start = keyline.find("<lat>");
+                tag_stop = keyline.find("</lat>");
+                if ((tag_start != std::string::npos) && (tag_stop != std::string::npos)) {
+                    tag_start += 5;
+                    lat = std::stod(keyline.substr(tag_start, tag_stop - tag_start));
+                    lat_valid = true;
+                }
+                tag_start = keyline.find("<lon>");
+                tag_stop = keyline.find("</lon>");
+                if ((tag_start != std::string::npos) && (tag_stop != std::string::npos)) {
+                    tag_start += 5;
+                    lon = std::stod(keyline.substr(tag_start, tag_stop - tag_start));
+                    lon_valid = true;
+                }
+                tag_start = keyline.find("<country>");
+                tag_stop = keyline.find("</country>");
+                if ((tag_start != std::string::npos) && (tag_stop != std::string::npos)) {
+                    tag_start += 9;
+                    country = keyline.substr(tag_start, tag_stop - tag_start);
+                }
 
-        while (std::getline(stream, keyline)) {
-            tag_start=keyline.find("<lat>");
-            tag_stop=keyline.find("</lat>");
-            if (( tag_start != std::string::npos ) && ( tag_stop != std::string::npos)) {
-                tag_start +=5;
-                lat = std::stod(keyline.substr(tag_start, tag_stop - tag_start));
-                lat_valid = true;
-            }
-            tag_start=keyline.find("<lon>");
-            tag_stop=keyline.find("</lon>");
-            if (( tag_start != std::string::npos ) && ( tag_stop != std::string::npos)) {
-                tag_start +=5;
-                lon = std::stod(keyline.substr(tag_start, tag_stop - tag_start));
-                lon_valid = true;
-            }
-            tag_start=keyline.find("<country>");
-            tag_stop=keyline.find("</country>");
-            if (( tag_start != std::string::npos ) && ( tag_stop != std::string::npos)) {
-                tag_start +=9;
-                country = keyline.substr(tag_start, tag_stop - tag_start);
-            }
-
-            tag_start=keyline.find("<Error>");
-            tag_stop=keyline.find("</Error>");
-            if (( tag_start != std::string::npos ) && ( tag_stop != std::string::npos)) {
-                tag_start +=7;
-                std::string QRZ_Err = keyline.substr(tag_start, tag_stop - tag_start);
-                printf ("QRZ Call Lookup Error: %s\n", QRZ_Err.c_str());
+                tag_start = keyline.find("<Error>");
+                tag_stop = keyline.find("</Error>");
+                if ((tag_start != std::string::npos) && (tag_stop != std::string::npos)) {
+                    tag_start += 7;
+                    std::string QRZ_Err = keyline.substr(tag_start, tag_stop - tag_start);
+                    printf("QRZ Call Lookup Error: %s\n", QRZ_Err.c_str());
+                }
             }
         }
     }
@@ -475,7 +493,7 @@ void TrackedSatellite::draw_pass(const time_t pass_start, const time_t pass_end,
     center.y = (size->h/2)+size->y;
     for (SatTelemetry point : this->telemetry) {
         if ((point.timestamp >= pass_start) && (point.timestamp <= pass_end)) {
-            float radius = max_radius * (1-point.elevation/90);
+            float radius = max_radius * (1-point.elevation/90.0f);
             new_point.x = center.x + radius * sinf(point.azimuth*(M_PI/180.0));
             new_point.y = center.y - radius * cosf(point.azimuth*(M_PI/180.0));
 //          SDL_Log("AZ: %.2f°, EL: %.2f° → Radius %.1f", point.azimuth, point.elevation, radius);
