@@ -3,10 +3,19 @@
 #include "aaediclock.h"
 #include "utils.h"
 #include <map>
+#ifdef _WIN32
+#define poll WSAPoll
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <winhttp.h>
+#else 
 #include <poll.h>
-#include <string>
-#include <curl/curl.h>
 #include <error.h>
+#include <curl/curl.h>
+#endif
+#include <string>
+
+
 
 int read_socket(int fd, std::string &result) {
 
@@ -23,7 +32,11 @@ int read_socket(int fd, std::string &result) {
         if (poll(&poll_list, 1, 100) >0) {
             if (poll_list.revents & POLLIN) {
                     bytesin=0;
+#ifdef _WIN32
+                    bytesin = recv(fd, temp, 1, 0);
+#else
                     bytesin = recv(fd, (void*)temp, 1, 0);
+#endif
                     if (bytesin) {
                         total += bytesin;
                         result += temp[0];
@@ -62,7 +75,12 @@ int read_socket(int fd, char** result) {
                 if (*result) {
                     bytesin=0;
                     str_ptr = (*result)+total;
+#ifdef _WIN32
+                    bytesin = recv(fd, temp, 1, 0);
+#else
                     bytesin = recv(fd, (void*)temp, 1, 0);
+#endif
+                    
                     if (bytesin) {
                         temp[1]=0;
                         str_ptr[0]=temp[0];
@@ -113,18 +131,18 @@ void maidenhead(double lat, double lon, char* maiden) {
     madlon = lon + 180;
     madlat = lat + 90;
     maiden[6]=0;
-    maiden[0]=((int)(madlon/20))+65;	// Offset from 'A'
-    maiden[1]=((int)(madlat/10))+65;
-    maiden[2]=(int)(((int)madlon % 20)/2)+48;	// offset from '0'
-    maiden[3]=(int)(((int)madlat + 90) % 10)+48;
-    maiden[4] = (int)(((fmod(madlon,2.0))/2.0)*24)+97;	// offset from 'a'
-    maiden[5] = (int)((fmod(madlat,1.0))*24)+97;
+    maiden[0]= static_cast<char>((int)(madlon/20))+65;	// Offset from 'A'
+    maiden[1]= static_cast<char>((int)(madlat/10))+65;
+    maiden[2]= static_cast<char>((int)(((int)madlon % 20)/2)+48);	// offset from '0'
+    maiden[3]= static_cast<char>((int)(((int)madlat + 90) % 10)+48);
+    maiden[4] = static_cast<char>((int)(((fmod(madlon,2.0))/2.0)*24)+97);	// offset from 'a'
+    maiden[5] = static_cast<char>((int)((fmod(madlat,1.0))*24)+97);
     return;
 }
 
 void cords_to_px(double lat, double lon, int w, int h, SDL_FPoint* result) {
-    result->x=(lon/180.0)*(w/2)+(w/2);
-    result->y=((-1*lat)/90.0)*(h/2)+(h/2);
+    result->x=static_cast<float>((lon/180.0f)*(w/2.0f)+(w/2.0f));
+    result->y= static_cast<float>(((-1*lat)/90.0f)*(h/2.0f)+(h/2.0f));
     return ;
 }
 
@@ -365,13 +383,14 @@ int fetch_data_cache(enum mod_name owner, time_t *age, Uint32 *size, void* data)
 }
 
 
-uint cache_http_callback( char* in, uint size, uint nmemb, void* out) {
+size_t cache_http_callback( char* in, size_t size, size_t nmemb, void* out) {
     std::string* buffer = static_cast<std::string*>(out);
     buffer->append(in, (size*nmemb));
     return (size*nmemb);
 }
 
-int curl_loader(const char* source_url, char** result) {
+int http_loader(const char* source_url, char** result) {
+#ifndef _WIN32          // *NIX version starts here
     CURLcode curlres;
     std::string httpbuffer;
 //    SDL_Log("Fetching data from %s", source_url);
@@ -408,7 +427,189 @@ int curl_loader(const char* source_url, char** result) {
         SDL_Log("Failed to init Curl!");
         return 0;
     }
+#else               // WIN32 version starts here
+    URL_COMPONENTS exploded_url{};
+    ZeroMemory(&exploded_url, sizeof(exploded_url));
+    exploded_url.dwStructSize = sizeof(exploded_url);
+    // Set required component lengths to non-zero 
+    // so that they are cracked.
+    exploded_url.dwSchemeLength = (DWORD)-1;
+    exploded_url.dwHostNameLength = (DWORD)-1;
+    exploded_url.dwUrlPathLength = (DWORD)-1;
+    exploded_url.dwExtraInfoLength = (DWORD)-1;
+    bool read_result;
+    if (source_url == 0) {
+        return 0;
+    }
+    if (source_url[0] == 0) {
+        return 0;
+    }
+    // call once to get the result size
+    int len = MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, source_url, -1, NULL, 0);
+    if (len == 0) return 0;
 
+    // actually convert to UTF8
+    LPWSTR utf8_url = new wchar_t[len];
+    if (MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, source_url, -1, utf8_url, len) == 0) {
+        delete[] utf8_url;
+        return 0;
+    }
+    std::string narrow = clockconfig.CallSign() + "-clock-Agent/1.0";
+    len = MultiByteToWideChar(CP_UTF8, 0, narrow.c_str(), -1, nullptr, 0);
+    std::wstring user_agent(len, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, narrow.c_str(), -1, &user_agent[0], len);
+    HINTERNET http, http_connection, http_request;
+    // open an http session
+    http = WinHttpOpen(user_agent.c_str(), WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, NULL);
+//    SDL_Log("Wide version URL (len=%zu): %ls", wcslen(utf8_url), utf8_url);
+    if (!WinHttpCrackUrl(
+        utf8_url,
+        0,
+        0,
+        &exploded_url )) {
+        SDL_Log("Error %u trying to Split URL", GetLastError());
+        return 0;
+
+    }
+    std::wstring host(exploded_url.lpszHostName, exploded_url.dwHostNameLength);
+    std::wstring path(exploded_url.lpszUrlPath, exploded_url.dwUrlPathLength);
+    std::wstring extra(exploded_url.lpszExtraInfo, exploded_url.dwExtraInfoLength);
+
+//    SDL_Log("Cracked URL: host(%zu)=%.*ls\n port=%u\n path(%zu)=%.*ls%.*ls (%zu)",
+//        exploded_url.dwHostNameLength, exploded_url.dwHostNameLength, exploded_url.lpszHostName,
+//        exploded_url.nPort,
+//        exploded_url.dwUrlPathLength, exploded_url.dwUrlPathLength, exploded_url.lpszUrlPath,
+//        exploded_url.dwExtraInfoLength, exploded_url.lpszExtraInfo, exploded_url.dwExtraInfoLength);
+    if (!http) {
+        SDL_Log("Unable to Init HTTP");
+        return 0;
+    }
+    else {
+//        SDL_Log("Initialized HTTP correctly");
+    }
+    
+    http_connection = WinHttpConnect(http, host.c_str(),
+        exploded_url.nPort, 0);
+    SDL_Log("Attemped to connect to server. (Error %u)", GetLastError());
+    if (!http_connection) {
+        SDL_Log("Unable to connect to %ls on %u", host.c_str(), exploded_url.nPort);
+        WinHttpCloseHandle(http);
+        return 0;
+    }
+    else {
+//        SDL_Log("Connected to %ls on %u", host.c_str(), exploded_url.nPort);
+    }
+//    std::wstring full_path = std::wstring(exploded_url.lpszUrlPath, exploded_url.dwUrlPathLength) +
+//        std::wstring(exploded_url.lpszExtraInfo, exploded_url.dwExtraInfoLength);
+    std::wstring full_path = std::wstring(exploded_url.lpszUrlPath, exploded_url.dwUrlPathLength);
+    if (exploded_url.dwExtraInfoLength > 0) {
+       full_path += std::wstring(exploded_url.lpszExtraInfo, exploded_url.dwExtraInfoLength);
+    }
+    DWORD flags = (exploded_url.nPort == INTERNET_DEFAULT_HTTPS_PORT) ? WINHTTP_FLAG_SECURE : 0;
+//    SDL_Log("Dirty Full request path: \"%ls\" (len: %zu)", full_path.c_str(), full_path.length());
+    // Trim to ensure it doesn't contain weird characters
+    std::wstring sanitized;
+    sanitized.clear();
+    for (wchar_t ch : full_path) {
+        if (ch >= 32 && ch != 127) {
+            sanitized += ch;
+        }
+    }
+    sanitized.push_back(L'\0');  // Ensure null-termination
+//    SDL_Log("Sanitized path: \"%ls\" (len: %zu)", sanitized.c_str(), sanitized.length());
+    full_path = sanitized;
+    // Check length and print debug
+//    SDL_Log("Full request path: \"%ls\" (len: %zu)", full_path.c_str(), full_path.length());
+    
+    // Optional: dump individual wchar_t codes
+    for (size_t i = 0; i < full_path.length(); ++i) {
+//        SDL_Log("char[%zu] = 0x%04X", i, full_path[i]);
+    }
+    http_request = WinHttpOpenRequest(http_connection, L"GET",
+        full_path.c_str(),
+        NULL, WINHTTP_NO_REFERER,
+        WINHTTP_DEFAULT_ACCEPT_TYPES,
+        flags);
+    //SDL_Log("Attemped request. (Error %u)", GetLastError());
+    if (!http_request) {
+        SDL_Log("Unable to request %ls", exploded_url.lpszUrlPath);
+        WinHttpCloseHandle(http_connection);
+        WinHttpCloseHandle(http);
+        return 0;
+    }
+    else {
+//        SDL_Log("Requested %ls", full_path.c_str());
+    }
+    read_result = WinHttpSendRequest(http_request, WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0);
+    if (read_result) {
+        read_result = WinHttpReceiveResponse(http_request, NULL);
+//        SDL_Log("Sent Request");
+    } else {
+        SDL_Log("Unable to send request %ls", exploded_url.lpszUrlPath);
+        WinHttpCloseHandle(http_request);
+        WinHttpCloseHandle(http_connection);
+        WinHttpCloseHandle(http);
+        return 0;
+    }
+    std::string buffstr;
+    delete[] utf8_url;
+    buffstr.clear();
+    if (read_result) {
+
+        DWORD read_size = 1;
+        LPSTR buffer;
+        do {
+            // Check for available data.
+            read_size = 0;
+            if (!WinHttpQueryDataAvailable(http_request, &read_size)) {
+                SDL_Log("Error %u in WinHttpQueryDataAvailable.", GetLastError());
+                break;
+            } else {
+                // allocate response space
+                buffer = new char[read_size + 1];
+                if (!buffer) {
+                    SDL_Log("HTTP result MALLOC error\n");
+                    break;
+                } else { ZeroMemory(buffer, read_size + 1);  }
+            
+            }
+            if (!WinHttpReadData(http_request, (LPVOID)buffer, read_size, NULL)) {
+                SDL_Log("Error %u in WinHttpReadData.", GetLastError());
+            } else {
+//                SDL_Log("READ %s", buffer);
+                cache_http_callback(buffer, 1, read_size, &buffstr);
+                //SDL_Log("Stored %s", buffstr);
+            }
+            delete[] buffer;
+        } while (read_size > 0);
+        if (!buffstr.empty()) {
+
+            *result = (char*)malloc(buffstr.size() + 1);
+
+            if (*result) {
+                // return our result text in *result
+                memset(*result, 0, buffstr.size() + 1);
+                memcpy(*result, buffstr.c_str(), buffstr.size());
+                WinHttpCloseHandle(http_request);
+                WinHttpCloseHandle(http_connection);
+                WinHttpCloseHandle(http);
+                return((int)buffstr.size());
+            }
+            else {
+                SDL_Log("Curl result MALLOC error");
+                WinHttpCloseHandle(http_request);
+                WinHttpCloseHandle(http_connection);
+                WinHttpCloseHandle(http);
+                return 0;
+            }
+
+        }
+    }
+    WinHttpCloseHandle(http_request);
+    WinHttpCloseHandle(http_connection);
+    WinHttpCloseHandle(http);
+    return 0;
+#endif
 }
 
 Uint32 cache_loader(const enum mod_name owner, char** result, time_t *result_time) {
@@ -420,8 +621,9 @@ Uint32 cache_loader(const enum mod_name owner, char** result, time_t *result_tim
     if (fetch_data_cache(owner, result_time, &cache_size, NULL)) {
          // cache hit
 //        SDL_Log("Fetching %i Bytes from cache", cache_size);
-        *result = (char*)realloc(*result, cache_size+1);
-        if (*result) {
+        char *temp = (char*)realloc(*result, cache_size+1);
+        if (temp) {
+            *result = temp;
             memset(*result, 0, cache_size + 1);
             cache_success = fetch_data_cache(owner, result_time, &cache_size, *result);
             if (cache_success) {
@@ -435,6 +637,7 @@ Uint32 cache_loader(const enum mod_name owner, char** result, time_t *result_tim
             // cache hit
         } else {
             SDL_Log("Cache loader MALLOC error");
+            *result = nullptr;
             return 0;
         }
 //        SDL_Log("Got from Cache %i Bytes", strlen(json_spots));

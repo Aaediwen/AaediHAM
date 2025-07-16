@@ -1,7 +1,9 @@
 #ifndef UTILS_H
 #define UTILS_H
 #include <math.h>
-
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 //void draw_panel_border(ScreenFrame panel);
 int read_socket(int fd, std::string &result);
 int read_socket(int fd, char** result);
@@ -15,7 +17,7 @@ int delete_owner_pins(enum mod_name owner);
 int delete_mod_cache(enum mod_name owner);
 int add_data_cache(enum mod_name owner, const Uint32 size, void* data);
 int fetch_data_cache(enum mod_name owner, time_t *age, Uint32 *size, void* data);
-int curl_loader(const char* source_url, char** result);
+int http_loader(const char* source_url, char** result);
 Uint32 cache_loader(const enum mod_name owner, char** result, time_t *result_time);
 
 #endif
