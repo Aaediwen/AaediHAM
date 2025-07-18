@@ -57,6 +57,7 @@ class TrackedSatellite {
         TrackedSatellite(const std::string& source_name, const std::string& l1, const std::string& l2);
         ~TrackedSatellite();
         std::string& get_name();
+        void new_tracking(const std::string& source_name, const std::string& l1, const std::string& l2);
         time_t pass_start();
         time_t pass_end();
         void draw_pass(const time_t pass_start, const time_t pass_end,  std::vector<SDL_FPoint> *pass_pts, const SDL_FRect *size);

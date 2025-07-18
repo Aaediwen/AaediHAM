@@ -339,7 +339,15 @@ void pass_tracker(ScreenFrame& panel, TrackedSatellite& sat) {
     return;
 }
 
+/*
+void thread_gen(TrackedSatellite sat, libsgp4::Observer obs) {
+    sat.gen_telemetry(30, obs));
+    return;
+}
+*/
+
 Uint16 pass_pager[2] = {0,0};
+std::vector<TrackedSatellite> satlist;
 void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     char* amateur_tle = 0 ;
     Uint32 data_size;
@@ -359,6 +367,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     if (reload_flag) {
 //        data_size = http_loader("https://aaediwen.theaudioauthority.net/morse/celestrak", &amateur_tle);	// debug
 	data_size = http_loader("https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle", &amateur_tle);	// live
+	satlist.clear();
         if (data_size) {
             add_data_cache(MOD_SAT, data_size, amateur_tle);
         }
@@ -392,7 +401,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     iostring_buffer.clear();
     iostring_buffer.str(sanitized);
     std::string temp[3]; // name line1, line 2
-    std::vector<TrackedSatellite> satlist;
+
     libsgp4::Observer obs(clockconfig.DE().latitude, clockconfig.DE().longitude, 0.27); // need a way to manage altitude here (last arg)
     SDL_Color trackcols = {255,0,0,255};
     // read the TLE data from Celestrak
@@ -410,15 +419,32 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
 	            draw_flag=true;
                 }
             }
-            trackcols.r -= 20;
-            trackcols.g += 20;
-            trackcols.b += 10;
-            // if so, calculate the track for it
-            if (draw_flag) {
-		TrackedSatellite nextsat(temp[0], temp[1], temp[2]);
-		nextsat.color=trackcols;
-		if (nextsat.gen_telemetry(30, obs)) {
-		    satlist.push_back(nextsat);
+            // check if the sat exists in satlist
+             TrackedSatellite *nextsat = nullptr;
+             if (draw_flag) {
+                 for (TrackedSatellite& sat : satlist) {
+                    if (temp[0].compare(0,sat.get_name().length(),sat.get_name())==0) {
+                        nextsat = &sat;
+                    }
+                }
+            }
+            if (nextsat) {
+//                nextsat->new_tracking(temp[0], temp[1], temp[2]);
+//                nextsat->gen_telemetry(30, obs);
+            } else {
+
+                trackcols.r -= 20;
+                trackcols.g += 20;
+                trackcols.b += 10;
+                // if so, calculate the track for it
+                if (draw_flag) {
+                    nextsat = new TrackedSatellite(temp[0], temp[1], temp[2]);
+//                    TrackedSatellite nextsat(temp[0], temp[1], temp[2]);
+                    nextsat->color=trackcols;
+                    SDL_Log ("Regenerate track for %s", temp[0].c_str());
+                    if (nextsat->gen_telemetry(30, obs)) {
+                        satlist.push_back(*nextsat);
+                    }
                 }
             }
 	} else { break; }
@@ -465,7 +491,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
 
 //        SDL_Log("Loaded %li SATS", satlist.size());
     }
-    satlist.clear();
+//    satlist.clear();
        // clean up
     SDL_SetRenderTarget(surface, NULL);
     SDL_RenderTexture(surface, panel.texture, NULL, &(panel.dims));
@@ -912,13 +938,80 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
     return;
 }
 
+
+void regen_mask (SDL_Surface* source, SDL_Surface* dest, const SDL_FRect& panel_dims) {
+    tm* utc = gmtime(&currenttime);
+    SDL_Rect panel_cords, source_cords;
+    double softness = 10.0;
+    double solar_decl = 23.45 * (sin( (2 * M_PI/365) * (284+(utc->tm_yday+1)) ));
+    SDL_Log("Regen Terminator Alpha Mask — source: %p, dest: %p, dims: %.1fx%.1f",
+    (void*)source, (void*)dest,
+    panel_dims.w, panel_dims.h);
+
+    SDL_LockMutex(night_mask_mutex);	/// MUTEX LOCK
+
+    Uint8* alpha_pixels = (Uint8*)dest->pixels;
+    Uint8* source_pixels = (Uint8*)source->pixels;
+    const Uint8 dest_bpp = SDL_GetPixelFormatDetails(dest->format)->bytes_per_pixel;
+    const Uint8 source_bpp = SDL_GetPixelFormatDetails(source->format)->bytes_per_pixel;
+
+    for (panel_cords.y=0 ; panel_cords.y < floor(panel_dims.h) ; panel_cords.y++) {
+    //        SDL_Log("Calculating alpha row %i of %f", panel_cords.y, panel_dims.h);
+            double lat = 90.0 - (180.0 * panel_cords.y / (double)panel_dims.h);
+            for (panel_cords.x=0 ; panel_cords.x < floor(panel_dims.w) ; panel_cords.x++) {
+                Uint8 r, g, b;
+                double lon = -180.0 + (360.0 * panel_cords.x / (double)panel_dims.w);
+                double alt = solar_altitude(lat, lon, utc, solar_decl);
+                // calculate per pixel alpha
+                Uint8 alpha;
+                if (alt > softness) {
+                    alpha = 255;
+                } else if (alt < -softness) {
+                    alpha = 0;
+                } else {
+                    alpha = (Uint8)(255.0 * (alt + softness) / (2.0 * softness));
+                }
+                // Write a pixel with the computed alpha
+                source_cords.y = (panel_cords.y/panel_dims.h)*NightMap.surface->h;
+                source_cords.x = (panel_cords.x/panel_dims.w)*NightMap.surface->w;
+                int source_pixel_index = ( source->w * source_bpp * source_cords.y ) + ( source_bpp * source_cords.x );
+                int dest_pixel_index =   ( dest->w * dest_bpp * panel_cords.y ) + ( dest_bpp * panel_cords.x );
+
+                Uint32 *source_pixel_val=(Uint32*)(source_pixel_index+source_pixels);
+                SDL_GetRGBA( *source_pixel_val, SDL_GetPixelFormatDetails(source->format), NULL, &r, &g, &b, NULL);
+                Uint32 dst_pixel_val = SDL_MapRGBA(SDL_GetPixelFormatDetails(dest->format), NULL, r, g, b, (255 - alpha));
+                memcpy((alpha_pixels + dest_pixel_index), &dst_pixel_val, dest_bpp);
+
+            }
+        }
+
+    SDL_UnlockMutex(night_mask_mutex);	/// MUTEX UNLOCK
+    return;
+}
+
+Uint32 SDLCALL regen_mask (void *userdata, SDL_TimerID timerID, Uint32 interval) {
+    if (timerID) {
+        struct regen_mask_args* args = (struct regen_mask_args*)userdata;
+
+        SDL_Log("Timer Callback — source: %p, dest: %p, dims: %.1fx%.1f",
+            (void*)args->source, (void*)args->dest,
+            args->panel_dims.w, args->panel_dims.h);
+
+
+        regen_mask (args->source, args->dest, args->panel_dims);
+        return (interval);
+    } else {
+        return 0;
+    }
+}
+
+
+SDL_Surface* night_mask = nullptr;
+SDL_Renderer* old_renderer = nullptr;
+time_t alpha_age = 0;
 int draw_map(ScreenFrame& panel) {
 
-
-    tm* utc = gmtime(&currenttime);
-    double softness = 10.0;
-    SDL_Rect panel_cords, source_cords;
-    double solar_decl = 23.45 * (sin( (2 * M_PI/365) * (284+(utc->tm_yday+1)) ));
+    bool regen_mask_flag = false;
 //    SDL_Log("Drawing Map ");
     if (!surface) {
         SDL_Log("Missing Surface!");
@@ -938,51 +1031,49 @@ int draw_map(ScreenFrame& panel) {
 //    SDL_Log("Rendered Daymap to texture");
 
     // init the night map alpha mask
-    SDL_Surface* night_mask = SDL_CreateSurface(panel.dims.w, panel.dims.h, SDL_PIXELFORMAT_RGBA32);
-    Uint8* alpha_pixels = (Uint8*)night_mask->pixels;
-    Uint8* source_pixels = (Uint8*)NightMap.surface->pixels;
-    const Uint8 dest_bpp = SDL_GetPixelFormatDetails(night_mask->format)->bytes_per_pixel;
-    const Uint8 source_bpp = SDL_GetPixelFormatDetails(NightMap.surface->format)->bytes_per_pixel;
-    if (!night_mask) {
-        SDL_Log("Failed to create mask surface: %s", SDL_GetError());
-        return 1;
-    }
-//    SDL_Log("Created NightMask");
-
-    // calculate the NightMap Alpha mask
-    for (panel_cords.y=0 ; panel_cords.y < floor(panel.dims.h) ; panel_cords.y++) {
-//        SDL_Log("Calculating alpha row %i of %f", panel_cords.y, panel.dims.h);
-        double lat = 90.0 - (180.0 * panel_cords.y / (double)panel.dims.h);
-        for (panel_cords.x=0 ; panel_cords.x < floor(panel.dims.w) ; panel_cords.x++) {
-            Uint8 r, g, b;
-            double lon = -180.0 + (360.0 * panel_cords.x / (double)panel.dims.w);
-            double alt = solar_altitude(lat, lon, utc, solar_decl);
-            // calculate per pixel alpha
-            Uint8 alpha;
-            if (alt > softness) {
-                alpha = 255;
-            } else if (alt < -softness) {
-                alpha = 0;
-            } else {
-                alpha = (Uint8)(255.0 * (alt + softness) / (2.0 * softness));
-            }
-            // Write a pixel with the computed alpha
-            source_cords.y = (panel_cords.y/panel.dims.h)*NightMap.surface->h;
-            source_cords.x = (panel_cords.x/panel.dims.w)*NightMap.surface->w;
-            int source_pixel_index = ( NightMap.surface->w * source_bpp * source_cords.y ) + ( source_bpp * source_cords.x );
-            int dest_pixel_index =   ( night_mask->w * dest_bpp * panel_cords.y ) + ( dest_bpp * panel_cords.x );
-
-            Uint32 *source_pixel_val=(Uint32*)(source_pixel_index+source_pixels);
-            SDL_GetRGBA( *source_pixel_val, SDL_GetPixelFormatDetails(NightMap.surface->format), NULL, &r, &g, &b, NULL);
-            Uint32 dst_pixel_val = SDL_MapRGBA(SDL_GetPixelFormatDetails(night_mask->format), NULL, r, g, b, (255 - alpha));
-            memcpy((alpha_pixels + dest_pixel_index), &dst_pixel_val, dest_bpp);
-
+    if (!night_mask || (old_renderer != panel.renderer)) {
+        if (night_mask) {
+            SDL_DestroySurface(night_mask);
         }
+        night_mask = SDL_CreateSurface(panel.dims.w, panel.dims.h, SDL_PIXELFORMAT_RGBA32);
+        if (!night_mask) {
+            SDL_Log("Failed to create mask surface: %s", SDL_GetError());
+            return 1;
+        }
+
+        night_mask_args->source = NightMap.surface;
+        night_mask_args->dest = night_mask;
+        night_mask_args->panel_dims = panel.dims;
+        if (map_timer) {
+            SDL_RemoveTimer(map_timer);
+            map_timer = 0;
+        }
+        map_timer = SDL_AddTimer(30000, regen_mask, night_mask_args);
+        old_renderer = panel.renderer;
+        SDL_Log("Regen NightMask -- bad renderer");
+        regen_mask_flag = true;
+    }
+//    if ((time(NULL) - alpha_age) > 60) {
+//        regen_mask_flag = true;
+
+//    }
+//    Uint8* alpha_pixels = (Uint8*)night_mask->pixels;
+//    Uint8* source_pixels = (Uint8*)NightMap.surface->pixels;
+//    const Uint8 dest_bpp = SDL_GetPixelFormatDetails(night_mask->format)->bytes_per_pixel;
+//    const Uint8 source_bpp = SDL_GetPixelFormatDetails(NightMap.surface->format)->bytes_per_pixel;
+    if (regen_mask_flag) {
+        SDL_Log("Regen NightMask");
+         regen_mask (NightMap.surface, night_mask, panel.dims);
+//        alpha_age=time(NULL);
+        // calculate the NightMap Alpha mask
+
     }
     // render the masked NightMap to the panel
 //    SDL_Log("render the masked NightMap to the panel");
+    SDL_LockMutex(night_mask_mutex);	/// MUTEX LOCK
     SDL_Texture* mask_tex = SDL_CreateTextureFromSurface(surface, night_mask);
-    SDL_DestroySurface(night_mask);
+    SDL_UnlockMutex(night_mask_mutex);	/// MUTEX UNLOCK
+//    SDL_DestroySurface(night_mask);
     if (!mask_tex) {
         SDL_Log("Failed to create mask texture: %s", SDL_GetError());
         return 1;
