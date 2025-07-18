@@ -15,6 +15,15 @@
 #include <SDL3_ttf/SDL_ttf.h>
 #include <vector>
 
+struct regen_mask_args {
+    SDL_Surface* source;
+    SDL_Surface* dest;
+    SDL_FRect panel_dims;
+};
+
+extern struct regen_mask_args* night_mask_args;
+extern SDL_Mutex* night_mask_mutex;
+extern SDL_TimerID map_timer;
 extern SDL_Window* window;
 extern SDL_Renderer* surface;
 extern TTF_Font* Sans;

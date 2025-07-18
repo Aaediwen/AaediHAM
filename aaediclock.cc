@@ -19,12 +19,19 @@ struct surfaces 	winboxes;
 struct map_pin 		*map_pins;
 struct data_blob	*data_cache;
 config 		clockconfig;
+SDL_Mutex* night_mask_mutex = nullptr;
+SDL_TimerID map_timer = 0;
+struct regen_mask_args* night_mask_args = nullptr;
 
 
 void resize_panels(struct surfaces* panels) {
         int win_x;
         int win_y;
-
+        SDL_LockMutex(night_mask_mutex);
+        if (map_timer) {
+            SDL_RemoveTimer(map_timer);
+            map_timer = 0;
+        }
         // clean up the old surface
         if (surface) {
             DayMap.Reset();
@@ -147,6 +154,8 @@ void resize_panels(struct surfaces* panels) {
 
         // recreate the map textures as well so they don't get lost
         load_maps();
+
+        SDL_UnlockMutex(night_mask_mutex);
         SDL_Log("Done resizing panels");
         return;
 }
@@ -279,6 +288,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         printf("TTF_Init: %s\n", SDL_GetError());
         return(SDL_APP_FAILURE);
     }
+
 //    load_config();
     // init globals
     map_pins			=	0;
@@ -295,7 +305,9 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     DayMap.Reset();
     NightMap.Reset();
     CountriesMap.Reset();
-
+    night_mask_mutex = SDL_CreateMutex();
+    night_mask_args = (struct regen_mask_args*)malloc(sizeof(struct regen_mask_args));
+    map_timer = 0;
     // create the main window
     if (window_init(x, y)) {
         return (SDL_APP_FAILURE);
@@ -364,6 +376,12 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result)
 {
      (void)appstate;
     (void)result;
+    free (night_mask_args);
+    night_mask_args=nullptr;
+     SDL_RemoveTimer(map_timer);
+        map_timer = 0;
+        SDL_DestroyMutex(night_mask_mutex);
+    night_mask_mutex = nullptr;
     /* SDL will clean up the window/renderer for us. */
 }
 
