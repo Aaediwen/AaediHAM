@@ -20,14 +20,79 @@ struct map_pin 		*map_pins;
 struct data_blob	*data_cache;
 config 		clockconfig;
 SDL_Mutex* night_mask_mutex = nullptr;
+static SDL_Mutex* master_clock_mutex;
 SDL_TimerID map_timer = 0;
+Uint8 interrupt_counter = 0;
 struct regen_mask_args* night_mask_args = nullptr;
+
+struct {
+    bool draw_callsign_flag = true;
+    bool draw_de_flag = true;
+    bool draw_dx_flag = true;
+    bool draw_pota_flag = true;
+    bool draw_sat_tracker_flag = true;
+    bool draw_dx_spots_flag = true;
+    bool draw_map_flag = true;
+    bool draw_clock_flag = true;
+    bool draw_kindex_flag = true;
+} static master_flags;
+SDL_TimerID flag_timer = 0;
+
+Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interval) {
+    (void) userdata;
+    interrupt_counter++;
+    if (interrupt_counter > 200) {
+        interrupt_counter = 0;
+    }
+//    SDL_Log ("In master flag timer");
+    if (timerID) {
+        SDL_LockMutex(master_clock_mutex);
+        if ((interrupt_counter % 1200)==0) {
+            master_flags.draw_kindex_flag = true;
+        }
+        if ((interrupt_counter % 300)==0) {
+            master_flags.draw_callsign_flag = true;
+        }
+        if ((interrupt_counter % 10)==0) {
+
+            master_flags.draw_map_flag = true;
+            master_flags.draw_clock_flag = true;
+            master_flags.draw_sat_tracker_flag = true;
+        }
+        if ((interrupt_counter % 50)==0) {
+            master_flags.draw_de_flag = true;
+            master_flags.draw_dx_flag = true;
+            master_flags.draw_pota_flag = true;
+        }
+
+        if ((interrupt_counter % 20)==0) {
+            master_flags.draw_dx_spots_flag = true;
+        }
+        SDL_UnlockMutex(master_clock_mutex);
+        return (interval);
+    } else {
+        return 0;
+    }
+}
 
 
 void resize_panels(struct surfaces* panels) {
         int win_x;
         int win_y;
         SDL_LockMutex(night_mask_mutex);
+        if (flag_timer) {
+            SDL_RemoveTimer(flag_timer);
+            flag_timer = 0;
+        }
+        master_flags.draw_callsign_flag = false;
+        master_flags.draw_de_flag = false;
+        master_flags.draw_dx_flag = false;
+        master_flags.draw_pota_flag = false;
+        master_flags.draw_sat_tracker_flag = false;
+        master_flags.draw_dx_spots_flag = false;
+        master_flags.draw_map_flag = false;
+        master_flags.draw_kindex_flag = true;
+        master_flags.draw_clock_flag = false;
         if (map_timer) {
             SDL_RemoveTimer(map_timer);
             map_timer = 0;
@@ -155,6 +220,16 @@ void resize_panels(struct surfaces* panels) {
         // recreate the map textures as well so they don't get lost
         load_maps();
 
+
+        master_flags.draw_callsign_flag = true;
+        master_flags.draw_de_flag = true;
+        master_flags.draw_dx_flag = true;
+        master_flags.draw_pota_flag = true;
+        master_flags.draw_sat_tracker_flag = true;
+        master_flags.draw_dx_spots_flag = true;
+        master_flags.draw_map_flag = true;
+        master_flags.draw_clock_flag = true;
+        flag_timer = SDL_AddTimer(100, master_clock, &master_flags);
         SDL_UnlockMutex(night_mask_mutex);
         SDL_Log("Done resizing panels");
         return;
@@ -186,28 +261,21 @@ int window_init(int x, int y) {
 
         // initial draws
         currenttime=time(NULL);
-//        draw_callsign(winboxes.callsign, Sans, clockconfig.CallSign.c_str());
           draw_callsign(winboxes.callsign, Sans, clockconfig.CallSign().c_str());
         dx_cluster (winboxes.rowbox3);
-//        winboxes.clock.draw_border(surface);
-//        draw_clock(winboxes.clock, Sans);
 
-//        draw_map(winboxes.map);
-/*
-        winboxes.de.draw_border(surface);
-
-        winboxes.dx.draw_border(surface);
-
-        winboxes.rowbox1.draw_border(surface);
-
-        winboxes.rowbox2.draw_border(surface);
-
-        winboxes.rowbox3.draw_border(surface);
-
-        winboxes.rowbox4.draw_border(surface);
-*/
         SDL_RenderPresent(surface);
 
+        master_flags.draw_callsign_flag = true;
+        master_flags.draw_de_flag = true;
+        master_flags.draw_dx_flag = true;
+        master_flags.draw_pota_flag = true;
+        master_flags.draw_sat_tracker_flag = true;
+        master_flags.draw_dx_spots_flag = true;
+        master_flags.draw_map_flag = true;
+        master_flags.draw_clock_flag = true;
+        master_flags.draw_kindex_flag = true;
+        flag_timer = SDL_AddTimer(1000, master_clock, &master_flags);
     }
     return 0;
 }
@@ -324,35 +392,58 @@ time_t oldtime;
 int resizing 			= 	0;
 SDL_AppResult SDL_AppIterate(void *appstate) {
     (void)appstate;
-    SDL_Delay(100);			// slow down the program
+    SDL_Delay(10);			// slow down the program
     if (!resizing) {
         currenttime=time(NULL);
-        if (currenttime != oldtime) {	// temporary one second timer
-        draw_callsign(winboxes.callsign, Sans, clockconfig.CallSign().c_str());
+//        if (currenttime != oldtime) {	// temporary one second timer
+        SDL_LockMutex(master_clock_mutex);
+        if (master_flags.draw_clock_flag) {
             draw_clock(winboxes.clock, Sans);
+            master_flags.draw_clock_flag = false;
+        }
+        if (master_flags.draw_callsign_flag) {
+            draw_callsign(winboxes.callsign, Sans, clockconfig.CallSign().c_str());
+            master_flags.draw_callsign_flag = false;
+        }
+        if (master_flags.draw_map_flag) {
             draw_map(winboxes.map);
-//            winboxes.map.draw_border(surface);
+            master_flags.draw_map_flag = false;
+        }
+        if (master_flags.draw_de_flag) {
             draw_de_dx(winboxes.de, Sans, clockconfig.DE().latitude, clockconfig.DE().longitude, 1);
-            draw_de_dx(winboxes.dx, Sans, clockconfig.DX().latitude, clockconfig.DX().longitude, 0);
-
-
             winboxes.de.draw_border();
-
+            master_flags.draw_de_flag = false;
+        }
+        if (master_flags.draw_dx_flag) {
+            draw_de_dx(winboxes.dx, Sans, clockconfig.DX().latitude, clockconfig.DX().longitude, 0);
             winboxes.dx.draw_border();
-
-
-
+            master_flags.draw_dx_flag = false;
+        }
+        if (master_flags.draw_pota_flag) {
             pota_spots(winboxes.rowbox1, Sans);
             winboxes.rowbox1.draw_border();
+            master_flags.draw_pota_flag = false;
+
+        }
+        if (master_flags.draw_kindex_flag) {
+
+            k_index_chart (winboxes.rowbox4);
+            winboxes.rowbox4.draw_border();
+            master_flags.draw_kindex_flag = false;
+        }
 
 
+        if (master_flags.draw_sat_tracker_flag) {
             sat_tracker (winboxes.rowbox2, Sans, winboxes.map);
             winboxes.rowbox2.draw_border();
-
-            winboxes.rowbox3.draw_border();
-
-            winboxes.rowbox4.draw_border();
+            master_flags.draw_sat_tracker_flag = false;
+        }
+        if (master_flags.draw_dx_spots_flag) {
             dx_cluster (winboxes.rowbox3);
+            master_flags.draw_dx_spots_flag = false;
+        }
+
+            SDL_UnlockMutex(master_clock_mutex);
             SDL_RenderPresent(surface);
             if (headless && (!outfile.empty())) {
                 // dump surface to image file here
@@ -364,8 +455,8 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
                 SDL_SaveBMP(savesurface, outfile.c_str());  // output_file_path from --output
                 SDL_DestroySurface(savesurface);
             }
-            oldtime = currenttime;
-        }
+//            oldtime = currenttime;
+//        }
     }
     return(SDL_APP_CONTINUE);
 }

@@ -108,7 +108,8 @@ enum mod_name {
         MOD_POTA	,
         MOD_PSK		,
         MOD_SAT		,
-        MOD_DXSPOT
+        MOD_DXSPOT	,
+        MOD_KINDEX
 };
 
 struct map_pin {

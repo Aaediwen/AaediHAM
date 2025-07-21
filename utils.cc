@@ -8,7 +8,7 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <winhttp.h>
-#else 
+#else
 #include <poll.h>
 #include <error.h>
 #include <curl/curl.h>
@@ -80,7 +80,7 @@ int read_socket(int fd, char** result) {
 #else
                     bytesin = recv(fd, (void*)temp, 1, 0);
 #endif
-                    
+
                     if (bytesin) {
                         temp[1]=0;
                         str_ptr[0]=temp[0];
@@ -378,7 +378,7 @@ int fetch_data_cache(enum mod_name owner, time_t *age, Uint32 *size, void* data)
             current = current->next;
         }	// itterate through the current cache
     } // do we have anything at all cached yet?
-    SDL_Log("Cache miss");
+//    SDL_Log("Cache miss");
     return (0);
 }
 
@@ -407,7 +407,7 @@ int http_loader(const char* source_url, char** result) {
         curlres = curl_easy_perform(curl);
         curl_easy_cleanup(curl);
         if (!curlres) {
-            SDL_Log("Fetched %lu Bytes", httpbuffer.size());
+//            SDL_Log("Fetched %lu Bytes", httpbuffer.size());
             *result = (char*)realloc(*result, httpbuffer.size()+1);
 
             if (*result) {
@@ -431,7 +431,7 @@ int http_loader(const char* source_url, char** result) {
     URL_COMPONENTS exploded_url{};
     ZeroMemory(&exploded_url, sizeof(exploded_url));
     exploded_url.dwStructSize = sizeof(exploded_url);
-    // Set required component lengths to non-zero 
+    // Set required component lengths to non-zero
     // so that they are cracked.
     exploded_url.dwSchemeLength = (DWORD)-1;
     exploded_url.dwHostNameLength = (DWORD)-1;
@@ -487,7 +487,7 @@ int http_loader(const char* source_url, char** result) {
     else {
 //        SDL_Log("Initialized HTTP correctly");
     }
-    
+
     http_connection = WinHttpConnect(http, host.c_str(),
         exploded_url.nPort, 0);
     SDL_Log("Attemped to connect to server. (Error %u)", GetLastError());
@@ -520,7 +520,7 @@ int http_loader(const char* source_url, char** result) {
     full_path = sanitized;
     // Check length and print debug
 //    SDL_Log("Full request path: \"%ls\" (len: %zu)", full_path.c_str(), full_path.length());
-    
+
     // Optional: dump individual wchar_t codes
     for (size_t i = 0; i < full_path.length(); ++i) {
 //        SDL_Log("char[%zu] = 0x%04X", i, full_path[i]);
@@ -571,7 +571,7 @@ int http_loader(const char* source_url, char** result) {
                     SDL_Log("HTTP result MALLOC error\n");
                     break;
                 } else { ZeroMemory(buffer, read_size + 1);  }
-            
+
             }
             if (!WinHttpReadData(http_request, (LPVOID)buffer, read_size, NULL)) {
                 SDL_Log("Error %u in WinHttpReadData.", GetLastError());
@@ -596,7 +596,7 @@ int http_loader(const char* source_url, char** result) {
                 return((int)buffstr.size());
             }
             else {
-                SDL_Log("Curl result MALLOC error");
+                SDL_Log("WinHttp result MALLOC error");
                 WinHttpCloseHandle(http_request);
                 WinHttpCloseHandle(http_connection);
                 WinHttpCloseHandle(http);

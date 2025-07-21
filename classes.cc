@@ -419,6 +419,9 @@ void dxspot::query_qrz () {
                     tag_start += 7;
                     std::string QRZ_Err = keyline.substr(tag_start, tag_stop - tag_start);
                     printf("QRZ Call Lookup Error: %s\n", QRZ_Err.c_str());
+                    if (!QRZ_Err.compare(0,15, "Session Timeout")) {
+                        clockconfig.qrz_key(1);
+                    }
                 }
             }
         }
@@ -437,12 +440,27 @@ TrackedSatellite::TrackedSatellite(const std::string& source_name, const std::st
 
 TrackedSatellite::~TrackedSatellite() {};
 
+void TrackedSatellite::new_tracking(const std::string& source_name, const std::string& l1, const std::string& l2) {
+    name = source_name;
+    tle1=l1;
+    tle2=l2;
+    sat_tle = libsgp4::Tle(name, tle1, tle2);
+    sgp4 = libsgp4::SGP4(sat_tle);
+    telemetry.clear();
+
+}
+
+
+
 std::string& TrackedSatellite::get_name() {
     return (this->name);
 }
 
 time_t TrackedSatellite::pass_start() {
     // get the start time for a satellite pass
+    if (telemetry.empty()) {
+        return 0;
+    }
     for (SatTelemetry point : this->telemetry) {
         if (point.elevation >0) {
             return point.timestamp;
@@ -453,6 +471,9 @@ time_t TrackedSatellite::pass_start() {
 
 time_t TrackedSatellite::pass_end() {
     // get the end time for a satellite pass
+    if (telemetry.empty()) {
+        return 0;
+    }
     bool started_flag=false;
     for (SatTelemetry point : this->telemetry) {
         if (point.elevation >0) {
@@ -472,11 +493,14 @@ time_t TrackedSatellite::pass_end() {
 
 void TrackedSatellite::draw_pass(const time_t pass_start, const time_t pass_end,  std::vector<SDL_FPoint> *pass_pts, const SDL_FRect *size) {
     // render the pass line for a satellite pass
+
+    pass_pts->clear();
     if (!pass_pts) {
         return;
     }
-    pass_pts->clear();
-
+    if (telemetry.empty()) {
+        return;
+    }
     int pass_samples=0;
     for (SatTelemetry point : this->telemetry) {
         if ((point.timestamp >= pass_start) && (point.timestamp <= pass_end)) {
@@ -528,6 +552,7 @@ void TrackedSatellite::location (SDL_FPoint *result) {
 
 bool TrackedSatellite::gen_telemetry(const int resolution, libsgp4::Observer& obs) {
     // generate the telemetry track for a satellite
+    telemetry.clear();
     bool add_flag;
     add_flag=true;
     int i;
@@ -559,8 +584,8 @@ void TrackedSatellite::draw_telemetry(ScreenFrame& map) {
     // draw the satellite's telemetry track on the map
     if (this->telemetry.empty()) { return; }
 
-    SDL_SetRenderTarget(surface, map.texture);
-    SDL_SetRenderDrawColor(surface, this->color.r, this->color.g, this->color.b, this->color.a);
+    SDL_SetRenderTarget(map.renderer, map.texture);
+    SDL_SetRenderDrawColor(map.renderer, this->color.r, this->color.g, this->color.b, this->color.a);
     SDL_FPoint* SDLPoints = (SDL_FPoint*)malloc(sizeof(SDL_FPoint)*this->telemetry.size());
 
     int index=0;
@@ -574,15 +599,15 @@ void TrackedSatellite::draw_telemetry(ScreenFrame& map) {
         cords_to_px(point.lat, point.lon, xt, yt, &(SDLPoints[index]));
         render_size++;
         if (point.elevation >0) {
-            SDL_SetRenderDrawColor(surface, 0, 0, 128, 255);
+            SDL_SetRenderDrawColor(map.renderer, 0, 0, 128, 255);
             SDL_FRect visirect = {SDLPoints[index].x, SDLPoints[index].y, 4.0, 4.0};
-            SDL_RenderFillRect(surface, &visirect);
-            SDL_SetRenderDrawColor(surface, this->color.r, this->color.g, this->color.b, this->color.a);
+            SDL_RenderFillRect(map.renderer, &visirect);
+            SDL_SetRenderDrawColor(map.renderer, this->color.r, this->color.g, this->color.b, this->color.a);
         }
         if (index >1) { // if we have a last point to compare to
             if (abs(SDLPoints[index-1].x - SDLPoints[index].x) > (xt/4)) {      // and the delta is greater than 100
                 //render the current segment
-                SDL_RenderLines(surface, SDLPoints, render_size-1);
+                SDL_RenderLines(map.renderer, SDLPoints, render_size-1);
                 //reset the index
                 index=0;
                 render_size=1;
@@ -593,9 +618,9 @@ void TrackedSatellite::draw_telemetry(ScreenFrame& map) {
         index++;
     }
 
-    SDL_RenderLines(surface, SDLPoints, render_size);
+    SDL_RenderLines(map.renderer, SDLPoints, render_size);
     free (SDLPoints);
-    SDL_SetRenderTarget(surface, NULL);
-    SDL_RenderTexture(surface, map.texture, NULL, &(map.dims));
+    SDL_SetRenderTarget(map.renderer, NULL);
+    SDL_RenderTexture(map.renderer, map.texture, NULL, &(map.dims));
     return;
 }

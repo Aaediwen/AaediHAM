@@ -69,7 +69,7 @@ class TrackedSatellite {
 
 
 
-
+void k_index_chart (ScreenFrame& panel);
 void dx_cluster (ScreenFrame& panel);
 void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int de_dx);
 void draw_callsign(ScreenFrame& panel, TTF_Font* font, const char* callsign);

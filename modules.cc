@@ -33,6 +33,143 @@ using json = nlohmann::json;
 int dxsocket = 0;
 std::vector<dxspot>dxspots;
 
+
+
+void k_index_chart (ScreenFrame& panel) {
+    std::vector<float>k_indices;
+    char* k_index_list = 0 ;
+    Uint32 data_size;
+    time_t cache_time;
+    bool reload_flag = false;
+    data_size = cache_loader(MOD_KINDEX, &k_index_list, &cache_time);
+    if (!data_size) {
+        reload_flag=true;
+    } else if ((time(NULL) - cache_time) > 14400) {
+        reload_flag=true;
+    }
+
+    if (reload_flag) {
+        data_size = http_loader("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json", &k_index_list);   // live
+        if (data_size) {
+            add_data_cache(MOD_KINDEX, data_size, k_index_list);
+        }
+    }
+
+    int goodread;
+    goodread = 1;
+    json k_list;
+    if (data_size && k_index_list) {
+        try {
+            k_list=json::parse(k_index_list);
+        } catch (const json::parse_error &e) {
+            SDL_Log("Kindex Json Parse Error %li bytes %s\n", strlen(k_index_list), k_index_list);
+            goodread=0;
+        }
+        free(k_index_list);
+        k_index_list = nullptr;
+    } else {
+        SDL_Log("K Index Json FETCH Error");
+        goodread=0;
+    }
+    // clear the box
+    panel.Clear();
+    SDL_FRect bar_box;
+//    SDL_Log ("Rendering K index graph");
+    if (goodread) {
+
+        for (auto spot : k_list) {
+            if (!spot.is_array() || spot.size() < 2) continue;
+            std::string index_string;
+            try {
+                index_string = spot[1].get<std::string>();
+                float temp = std::stof(index_string);
+                std::string time_tag = spot[0].get<std::string>();
+//                SDL_Log ("See entry %f", temp);
+                k_indices.push_back(temp);
+                } catch (const std::exception& e) {
+                    SDL_Log("Failed to parse entry: %s -- %s", index_string.c_str(), e.what());
+    }
+
+        }
+        SDL_SetRenderTarget(surface, panel.texture);
+
+
+
+        bar_box.x=1;
+        bar_box.w = (panel.dims.w-2)/k_indices.size();
+//        SDL_Log("Drawing chart size %zu", k_indices.size());
+
+        // render data
+        for (auto spot : k_indices ) {
+            if (spot < 1) {
+                SDL_SetRenderDrawColor(surface, 0, 128, 0, 255);
+            } else if (spot <2) {
+                SDL_SetRenderDrawColor(surface, 0, 128, 128, 255);
+            } else if (spot <3) {
+                SDL_SetRenderDrawColor(surface, 0, 0, 128, 255);
+            }
+             else if (spot <4) {
+                SDL_SetRenderDrawColor(surface, 0, 0, 255, 255);
+            }
+            else if (spot <5) {
+                SDL_SetRenderDrawColor(surface, 0, 255, 255, 255);
+            }
+            else if (spot <6) {
+                SDL_SetRenderDrawColor(surface, 128, 128, 0, 255);
+            }
+            else if (spot <7) {
+                SDL_SetRenderDrawColor(surface, 128, 0, 0, 255);
+            }
+            else if (spot <8) {
+                SDL_SetRenderDrawColor(surface, 200, 0, 0, 255);
+            } else {
+                SDL_SetRenderDrawColor(surface, 255, 0, 0, 255);
+            }
+
+
+            bar_box.h=(panel.dims.h/10)*spot;
+            bar_box.y = panel.dims.h - bar_box.h;
+            SDL_RenderFillRect(surface, &bar_box );
+            bar_box.x += bar_box.w;
+        }
+
+    } else {
+        SDL_Log ("BAD READ");
+    }
+
+
+
+        // graw chart lines
+        SDL_SetRenderDrawColor(surface, 64, 64, 128, 128);
+        for (int c = 0; c < 10 ; c++) {
+            SDL_RenderLine(surface, 0,(panel.dims.h/10)*c, panel.dims.w, (panel.dims.h/10)*c);
+        }
+        if (k_indices.size() >0) {
+        SDL_Color tempcolor={128,128,128,0};
+        bar_box.x=2;
+        bar_box.y=2;
+        bar_box.w=panel.dims.w/4;
+        bar_box.h=panel.dims.h/4;
+        char tempfloat[6];
+        sprintf (tempfloat, "%.1f", k_indices.back());
+        panel.render_text(bar_box, Sans, tempcolor, tempfloat);
+        }
+
+//    SDL_Log ("Read Sat List");
+
+
+    SDL_SetRenderTarget(surface, NULL);
+    SDL_RenderTexture(surface, panel.texture, NULL, &(panel.dims));
+
+    return;
+
+
+}
+
+
+
+
+
 void init_fd() {
         std::string serverip="dxfun.com";
         std::string serverport=std::to_string(8000);
@@ -252,6 +389,9 @@ void dx_cluster (ScreenFrame& panel) {
         }
     }
 //    SDL_Log("Done with DX cluster");
+   SDL_SetRenderTarget(surface, NULL);
+    SDL_RenderTexture(surface, panel.texture, NULL, &(panel.dims));
+
 }
 
 
@@ -354,7 +494,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     time_t cache_time;
 
     SDL_FRect TextRect;
-//    SDL_Log ("In Sat TRracker Module");
+//    SDL_Log ("In Sat Trracker Module");
     delete_owner_pins(MOD_SAT);
     bool reload_flag = false;
     data_size = cache_loader(MOD_SAT, &amateur_tle, &cache_time);
@@ -429,8 +569,8 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
                 }
             }
             if (nextsat) {
-//                nextsat->new_tracking(temp[0], temp[1], temp[2]);
-//                nextsat->gen_telemetry(30, obs);
+                nextsat->new_tracking(temp[0], temp[1], temp[2]);
+                nextsat->gen_telemetry(30, obs);
             } else {
 
                 trackcols.r -= 20;
@@ -441,7 +581,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
                     nextsat = new TrackedSatellite(temp[0], temp[1], temp[2]);
 //                    TrackedSatellite nextsat(temp[0], temp[1], temp[2]);
                     nextsat->color=trackcols;
-                    SDL_Log ("Regenerate track for %s", temp[0].c_str());
+//                    SDL_Log ("Regenerate track for %s", temp[0].c_str());
                     if (nextsat->gen_telemetry(30, obs)) {
                         satlist.push_back(*nextsat);
                     }
@@ -635,11 +775,11 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
                 c++;
             } // spot valid?
         } // foreach spot
-        pota_page[1]++;
-        if (pota_page[1] > 5) {
+//        pota_page[1]++;
+//        if (pota_page[1] > 5) {
             pota_page[0]++;
             pota_page[1]=0;
-        }
+//        }
         if (pota_page[0] > (tot/9)) {
             pota_page[0]=0;
         }
@@ -940,23 +1080,29 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
 
 
 void regen_mask (SDL_Surface* source, SDL_Surface* dest, const SDL_FRect& panel_dims) {
-    tm* utc = gmtime(&currenttime);
+    time_t nowtime = time(nullptr);
+    tm utcroot;
+    tm* utc = gmtime_r(&nowtime, &utcroot);
     SDL_Rect panel_cords, source_cords;
     double softness = 10.0;
     double solar_decl = 23.45 * (sin( (2 * M_PI/365) * (284+(utc->tm_yday+1)) ));
-    SDL_Log("Regen Terminator Alpha Mask — source: %p, dest: %p, dims: %.1fx%.1f",
-    (void*)source, (void*)dest,
-    panel_dims.w, panel_dims.h);
+//    SDL_Log("Regen Terminator Alpha Mask — source: %p, dest: %p, dims: %.1fx%.1f",
+//    (void*)source, (void*)dest,
+//    panel_dims.w, panel_dims.h);
 
     SDL_LockMutex(night_mask_mutex);	/// MUTEX LOCK
 
     Uint8* alpha_pixels = (Uint8*)dest->pixels;
     Uint8* source_pixels = (Uint8*)source->pixels;
-    const Uint8 dest_bpp = SDL_GetPixelFormatDetails(dest->format)->bytes_per_pixel;
-    const Uint8 source_bpp = SDL_GetPixelFormatDetails(source->format)->bytes_per_pixel;
+    const SDL_PixelFormatDetails* source_details = SDL_GetPixelFormatDetails(source->format);
+    const SDL_PixelFormatDetails* dest_details = SDL_GetPixelFormatDetails(dest->format);
+
+    const Uint8 dest_bpp = dest_details->bytes_per_pixel;
+    const Uint8 source_bpp = source_details->bytes_per_pixel;
 
     for (panel_cords.y=0 ; panel_cords.y < floor(panel_dims.h) ; panel_cords.y++) {
     //        SDL_Log("Calculating alpha row %i of %f", panel_cords.y, panel_dims.h);
+            source_cords.y = (panel_cords.y/panel_dims.h)*source->h;
             double lat = 90.0 - (180.0 * panel_cords.y / (double)panel_dims.h);
             for (panel_cords.x=0 ; panel_cords.x < floor(panel_dims.w) ; panel_cords.x++) {
                 Uint8 r, g, b;
@@ -972,14 +1118,13 @@ void regen_mask (SDL_Surface* source, SDL_Surface* dest, const SDL_FRect& panel_
                     alpha = (Uint8)(255.0 * (alt + softness) / (2.0 * softness));
                 }
                 // Write a pixel with the computed alpha
-                source_cords.y = (panel_cords.y/panel_dims.h)*NightMap.surface->h;
-                source_cords.x = (panel_cords.x/panel_dims.w)*NightMap.surface->w;
+
+                source_cords.x = (panel_cords.x/panel_dims.w)*source->w;
                 int source_pixel_index = ( source->w * source_bpp * source_cords.y ) + ( source_bpp * source_cords.x );
                 int dest_pixel_index =   ( dest->w * dest_bpp * panel_cords.y ) + ( dest_bpp * panel_cords.x );
-
                 Uint32 *source_pixel_val=(Uint32*)(source_pixel_index+source_pixels);
-                SDL_GetRGBA( *source_pixel_val, SDL_GetPixelFormatDetails(source->format), NULL, &r, &g, &b, NULL);
-                Uint32 dst_pixel_val = SDL_MapRGBA(SDL_GetPixelFormatDetails(dest->format), NULL, r, g, b, (255 - alpha));
+                SDL_GetRGBA( *source_pixel_val, source_details, NULL, &r, &g, &b, NULL);
+                Uint32 dst_pixel_val = SDL_MapRGBA(dest_details, NULL, r, g, b, (255 - alpha));
                 memcpy((alpha_pixels + dest_pixel_index), &dst_pixel_val, dest_bpp);
 
             }
@@ -992,12 +1137,9 @@ void regen_mask (SDL_Surface* source, SDL_Surface* dest, const SDL_FRect& panel_
 Uint32 SDLCALL regen_mask (void *userdata, SDL_TimerID timerID, Uint32 interval) {
     if (timerID) {
         struct regen_mask_args* args = (struct regen_mask_args*)userdata;
-
-        SDL_Log("Timer Callback — source: %p, dest: %p, dims: %.1fx%.1f",
-            (void*)args->source, (void*)args->dest,
-            args->panel_dims.w, args->panel_dims.h);
-
-
+//        SDL_Log("Timer Callback — source: %p, dest: %p, dims: %.1fx%.1f",
+//            (void*)args->source, (void*)args->dest,
+//            args->panel_dims.w, args->panel_dims.h);
         regen_mask (args->source, args->dest, args->panel_dims);
         return (interval);
     } else {
@@ -1008,7 +1150,6 @@ Uint32 SDLCALL regen_mask (void *userdata, SDL_TimerID timerID, Uint32 interval)
 
 SDL_Surface* night_mask = nullptr;
 SDL_Renderer* old_renderer = nullptr;
-time_t alpha_age = 0;
 int draw_map(ScreenFrame& panel) {
 
     bool regen_mask_flag = false;
@@ -1041,49 +1182,40 @@ int draw_map(ScreenFrame& panel) {
             return 1;
         }
 
-        night_mask_args->source = NightMap.surface;
-        night_mask_args->dest = night_mask;
-        night_mask_args->panel_dims = panel.dims;
+
         if (map_timer) {
             SDL_RemoveTimer(map_timer);
             map_timer = 0;
         }
+        night_mask_args->source = NightMap.surface;
+        night_mask_args->dest = night_mask;
+        night_mask_args->panel_dims = panel.dims;
         map_timer = SDL_AddTimer(30000, regen_mask, night_mask_args);
         old_renderer = panel.renderer;
-        SDL_Log("Regen NightMask -- bad renderer");
+//        SDL_Log("Regen NightMask -- bad renderer");
         regen_mask_flag = true;
     }
-//    if ((time(NULL) - alpha_age) > 60) {
-//        regen_mask_flag = true;
-
-//    }
-//    Uint8* alpha_pixels = (Uint8*)night_mask->pixels;
-//    Uint8* source_pixels = (Uint8*)NightMap.surface->pixels;
-//    const Uint8 dest_bpp = SDL_GetPixelFormatDetails(night_mask->format)->bytes_per_pixel;
-//    const Uint8 source_bpp = SDL_GetPixelFormatDetails(NightMap.surface->format)->bytes_per_pixel;
     if (regen_mask_flag) {
-        SDL_Log("Regen NightMask");
-         regen_mask (NightMap.surface, night_mask, panel.dims);
-//        alpha_age=time(NULL);
+//        SDL_Log("Regen NightMask");
         // calculate the NightMap Alpha mask
-
+         regen_mask (NightMap.surface, night_mask, panel.dims);
     }
     // render the masked NightMap to the panel
 //    SDL_Log("render the masked NightMap to the panel");
     SDL_LockMutex(night_mask_mutex);	/// MUTEX LOCK
     SDL_Texture* mask_tex = SDL_CreateTextureFromSurface(surface, night_mask);
     SDL_UnlockMutex(night_mask_mutex);	/// MUTEX UNLOCK
-//    SDL_DestroySurface(night_mask);
     if (!mask_tex) {
         SDL_Log("Failed to create mask texture: %s", SDL_GetError());
         return 1;
     }
     //set the blend mode for the alpha overlay of Night Map
     SDL_SetTextureBlendMode(mask_tex, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderTarget(surface, panel.texture);
+//    SDL_SetRenderTarget(surface, panel.texture);
     SDL_RenderTexture(surface, mask_tex, NULL, NULL);
     SDL_DestroyTexture(mask_tex);
     SDL_RenderTexture(surface, CountriesMap.texture, NULL, NULL);
+
     // draw equator and tropics
     SDL_SetRenderDrawColor(surface, 128,128,128,64);
     SDL_RenderLine(surface, 0,(panel.dims.h/2), panel.dims.w, (panel.dims.h/2));
@@ -1093,6 +1225,7 @@ int draw_map(ScreenFrame& panel) {
     SDL_RenderLine(surface, 0,tropic, panel.dims.w, tropic);
     tropic = ((23.4+90) * panel.dims.h)/180;
     SDL_RenderLine(surface, 0,tropic, panel.dims.w, tropic);
+
 //    SDL_Log("draw map pins");
     if (map_pins) {
         struct map_pin* current_pin;
@@ -1103,7 +1236,6 @@ int draw_map(ScreenFrame& panel) {
             current_pin=current_pin->next;
         }
     }
-
 
     // map the result to the window
     SDL_SetRenderTarget(surface, NULL);
