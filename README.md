@@ -58,6 +58,7 @@ Library dependancies:
  <LI>Country Border        --  Made with Natural Earth. Free vector and raster map data @ naturalearthdata.com.</LI>
  <LI>POTA Spots            --  https://api.pota.app/spot/activator</LI>
  <LI>Satellite Data        --  https://celestrak.org/NORAD/elements/</LI>
+ <LI>K Index Data          --  https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json
  <LI>DX Spots              --  Telnet: dxfun.com:8000 </LI> 
  <LI>QRZ API               --  http://xmldata.qrz.com/</LI>  
  </UL>
