@@ -46,8 +46,9 @@ Library dependancies:
  <LI>SDL3          -- https://wiki.libsdl.org/SDL3/FrontPage</LI>
  <LI>SDL3-TTF      -- https://wiki.libsdl.org/SDL3_ttf/FrontPage</LI>
  <LI>GNU LibMath   -- https://www.gnu.org/software/libc/</LI>
- <LI>LibCurl      -- https://curl.se/libcurl/</LI>
- <LI>LibSGP4      -- https://github.com/dnwrnr/sgp4</LI>
+ <LI>LibCurl       -- https://curl.se/libcurl/</LI>
+ <LI>LibSGP4       -- https://github.com/dnwrnr/sgp4</LI>
+ <LI>FontConfig    -- https://www.freedesktop.org/wiki/Software/fontconfig/ (Linux Only)</LI>
  </UL>
 <HR>
 
