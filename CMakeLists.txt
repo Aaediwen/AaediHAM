@@ -10,6 +10,14 @@ set(SOURCES
     utils.cc
     modules.cc
     classes.cc
+    modules/kindex.cc
+    modules/dx_spots.cc
+    modules/sat_tracker.cc
+    modules/de_dx.cc
+    modules/pota.cc
+    modules/callsign.cc
+    modules/map.cc
+    modules/clock.cc
 )
 
 if(MSVC)
@@ -48,5 +56,6 @@ else()
     find_package(SDL3 REQUIRED)
     find_package(SDL3_ttf REQUIRED)
     set(SGP4_LIB sgp4s)
-    target_link_libraries(clock PRIVATE ZLIB::ZLIB CURL::libcurl SDL3::SDL3 SDL3_ttf::SDL3_ttf ${SGP4_LIB} m)
+    target_link_libraries(clock PRIVATE ZLIB::ZLIB CURL::libcurl SDL3::SDL3 SDL3_ttf::SDL3_ttf ${SGP4_LIB} m
+    fontconfig)
 endif()

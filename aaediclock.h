@@ -7,10 +7,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <fstream>
-//#include <unistd.h>
-//#include <math.h>
-
-//#include <SDL3/SDL_main.h>
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
 #include <vector>
@@ -24,8 +20,6 @@ struct regen_mask_args {
 extern struct regen_mask_args* night_mask_args;
 extern SDL_Mutex* night_mask_mutex;
 extern SDL_TimerID map_timer;
-extern SDL_Window* window;
-extern SDL_Renderer* surface;
 extern TTF_Font* Sans;
 extern time_t currenttime;
 
@@ -42,7 +36,7 @@ class ScreenFrame {
         void draw_border();
         void Clear(const SDL_Color& color = {0, 0, 0, 255});
         void render_text(const SDL_FRect& text_box, TTF_Font *font, const SDL_Color& color, const char* str);
-
+        void present();
 };
 extern ScreenFrame DayMap;
 extern ScreenFrame NightMap;

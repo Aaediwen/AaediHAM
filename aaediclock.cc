@@ -5,11 +5,18 @@
 #include "aaediclock.h"
 #include "utils.h"
 #include "modules.h"
+
 #ifdef _WIN32
 #include <cstdlib>
+#include <windows.h>
+#include <wingdi.h>
+#else
+#include <fontconfig/fontconfig.h>
 #endif
-SDL_Window		*window;
-SDL_Renderer		*surface;
+
+
+static SDL_Window		*window = nullptr;
+static SDL_Renderer		*surface = nullptr;
 TTF_Font		*Sans;
 time_t 			currenttime;
 ScreenFrame 	DayMap;
@@ -218,7 +225,7 @@ void resize_panels(struct surfaces* panels) {
         }
 
         // recreate the map textures as well so they don't get lost
-        load_maps();
+        load_maps(surface);
 
 
         master_flags.draw_callsign_flag = true;
@@ -236,6 +243,136 @@ void resize_panels(struct surfaces* panels) {
 }
 
 bool headless=false;
+
+//
+
+
+//
+#ifdef _WIN32
+extern "C" int CALLBACK WinFontCallback(const LOGFONT * lpelfe, const TEXTMETRIC * lpntme, DWORD FontType, LPARAM lParam) {
+    std::string* outFontName = reinterpret_cast<std::string*>(lParam);
+    if (lParam && lpelfe && lpelfe->lfFaceName[0]) {  // we got a font with a name
+        *outFontName = lpelfe->lfFaceName;
+//        SDL_Log("Font Callback Checking %s", outFontName->c_str());
+        if (lpelfe->lfItalic || lpelfe->lfUnderline || lpelfe->lfStrikeOut) {
+            SDL_Log("Font Callback Bad Font, %s", outFontName->c_str());
+            return 1; // Next Font    
+        }
+        SDL_Log("Font Callback Returning %s", outFontName->c_str());
+        return 0;
+        
+    }
+    else {
+        SDL_Log("Font Callback Bad Font, no name");
+        return 1; // Continue enumeration
+    }
+    
+}
+#endif 
+
+std::string FindFont(const char* fontname) {
+
+    std::string path;
+    path.clear();
+#ifndef _WIN32
+    FcInit();
+    FcPattern* pat = FcNameParse((const FcChar8*)fontname);	// generate a FontConfig pattern class for "sans"
+    FcBool checksubs = FcConfigSubstitute(NULL, pat, FcMatchPattern);	// pattern match the font name
+    if (checksubs) {
+    FcDefaultSubstitute(pat);					// get default options in *pat
+
+    FcResult fcresult;
+    FcPattern *font =  FcFontMatch(NULL, pat, &fcresult);	// find closest font match for 'sans'
+
+    if (font) {
+        FcChar8 *file, *style, *family;
+        FcPatternGetString(font, FC_FILE, 0, &file);
+        FcPatternGetString(font, FC_FAMILY, 0, &family);
+        FcPatternGetString(font, FC_STYLE, 0, &style);
+        printf("Filename: %s (family %s, style %s)\n", file, family, style);
+        path = reinterpret_cast<char*>(file);
+        FcPatternDestroy(font);
+    } else {
+        SDL_Log("No valid font found!");
+    }
+    } else {
+        SDL_Log("FontConfig Substitute Check Failure!");
+    }
+    FcPatternDestroy(pat);
+    FcFini();
+#else
+
+
+    struct ::LOGFONTA font_criteria;
+    font_criteria.lfHeight = 0;
+    font_criteria.lfWidth = 0;
+    font_criteria.lfEscapement = 0;
+    font_criteria.lfOrientation = 0;
+    font_criteria.lfWeight = FW_NORMAL;
+    font_criteria.lfItalic = FALSE;
+    font_criteria.lfUnderline = FALSE;
+    font_criteria.lfStrikeOut = FALSE;
+    font_criteria.lfCharSet = DEFAULT_CHARSET;
+    font_criteria.lfOutPrecision = OUT_DEFAULT_PRECIS;
+    font_criteria.lfClipPrecision = CLIP_DEFAULT_PRECIS;
+    font_criteria.lfQuality = DEFAULT_QUALITY;
+    font_criteria.lfPitchAndFamily = DEFAULT_PITCH & FF_DONTCARE;
+//    font_criteria.lfFaceName[0] = '\0';
+    strncpy_s(font_criteria.lfFaceName, fontname, LF_FACESIZE);
+    std::string facename;
+    EnumFontFamiliesExA(GetDC(NULL), &font_criteria, WinFontCallback, reinterpret_cast<LPARAM>(&facename), 0);
+    SDL_Log("Returning %s", facename.c_str());
+
+
+    HKEY hKey;
+    LONG result = RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Fonts", 0, KEY_READ, &hKey );
+    if (result != ERROR_SUCCESS)
+    {
+        if (result == ERROR_FILE_NOT_FOUND) {
+            printf("Font Registry Key not found.\n");
+            return (path);
+        }
+        else {
+            printf("Error Font Registry key.\n");
+            return (path);
+        }
+    }
+
+    char valueName[256];
+    BYTE valueData[256];
+    DWORD valueNameSize, valueDataSize, valueType;
+    std::string fontFilename;
+    for (DWORD i = 0; ; ++i) {                              // hunt through teh registry for the indicated font
+        valueNameSize = sizeof(valueName);
+        valueDataSize = sizeof(valueData);
+        result = RegEnumValueA( hKey, i, valueName, &valueNameSize, nullptr, &valueType, valueData, &valueDataSize ); // read the next registry key
+
+        if (result == ERROR_NO_MORE_ITEMS) break;           // check if we read a valid key
+        if (result != ERROR_SUCCESS) continue;
+
+                                                // if we did, is it the one we want?
+        if (std::string(valueName).find(facename+" (") != std::string::npos && valueType == REG_SZ) {
+            fontFilename = reinterpret_cast<const char*>(valueData);
+            break;
+        }
+    }
+    std::string fullFontPath;
+    if (!fontFilename.empty()) {
+        char winDir[MAX_PATH];
+        GetWindowsDirectoryA(winDir, MAX_PATH);
+        path = std::string(winDir) + "\\Fonts\\" + fontFilename;
+    }
+
+
+
+    RegCloseKey(hKey);
+//    path = "Arial.ttf";
+#endif
+    return (path);
+
+}
+
+
 int window_init(int x, int y) {
     if (!window) {
         // create the main window
@@ -251,13 +388,20 @@ int window_init(int x, int y) {
             return(1);
         }
         // load assets
-        Sans = TTF_OpenFont("arial.ttf", 72);
+//        Sans = TTF_OpenFont("arial.ttf", 72);
+#ifndef _WIN32
+        Sans = TTF_OpenFont(FindFont("sans").c_str(), 72);
+#else
+        Sans = TTF_OpenFont(FindFont("Arial").c_str(), 72);
+#endif
         if (!Sans) {
             printf("Error opening font: %s\n", SDL_GetError());
             return(1);
         }
         TTF_SetFontHinting(Sans, TTF_HINTING_LIGHT_SUBPIXEL);
-        load_maps();
+
+
+        load_maps(surface);
 
         // initial draws
         currenttime=time(NULL);
@@ -426,7 +570,6 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 
         }
         if (master_flags.draw_kindex_flag) {
-
             k_index_chart (winboxes.rowbox4);
             winboxes.rowbox4.draw_border();
             master_flags.draw_kindex_flag = false;
@@ -440,9 +583,18 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         }
         if (master_flags.draw_dx_spots_flag) {
             dx_cluster (winboxes.rowbox3);
+            
             master_flags.draw_dx_spots_flag = false;
         }
-
+        winboxes.callsign.present();
+        winboxes.clock.present();
+        winboxes.map.present();
+        winboxes.de.present();
+        winboxes.dx.present();
+        winboxes.rowbox1.present();
+        winboxes.rowbox2.present();
+        winboxes.rowbox3.present();
+        winboxes.rowbox4.present();
             SDL_UnlockMutex(master_clock_mutex);
             SDL_RenderPresent(surface);
             if (headless && (!outfile.empty())) {
