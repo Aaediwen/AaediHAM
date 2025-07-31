@@ -9,8 +9,6 @@
 #include "modules/callsign.h"
 #include "modules/map.h"
 #include "modules/clock.h"
-
-
-
+#include "modules/ncdxf.h"
 #endif
 

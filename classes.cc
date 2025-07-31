@@ -130,7 +130,7 @@ void config::qrz_sesskey() {
     Uint32 key_size;
     //std::string url = "https://xmldata.qrz.com/xml/current/?username="+m_CallSign+"&password="+m_QRZ.Secret;
     std::string url = "https://xmldata.qrz.com/xml/current/?username=" + m_CallSign + ";password=" + m_QRZ.Secret;
-    key_size = http_loader(url.c_str(), &xml);
+    key_size = http_loader(url.c_str(), (void**)&xml);
     if (key_size) {
         // parse XML for session key
         std::istringstream stream(xml);

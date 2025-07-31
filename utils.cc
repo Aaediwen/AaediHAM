@@ -318,7 +318,7 @@ int delete_mod_cache(enum mod_name owner) {
 
 }
 
-int add_data_cache(enum mod_name owner, const Uint32 size, void* data) {
+int add_data_cache(enum mod_name owner, const Uint32 size, const void* data) {
     delete_mod_cache(owner);
 
     // add a new data_cache for a module
@@ -347,6 +347,7 @@ int add_data_cache(enum mod_name owner, const Uint32 size, void* data) {
     if (empty_locker->data) {
         memset(empty_locker->data, 0, size + 1);
         memcpy(empty_locker->data, data, size);
+        ((char*)empty_locker->data)[size] = '\0';
     } else {
         return (0);
     }
@@ -389,7 +390,7 @@ size_t cache_http_callback( char* in, size_t size, size_t nmemb, void* out) {
     return (size*nmemb);
 }
 
-int http_loader(const char* source_url, char** result) {
+int http_loader(const char* source_url, void** result) {
 #ifndef _WIN32          // *NIX version starts here
     CURLcode curlres;
     std::string httpbuffer;
@@ -408,7 +409,7 @@ int http_loader(const char* source_url, char** result) {
         curl_easy_cleanup(curl);
         if (!curlres) {
 //            SDL_Log("Fetched %lu Bytes", httpbuffer.size());
-            *result = (char*)realloc(*result, httpbuffer.size()+1);
+            *result = realloc(*result, httpbuffer.size()+1);
 
             if (*result) {
                 // return our result text in *result
@@ -612,7 +613,7 @@ int http_loader(const char* source_url, char** result) {
 #endif
 }
 
-Uint32 cache_loader(const enum mod_name owner, char** result, time_t *result_time) {
+Uint32 cache_loader(const enum mod_name owner, void** result, time_t *result_time) {
     Uint32 cache_size;
 //    time_t cache_age;
     int cache_success = 0;
@@ -623,7 +624,7 @@ Uint32 cache_loader(const enum mod_name owner, char** result, time_t *result_tim
 //        SDL_Log("Fetching %i Bytes from cache", cache_size);
         char *temp = (char*)realloc(*result, cache_size+1);
         if (temp) {
-            *result = temp;
+            *result = (void*)temp;
             memset(*result, 0, cache_size + 1);
             cache_success = fetch_data_cache(owner, result_time, &cache_size, *result);
             if (cache_success) {

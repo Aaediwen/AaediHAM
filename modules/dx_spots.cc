@@ -113,7 +113,7 @@ void dxspot::query_qrz () {
     }
     if (!clockconfig.qrz_key().empty()) {
         std::string url = "https://xmldata.qrz.com/xml?s=" + clockconfig.qrz_key() + ";callsign=" + dx;
-        xml_size = http_loader(url.c_str(), &xml);
+        xml_size = http_loader(url.c_str(), (void**)&xml);
         if (xml_size) {
             // parse XML for session key
             std::istringstream stream(xml);

@@ -1,6 +1,6 @@
 #include <libsgp4/SGP4.h>
 #include <libsgp4/Observer.h>
-
+#include <memory>
 #include "../aaediclock.h"
 
 
@@ -18,14 +18,18 @@ class TrackedSatellite {
         std::string name;
         std::string tle1;
         std::string tle2;
-        libsgp4::Tle sat_tle;
-        libsgp4::SGP4 sgp4;
+        libsgp4::Tle* sat_tle;
+        libsgp4::SGP4* sgp4;
         std::vector<struct SatTelemetry> telemetry;
 
     public:
         SDL_Color color;
         TrackedSatellite(const std::string& source_name, const std::string& l1, const std::string& l2);
         ~TrackedSatellite();
+        TrackedSatellite(TrackedSatellite&& source) noexcept;	// move constructor
+        TrackedSatellite& operator=(TrackedSatellite&& source) noexcept;     // move with replace
+        TrackedSatellite(const TrackedSatellite& source);		// copy to new
+        TrackedSatellite& operator=(const TrackedSatellite& source);	// copy over existing
         std::string& get_name();
         void new_tracking(const std::string& source_name, const std::string& l1, const std::string& l2);
         time_t pass_start();

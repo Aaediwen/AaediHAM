@@ -121,10 +121,10 @@ void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int 
     panel.render_text(TextRect, font, fontcolor, tempstr);
 
     // render solar angle
-    TextRect.x=(panel.dims.w/3)+4;
+    TextRect.x=(panel.dims.w/3)+8;
     TextRect.y=((panel.dims.h)/4)*3;
-    TextRect.h=(panel.dims.h)/8;
-    TextRect.w=(panel.dims.w/3)-8;
+    TextRect.h=(panel.dims.h)/10;
+    TextRect.w=(panel.dims.w/3)-16;
     test_time = localtime(&sunset);
     sprintf (tempstr, "%2.2f", solar_alt);
     panel.render_text(TextRect, font, fontcolor, tempstr);
@@ -137,6 +137,7 @@ void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int 
     test_time = localtime(&sunset);
     strftime(tempstr, 12, "S%H:%M", test_time);
     panel.render_text(TextRect, font, fontcolor, tempstr);
+
 
     // clean up
     TTF_SetFontSize(font,oldsize);

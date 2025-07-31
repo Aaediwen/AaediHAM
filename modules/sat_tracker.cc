@@ -4,23 +4,103 @@
 #include "../aaediclock.h"
 #include "../utils.h"
 
-TrackedSatellite::TrackedSatellite(const std::string& source_name, const std::string& l1, const std::string& l2): name(source_name), tle1(l1), tle2(l2), sat_tle(name, tle1, tle2), sgp4(sat_tle) {
+TrackedSatellite::TrackedSatellite(const std::string& source_name, const std::string& l1, const std::string& l2): name(source_name), tle1(l1), tle2(l2) {
+     sat_tle = new libsgp4::Tle(name, tle1, tle2);
+     sgp4 = new libsgp4::SGP4(*sat_tle);
 
 };
 
-TrackedSatellite::~TrackedSatellite() {};
+TrackedSatellite::~TrackedSatellite() {
+    delete sgp4;
+    delete sat_tle;
+};
 
 void TrackedSatellite::new_tracking(const std::string& source_name, const std::string& l1, const std::string& l2) {
     name = source_name;
     tle1=l1;
     tle2=l2;
-    sat_tle = libsgp4::Tle(name, tle1, tle2);
-    sgp4 = libsgp4::SGP4(sat_tle);
+    if (sgp4) {
+        delete sgp4;
+    }
+    if (sat_tle) {
+        delete sat_tle;
+    }
+    sat_tle = new libsgp4::Tle(name, tle1, tle2);
+    sgp4 = new libsgp4::SGP4(*sat_tle);
     telemetry.clear();
 
 }
 
+TrackedSatellite::TrackedSatellite(TrackedSatellite&& source) noexcept {	// move constructor -- C++11
+    name = std::move(source.name);
+    tle1 = std::move(source.tle1);
+    tle2 = std::move(source.tle2);
+    sat_tle = source.sat_tle;
+    source.sat_tle=nullptr;
+    sgp4 = source.sgp4;
+    source.sgp4=nullptr;
+    color = std::move(source.color);
+    telemetry = std::move(source.telemetry);
 
+}
+
+TrackedSatellite& TrackedSatellite::operator=(TrackedSatellite&& source) noexcept {    // move with overwrite -- C++11
+    if (this != &source) {
+        name.clear();
+        name = std::move(source.name);
+        tle1.clear();
+        tle1 = std::move(source.tle1);
+        tle2.clear();
+        tle2 = std::move(source.tle2);
+        if (sat_tle) {
+            delete (sat_tle);
+        }
+        sat_tle = source.sat_tle;
+        source.sat_tle=nullptr;
+        if (sgp4) {
+            delete (sgp4);
+        }
+        sgp4 = source.sgp4;
+        source.sgp4=nullptr;
+        color = std::move(source.color);
+        telemetry.clear();
+        telemetry = std::move(source.telemetry);
+    }
+    return (*this);
+}
+
+TrackedSatellite::TrackedSatellite(const TrackedSatellite& source) {              // copy to new
+    name = source.name;
+    tle1 = source.tle1;
+    tle2 = source.tle2;
+    sat_tle = new libsgp4::Tle(name, tle1, tle2);
+    sgp4 = new libsgp4::SGP4(*sat_tle);
+    color = source.color;
+    telemetry = source.telemetry;
+
+}
+
+TrackedSatellite& TrackedSatellite::operator=(const TrackedSatellite& source) { // copy with overwrite
+    if (this != &source) {
+        name.clear();
+        name = source.name;
+        tle1.clear();
+        tle1 = source.tle1;
+        tle2.clear();
+        tle2 = source.tle2;
+        if (sat_tle) {
+            delete (sat_tle);
+        }
+        sat_tle = new libsgp4::Tle(name, tle1, tle2);
+        if (sgp4) {
+            delete (sgp4);
+        }
+        sgp4 = new libsgp4::SGP4(*sat_tle);
+        color = source.color;
+        telemetry = source.telemetry;
+    }
+    return (*this);
+}
 
 std::string& TrackedSatellite::get_name() {
     return (this->name);
@@ -112,7 +192,7 @@ void TrackedSatellite::add_telemetry(const double lat,const double lon, const do
 void TrackedSatellite::location (SDL_FPoint *result) {
     // get the current lat/lon over which the satellite currently is
     libsgp4::DateTime dt = libsgp4::DateTime::Now();
-    libsgp4::Eci eci = this->sgp4.FindPosition(dt);
+    libsgp4::Eci eci = this->sgp4->FindPosition(dt);
     libsgp4::CoordGeodetic geo = eci.ToGeodetic();
     result->x = geo.latitude * (180/M_PI);
     result->y = geo.longitude * (180/M_PI);
@@ -126,14 +206,14 @@ bool TrackedSatellite::gen_telemetry(const int resolution, libsgp4::Observer& ob
     bool add_flag;
     add_flag=true;
     int i;
-    double mean_motion =  this->sat_tle.MeanMotion();
+    double mean_motion =  this->sat_tle->MeanMotion();
     double period = (1440*60)/mean_motion; // period in seconds
     i = floor(period/resolution);
     for (int offset = 0 ; offset < (i*resolution) ; offset +=resolution) {
         try {
            libsgp4::DateTime dt = libsgp4::DateTime::Now().AddSeconds(offset);
         //    libsgp4::DateTime dt = this->sat_tle.Epoch().AddSeconds(offset);
-            libsgp4::Eci eci = this->sgp4.FindPosition(dt);
+            libsgp4::Eci eci = this->sgp4->FindPosition(dt);
             libsgp4::CoordGeodetic geo = eci.ToGeodetic();
             libsgp4::CoordTopocentric topo = obs.GetLookAngle(eci);
             double lat_deg = geo.latitude * (180/M_PI);
@@ -294,6 +374,15 @@ void pass_tracker(ScreenFrame& panel, TrackedSatellite& sat) {
 Uint16 pass_pager[2] = {0,0};
 std::vector<TrackedSatellite> satlist;
 void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
+    struct tle_cache {
+        char name[80];
+        char line1[80];
+        char line2[80];
+        SDL_Color color;
+        bool draw;
+    };
+
+    std::istringstream tle_raw;
     char* amateur_tle = 0 ;
     Uint32 data_size;
     time_t cache_time;
@@ -302,20 +391,81 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
 //    SDL_Log ("In Sat Trracker Module");
     delete_owner_pins(MOD_SAT);
     bool reload_flag = false;
-    data_size = cache_loader(MOD_SAT, &amateur_tle, &cache_time);
+    data_size = cache_loader(MOD_SAT, (void**)&amateur_tle, &cache_time);
+
     if (!data_size) {
         reload_flag=true;
     } else if ((time(NULL) - cache_time) > 14400) {
         reload_flag=true;
     }
-
-    if (reload_flag) {
+    if (reload_flag) {	// fetch new
+        std::ostringstream cache_stream;
 //        data_size = http_loader("https://aaediwen.theaudioauthority.net/morse/celestrak", &amateur_tle);      // debug
-        data_size = http_loader("https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle", &amateur_tle);   // live
+        data_size = http_loader("https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle", (void**)&amateur_tle);   // live
         satlist.clear();
         if (data_size) {
-            add_data_cache(MOD_SAT, data_size, amateur_tle);
-        }
+//            SDL_Log ("Fetched New Sat data");
+            tle_raw.clear();
+            std::istringstream iostring_buffer;
+            std::string sanitized(amateur_tle);  // Make a copy (if amateur_tle is char*)
+            sanitized.erase(std::remove(sanitized.begin(), sanitized.end(), '\r'), sanitized.end());
+            iostring_buffer.clear();
+            iostring_buffer.str(sanitized);
+            SDL_Color trackcols = {255,0,0,255};
+            data_size = 0;
+//            SDL_Log ("Itterating Sat Data");
+            while (true) {
+                struct tle_cache new_cache;
+                memset(&new_cache, 0, sizeof(new_cache));
+                std::string instring;
+                std::getline(iostring_buffer, instring);
+                strncpy(new_cache.name, instring.c_str(),80);
+                new_cache.name[79]=0;
+                std::getline(iostring_buffer, instring);
+                strncpy(new_cache.line1, instring.c_str(),80);
+                new_cache.line1[79]=0;
+                std::getline(iostring_buffer, instring);
+                strncpy(new_cache.line2, instring.c_str(),80);
+                new_cache.line2[79]=0;
+                if (new_cache.name[0] && new_cache.line1[0] && new_cache.line2[0]) { // valid entry?
+                    new_cache.draw=false;
+                    trackcols.r -= 20;
+                    trackcols.g += 20;
+                    trackcols.b += 10;
+                    for (const std::string& stropt : clockconfig.Sats()) {
+                        instring = new_cache.name;
+                	if (instring.compare(0,stropt.length(),stropt)==0) {
+                    		new_cache.draw=true;
+                    		new_cache.color = trackcols;
+                	}
+                    }
+//                    cache_stream.write(new_cache.name, 80);
+//                    cache_stream.write(new_cache.line1, 80);
+//                    cache_stream.write(new_cache.line2, 80);
+//                    cache_stream.write(reinterpret_cast<const char*>(&new_cache.color), sizeof(SDL_Color));
+//                    cache_stream.write(reinterpret_cast<const char*>(&new_cache.draw), sizeof(bool));
+                    cache_stream.write(reinterpret_cast<const char*>(&new_cache), sizeof(new_cache));
+                    if (new_cache.draw) {
+//                        SDL_Log ("Write Sat %s draw = %d", new_cache.name, new_cache.draw);
+                    }
+                } else { break; }
+
+
+            }
+
+
+            std::string blob = cache_stream.str();
+            SDL_Log ("caching %li Bytes of Sat Data", blob.length());
+            add_data_cache(MOD_SAT, blob.length(), (void*)blob.data());
+            data_size = blob.length();
+            tle_raw.clear();
+            tle_raw.str(blob);
+        } // we got input data
+    } else {	// use cache[D
+        tle_raw.clear();
+        std::string sanitized(amateur_tle);
+        tle_raw.str(sanitized);
+//        SDL_Log ("Using %i Bytes of Cached Data!", data_size);
     }
 
 //    SDL_Log ("Read Sat List");
@@ -333,69 +483,47 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     TextRect.y += ((panel.dims.h/11)+(panel.dims.h/150));
 
     if (data_size) {
-//      SDL_Log ("We have tracking data: %i Bytes", data_size);
+//        SDL_Log ("We have tracking data: %i Bytes", data_size);
     } else {
         SDL_Log ("Tracking Data Fetch Error!");
         return;
     }
 
-
-    Uint32 read_flag = 1;
-    std::istringstream iostring_buffer;
-    std::string sanitized(amateur_tle);  // Make a copy (if amateur_tle is char*)
-    sanitized.erase(std::remove(sanitized.begin(), sanitized.end(), '\r'), sanitized.end());
-    iostring_buffer.clear();
-    iostring_buffer.str(sanitized);
-    std::string temp[3]; // name line1, line 2
-
     libsgp4::Observer obs(clockconfig.DE().latitude, clockconfig.DE().longitude, 0.27); // need a way to manage altitude here (last arg)
-    SDL_Color trackcols = {255,0,0,255};
     // read the TLE data from Celestrak
 //    SDL_Log ("Reading Sat lists from Celestrak");
-    while (read_flag) {
+    struct tle_cache temp;
+    while (tle_raw.read(reinterpret_cast<char*>(&temp), sizeof(temp))) {
         // read the TLE for a sat
-        std::getline(iostring_buffer, temp[0]);
-        std::getline(iostring_buffer, temp[1]);
-        std::getline(iostring_buffer, temp[2]);
-        if (temp[0].length() && temp[1].length() && temp[2].length()) {
-            // is it one we want to show?
-            bool draw_flag=false;
-            for (const std::string& stropt : clockconfig.Sats()) {
-                if (temp[0].compare(0,stropt.length(),stropt)==0) {
-                    draw_flag=true;
-                }
-            }
-            // check if the sat exists in satlist
-             TrackedSatellite *nextsat = nullptr;
-             if (draw_flag) {
-                 for (TrackedSatellite& sat : satlist) {
-                    if (temp[0].compare(0,sat.get_name().length(),sat.get_name())==0) {
-                        nextsat = &sat;
-                    }
+        // is it one we want to show?
+//        SDL_Log("Read Sat %s with draw=%d", temp.name, temp.draw);
+        bool draw_flag=temp.draw;
+        // check if the sat exists in satlist
+        TrackedSatellite *nextsat = nullptr;
+        if (draw_flag) {
+
+            std::string name(temp.name);
+            std::string line1(temp.line1);
+            std::string line2(temp.line2);
+            for (TrackedSatellite& sat : satlist) {
+                if (name.compare(0,sat.get_name().length(),sat.get_name())==0) {
+                    nextsat = &sat;
                 }
             }
             if (nextsat) {
                 if (reload_flag) {
-                    nextsat->new_tracking(temp[0], temp[1], temp[2]);
+                    nextsat->new_tracking(name, line1, line2);
                     nextsat->gen_telemetry(30, obs);
                 }
             } else {
-
-                trackcols.r -= 20;
-                trackcols.g += 20;
-                trackcols.b += 10;
-                // if so, calculate the track for it
-                if (draw_flag) {
-                    nextsat = new TrackedSatellite(temp[0], temp[1], temp[2]);
-//                    TrackedSatellite nextsat(temp[0], temp[1], temp[2]);
-                    nextsat->color=trackcols;
-//                    SDL_Log ("Regenerate track for %s", temp[0].c_str());
-                    if (nextsat->gen_telemetry(30, obs)) {
-                        satlist.push_back(*nextsat);
-                    }
+                nextsat = new TrackedSatellite(temp.name, temp.line1, temp.line2);
+                nextsat->color=temp.color;
+//                SDL_Log ("Regenerate track for %s", temp.name);
+                if (nextsat->gen_telemetry(30, obs)) {
+                    satlist.push_back(std::move(*nextsat));
                 }
             }
-        } else { break; }
+        }
     } // read from Celestrak
     if (amateur_tle) {
         free(amateur_tle);

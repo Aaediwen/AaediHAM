@@ -18,6 +18,8 @@ set(SOURCES
     modules/callsign.cc
     modules/map.cc
     modules/clock.cc
+    modules/ncdxf.cc
+#    modules/sun.cc
 )
 
 if(MSVC)
@@ -57,5 +59,5 @@ else()
     find_package(SDL3_ttf REQUIRED)
     set(SGP4_LIB sgp4s)
     target_link_libraries(clock PRIVATE ZLIB::ZLIB CURL::libcurl SDL3::SDL3 SDL3_ttf::SDL3_ttf ${SGP4_LIB} m
-    fontconfig)
+    fontconfig jpeg)
 endif()

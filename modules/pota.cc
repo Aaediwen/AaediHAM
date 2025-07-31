@@ -30,14 +30,14 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
     int reload_flag =0;
     // fetch the POTA spot data
     delete_owner_pins(MOD_POTA);
-    data_size = cache_loader(MOD_POTA, &json_spots, &cache_time);
+    data_size = cache_loader(MOD_POTA, (void**)&json_spots, &cache_time);
     if (!data_size) {
         reload_flag=1;
     } else if ((time(NULL) - cache_time) > 300) {
         reload_flag=1;
     }
     if (reload_flag) {
-         data_size = http_loader("https://api.pota.app/spot/activator", &json_spots);                           // live
+         data_size = http_loader("https://api.pota.app/spot/activator", (void**)&json_spots);                           // live
 //         data_size = http_loader("https://aaediwen.theaudioauthority.net/morse/activator", &json_spots);      // debug
          if (data_size) {
              add_data_cache(MOD_POTA, data_size, json_spots);
@@ -56,7 +56,7 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
         try {
             spot_list=json::parse(json_spots);
         } catch (const json::parse_error &e) {
-            SDL_Log("POTA Json Parse Error %li bytes %s\n", strlen(json_spots), json_spots);
+            SDL_Log("POTA Json Parse Error %zu bytes %s\n", strlen(json_spots), json_spots);
             goodread=0;
         }
         free(json_spots);
@@ -79,7 +79,7 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
 
     // set up for rendering the lista and submitting the pins
     pota_color.a = 200;
-    TextRect.w=(panel.dims.w/4)-10;
+    TextRect.w=(panel.dims.w/4)-(panel.dims.w/20);
     TextRect.h=panel.dims.h/11;
     TextRect.x=5;
     TextRect.y=((panel.dims.h/11)+(panel.dims.h/150));;

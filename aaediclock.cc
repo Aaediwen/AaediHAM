@@ -256,19 +256,19 @@ extern "C" int CALLBACK WinFontCallback(const LOGFONT * lpelfe, const TEXTMETRIC
 //        SDL_Log("Font Callback Checking %s", outFontName->c_str());
         if (lpelfe->lfItalic || lpelfe->lfUnderline || lpelfe->lfStrikeOut) {
             SDL_Log("Font Callback Bad Font, %s", outFontName->c_str());
-            return 1; // Next Font    
+            return 1; // Next Font
         }
         SDL_Log("Font Callback Returning %s", outFontName->c_str());
         return 0;
-        
+
     }
     else {
         SDL_Log("Font Callback Bad Font, no name");
         return 1; // Continue enumeration
     }
-    
+
 }
-#endif 
+#endif
 
 std::string FindFont(const char* fontname) {
 
@@ -437,7 +437,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     int x, y;
     x=800;
     y=480;
-
+    bool fs_start = false;
     outfile.clear();
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -470,6 +470,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         } else if (arg.rfind("--outfile",0)==0) {
             outfile = arg.substr(10); // skip "--geometry="
             printf("Attempting to use output file: %s", outfile.c_str());
+        } else if (arg == "--fullscreen") {
+            fs_start = true;
         } else if (arg == "--help") {
             printf("Usage: %s [--headless] [geometry=<width>x<height>] [--output=<outfile>]\n", argv[0]);
             printf("Options:\n");
@@ -482,7 +484,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         } else if (arg.rfind("--QRZ_Pass",0)==0) {
             std::string password;
             password = arg.substr(11);
-            printf("Attempting to set QRZ pass: %s... ", password.c_str());
+//            printf("Attempting to set QRZ pass: %s... ", password.c_str());
             clockconfig.set_qrz_pass(password);
             printf("Done.\n");
 
@@ -524,6 +526,9 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     if (window_init(x, y)) {
         return (SDL_APP_FAILURE);
     }
+    if (fs_start) {
+        SDL_SetWindowFullscreen(window, 1);
+    }
     SDL_Log("WINDOW INIT DONE");
 //    SDL_Delay(1000);
     return(SDL_APP_CONTINUE);
@@ -543,47 +548,51 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         SDL_LockMutex(master_clock_mutex);
         if (master_flags.draw_clock_flag) {
             draw_clock(winboxes.clock, Sans);
+//            winboxes.clock.draw_border();
             master_flags.draw_clock_flag = false;
         }
         if (master_flags.draw_callsign_flag) {
             draw_callsign(winboxes.callsign, Sans, clockconfig.CallSign().c_str());
+//            winboxes.callsign.draw_border();
             master_flags.draw_callsign_flag = false;
         }
         if (master_flags.draw_map_flag) {
             draw_map(winboxes.map);
+            winboxes.map.draw_border();
             master_flags.draw_map_flag = false;
         }
         if (master_flags.draw_de_flag) {
             draw_de_dx(winboxes.de, Sans, clockconfig.DE().latitude, clockconfig.DE().longitude, 1);
-            winboxes.de.draw_border();
+//            winboxes.de.draw_border();
             master_flags.draw_de_flag = false;
         }
         if (master_flags.draw_dx_flag) {
             draw_de_dx(winboxes.dx, Sans, clockconfig.DX().latitude, clockconfig.DX().longitude, 0);
-            winboxes.dx.draw_border();
+//            winboxes.dx.draw_border();
             master_flags.draw_dx_flag = false;
         }
         if (master_flags.draw_pota_flag) {
             pota_spots(winboxes.rowbox1, Sans);
-            winboxes.rowbox1.draw_border();
+//            winboxes.rowbox1.draw_border();
             master_flags.draw_pota_flag = false;
 
         }
         if (master_flags.draw_kindex_flag) {
             k_index_chart (winboxes.rowbox4);
-            winboxes.rowbox4.draw_border();
+//            winboxes.rowbox4.draw_border();
             master_flags.draw_kindex_flag = false;
         }
 
 
         if (master_flags.draw_sat_tracker_flag) {
             sat_tracker (winboxes.rowbox2, Sans, winboxes.map);
-            winboxes.rowbox2.draw_border();
+//            winboxes.rowbox2.draw_border();
             master_flags.draw_sat_tracker_flag = false;
         }
         if (master_flags.draw_dx_spots_flag) {
-            dx_cluster (winboxes.rowbox3);
-            
+//            dx_cluster (winboxes.rowbox3);
+            ncdxf_module(winboxes.rowbox3);
+//            winboxes.rowbox3.draw_border();
             master_flags.draw_dx_spots_flag = false;
         }
         winboxes.callsign.present();
@@ -647,6 +656,45 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 //            SDL_Delay(1000);
             resizing=0;
         }
+    }
+    if (event->type==SDL_EVENT_KEY_UP) {
+        SDL_WindowFlags winstate = SDL_GetWindowFlags(window);
+        SDL_Log("Got keyup");
+        switch (event->key.key) {
+            case SDLK_RETURN:
+                if  (event->key.mod & (SDL_KMOD_LALT | SDL_KMOD_RALT)) {
+                    if (winstate & SDL_WINDOW_FULLSCREEN) {
+//                        SDL_Log ("Setting Windowed");
+                        SDL_SetWindowFullscreen(window, 0);
+                    } else {
+//                        SDL_Log ("Setting FS");
+                        SDL_SetWindowFullscreen(window, 1);
+                    }
+                    SDL_SyncWindow(window);
+
+                }
+                break;
+            case SDLK_F11:
+
+                if (winstate & SDL_WINDOW_FULLSCREEN) {
+//                    SDL_Log ("Setting Windowed");
+                    SDL_SetWindowFullscreen(window, 0);
+                } else {
+//                    SDL_Log ("Setting FS");
+                    SDL_SetWindowFullscreen(window, 1);
+                }
+                SDL_SyncWindow(window);
+                break;
+            case SDLK_Q:
+            case SDLK_F4:
+                if  (event->key.mod & (SDL_KMOD_LALT | SDL_KMOD_RALT)) {
+                    window_destroy();
+                    return SDL_APP_FAILURE;
+                }
+            default:
+                break;
+        }
+
     }
     return SDL_APP_CONTINUE;
 }
