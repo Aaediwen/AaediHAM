@@ -1,24 +1,25 @@
 {
-     CallSign N0CALL,
-     DE {
-          Latitude 36.978,         
-          Longitude -85.495
+     "CallSign": "N0CALL",
+     "DE": {
+          "Latitude": 36.978,         
+          "Longitude": -85.495
      },
-     DX {
-          Latitude 0.0,
-          Longitude 0.0
+     "DX": {
+          "Latitude": 0.0,
+          "Longitude": 0.0
      },
-     QRZ [
+     "QRZ": [
           10,
           10,
           10,
           10
      ],
-     SatList [
-          LES-5, 
-          NOAA 15,
-          ISS (ZARYA),
-          COSMOS 2409,
-          NOAA 18
+     "SatList": [
+          "LES-5", 
+          "NOAA 15",
+          "ISS (ZARYA)",
+          "COSMOS 2409",
+          "NOAA 18"
      ]
 }
+
