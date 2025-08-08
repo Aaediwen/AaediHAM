@@ -60,6 +60,7 @@ Library dependancies:
  <LI>POTA Spots            --  https://api.pota.app/spot/activator</LI>
  <LI>Satellite Data        --  https://celestrak.org/NORAD/elements/</LI>
  <LI>K Index Data          --  https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json
+ <LI>Solar Wind Data       --  https://services.swpc.noaa.gov/products/solar-wind/plasma-7-day.json
  <LI>DX Spots              --  Telnet: dxfun.com:8000 </LI> 
  <LI>QRZ API               --  http://xmldata.qrz.com/</LI>  
  </UL>
