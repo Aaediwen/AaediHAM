@@ -31,6 +31,7 @@ static SDL_Mutex* master_clock_mutex;
 SDL_TimerID map_timer = 0;
 Uint8 interrupt_counter = 0;
 struct regen_mask_args* night_mask_args = nullptr;
+map_overlay overlays;
 
 struct {
     bool draw_callsign_flag = true;
@@ -106,6 +107,7 @@ void resize_panels(struct surfaces* panels) {
         }
         // clean up the old surface
         if (surface) {
+            overlays.clear();
             DayMap.Reset();
             NightMap.Reset();
             CountriesMap.Reset();
@@ -118,6 +120,8 @@ void resize_panels(struct surfaces* panels) {
             panels->rowbox2.Reset();
             panels->rowbox3.Reset();
             panels->rowbox4.Reset();
+            panels->nullframe.Reset();
+            panels->corner.Reset();
             SDL_DestroyRenderer(surface);
         }
 
@@ -188,6 +192,17 @@ void resize_panels(struct surfaces* panels) {
             printf("Error Creating DX tex: %s\n", SDL_GetError());
         }
 
+        //Rebuilding col3 panel");
+        SDL_Log("Creating bottom corner Panel");
+        panel_dims.x			=	0;
+        panel_dims.y			=	(win_y / 4.0f)*3.0f;
+        panel_dims.w			=	win_x / 6.0f;
+        panel_dims.h			=	win_y / 4.0f;
+        if (!panels->corner.Create(surface, panel_dims)) {
+            printf("Error Creating corner tex: %s\n", SDL_GetError());
+        }
+
+
         //Rebuilding Rowbox1 panel"
         panel_dims.x			=	( win_x / 6.0f) * 2.0f;
         panel_dims.y			=	0.0f;
@@ -222,6 +237,15 @@ void resize_panels(struct surfaces* panels) {
         panel_dims.h			=	  win_y / 4.0f;
         if (!panels->rowbox4.Create(surface, panel_dims)) {
             printf("Error Creating Rowbox4 tex: %s\n", SDL_GetError());
+        }
+
+        //Rebuilding NULL panel
+        panel_dims.x			=	0.0f;
+        panel_dims.y			=	0.0f;
+        panel_dims.w			=	100.0f;
+        panel_dims.h			=	100.0f;
+        if (!panels->nullframe.Create(surface, panel_dims)) {
+            printf("Error Creating nullframe tex: %s\n", SDL_GetError());
         }
 
         // recreate the map textures as well so they don't get lost
@@ -450,7 +474,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 #endif
             headless=true;
         } else if (arg.rfind("--geometry",0)==0) {
-             std::string geom = arg.substr(11); // skip "--geometry="
+             std::string geom = arg.substr(11);
              printf("Attempting to use default geometry: %s\n", geom.c_str());
              size_t x_pos = geom.find('x');
              if (x_pos != std::string::npos) {
@@ -468,7 +492,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
                  printf("Invalid Renderer Geometry: %s\n", geom.c_str());
              }
         } else if (arg.rfind("--outfile",0)==0) {
-            outfile = arg.substr(10); // skip "--geometry="
+            outfile = arg.substr(10);
             printf("Attempting to use output file: %s", outfile.c_str());
         } else if (arg == "--fullscreen") {
             fs_start = true;
@@ -476,6 +500,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
             printf("Usage: %s [--headless] [geometry=<width>x<height>] [--output=<outfile>]\n", argv[0]);
             printf("Options:\n");
             printf("\t--headless\tRun in a headless mode with graphical output redirected to a disk file\n");
+            printf("\t--fullscreen\tStart in fullscreen mode\n");
             printf("\t--geometry\tResolution of the output from --headless, or the starting window resolution in a GUI environment\n");
             printf("\t--output\tOutput file path for --headless\n");
             printf("\t--QRZ_Pass\tSet the password to use for QRZ.com (uses the Callsign for UserName\n");
@@ -516,6 +541,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     winboxes.rowbox2.Reset();
     winboxes.rowbox3.Reset();
     winboxes.rowbox4.Reset();
+    winboxes.nullframe.Reset();
+    winboxes.corner.Reset();
     DayMap.Reset();
     NightMap.Reset();
     CountriesMap.Reset();
@@ -590,7 +617,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             master_flags.draw_sat_tracker_flag = false;
         }
         if (master_flags.draw_dx_spots_flag) {
-//            dx_cluster (winboxes.rowbox3);
+            dx_cluster (winboxes.nullframe);
             ncdxf_module(winboxes.rowbox3);
 //            winboxes.rowbox3.draw_border();
             master_flags.draw_dx_spots_flag = false;
@@ -604,6 +631,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         winboxes.rowbox2.present();
         winboxes.rowbox3.present();
         winboxes.rowbox4.present();
+        winboxes.corner.present();
             SDL_UnlockMutex(master_clock_mutex);
             SDL_RenderPresent(surface);
             if (headless && (!outfile.empty())) {

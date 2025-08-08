@@ -24,14 +24,20 @@ extern TTF_Font* Sans;
 extern time_t currenttime;
 
 class ScreenFrame {
-    public:
+    private:
         SDL_Renderer*	    renderer;
+    public:
         SDL_Surface*        surface;
         SDL_Texture*        texture;
         SDL_FRect           dims;
         ScreenFrame();
         ~ScreenFrame();
+        ScreenFrame(ScreenFrame&& source) noexcept;
+        ScreenFrame& operator=(ScreenFrame&& source) noexcept;
+        ScreenFrame(const ScreenFrame& source);
+        ScreenFrame& operator=(const ScreenFrame& source);
         bool Create (SDL_Renderer* parent, SDL_FRect size);
+        SDL_Renderer* GetRenderer();
         void Reset();
         void draw_border();
         void Clear(const SDL_Color& color = {0, 0, 0, 255});
@@ -53,6 +59,8 @@ struct surfaces {
     ScreenFrame  rowbox3;
     ScreenFrame  rowbox4;
     ScreenFrame  ticker;
+    ScreenFrame  nullframe;
+    ScreenFrame  corner;
 
 } extern winboxes;
 
@@ -125,4 +133,25 @@ struct data_blob {
     void *data;
     struct data_blob *next;
 } extern *data_cache;
+
+class map_overlay {
+    private:
+        struct transparancy {
+            ScreenFrame panel;
+            enum mod_name owner;
+        };
+        std::vector<struct transparancy> overlay_list;
+        int index;
+    public:
+        map_overlay();
+        ~map_overlay();
+        ScreenFrame* get_overlay(SDL_Renderer* renderer, enum mod_name owner, SDL_FRect dims); // return existing if present, or create a new and return that
+        bool overlay_check(enum mod_name owner);	// check if a overlay exists
+        void remove_overlay(enum mod_name owner); // remove any overlay owned by owner
+        ScreenFrame* next_overlay();   // somehow get or use a read-only itterator through overlay_list
+        void reset_index();
+        void clear(); // nuke all overlays
+};
+
+extern map_overlay overlays;
 #endif

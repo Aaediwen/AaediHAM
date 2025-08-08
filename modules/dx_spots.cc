@@ -67,10 +67,10 @@ void dxspot::display_spot(ScreenFrame& panel, int y, int max_age) {
        age_rect.x = 2;
        age_rect.w = (panel.dims.w-4)*(static_cast<float>(time(NULL)-timestamp)/max_age);
 //       SDL_Log("Spot age: %li Seconds, Bar width: %f pixels", (time(NULL)-timestamp), age_rect.w );
-       SDL_SetRenderTarget(panel.renderer, panel.texture);
-       SDL_SetRenderDrawColor(panel.renderer, 128, 128, 0, 255);
-       SDL_RenderFillRect(panel.renderer, &age_rect );
-       SDL_SetRenderTarget(panel.renderer, NULL);
+       SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
+       SDL_SetRenderDrawColor(panel.GetRenderer(), 128, 128, 0, 255);
+       SDL_RenderFillRect(panel.GetRenderer(), &age_rect );
+       SDL_SetRenderTarget(panel.GetRenderer(), NULL);
        panel.render_text(TextRect, Sans, tempcolor, dx.c_str());
        TextRect.x += (panel.dims.w/4)+2;
        sprintf(tempstr, "%4.3f", (frequency/1000));

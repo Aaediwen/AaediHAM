@@ -64,21 +64,21 @@ void load_maps(SDL_Renderer* surface) {
 
 void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
 
-    SDL_Texture* icon_tex = SDL_CreateTexture(panel->renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 16, 16);
+    SDL_Texture* icon_tex = SDL_CreateTexture(panel->GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 16, 16);
     if (!icon_tex) {
         SDL_Log("Failed to create icon texture: %s", SDL_GetError());
         return ;
     }
     // render the icon
-     SDL_SetRenderTarget(panel->renderer, icon_tex);
+     SDL_SetRenderTarget(panel->GetRenderer(), icon_tex);
     if (current_pin->icon) {
-        SDL_RenderTexture(panel->renderer, current_pin->icon, NULL, NULL);
+        SDL_RenderTexture(panel->GetRenderer(), current_pin->icon, NULL, NULL);
     } else {
          SDL_FRect pin_rect = {4.0f, 4.0f, 8.0f, 8.0f};
-         SDL_SetRenderDrawColor(panel->renderer, 16, 16, 16, 128);
-         SDL_RenderFillRect(panel->renderer, NULL);
-         SDL_SetRenderDrawColor(panel->renderer, current_pin->color.r, current_pin->color.g, current_pin->color.b, current_pin->color.a);
-         SDL_RenderFillRect(panel->renderer, &pin_rect );
+         SDL_SetRenderDrawColor(panel->GetRenderer(), 16, 16, 16, 128);
+         SDL_RenderFillRect(panel->GetRenderer(), NULL);
+         SDL_SetRenderDrawColor(panel->GetRenderer(), current_pin->color.r, current_pin->color.g, current_pin->color.b, current_pin->color.a);
+         SDL_RenderFillRect(panel->GetRenderer(), &pin_rect );
     }
     SDL_FRect target_rect;
     target_rect.h=8;
@@ -96,9 +96,9 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
         target_rect.x += target_rect.w;
     }
     SDL_SetTextureBlendMode(icon_tex, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderTarget(panel->renderer, panel->texture);
-    SDL_RenderTexture(panel->renderer, icon_tex, NULL, &target_rect);
-    SDL_SetRenderTarget(panel->renderer, NULL);
+    SDL_SetRenderTarget(panel->GetRenderer(), panel->texture);
+    SDL_RenderTexture(panel->GetRenderer(), icon_tex, NULL, &target_rect);
+    SDL_SetRenderTarget(panel->GetRenderer(), NULL);
     SDL_DestroyTexture(icon_tex);
 //    SDL_Log("DONE RENDERING PIN");
     return;
@@ -110,7 +110,7 @@ void regen_mask (SDL_Surface* source, SDL_Surface* dest, const SDL_FRect& panel_
 //    tm utcroot; // check these on Linux
 #ifdef _WIN32
     gmtime_s(&utc, &nowtime);
-#else 
+#else
     gmtime_r(&nowtime, &utc);
 #endif
     SDL_Rect panel_cords, source_cords;
@@ -183,7 +183,7 @@ int draw_map(ScreenFrame& panel) {
 
     bool regen_mask_flag = false;
 //    SDL_Log("Drawing Map ");
-    if (!panel.renderer) {
+    if (!panel.GetRenderer()) {
         SDL_Log("Missing Surface!");
         return 1;
     }
@@ -196,12 +196,12 @@ int draw_map(ScreenFrame& panel) {
     panel.Clear();
 
     // start with the day map
-    SDL_SetRenderTarget(panel.renderer, panel.texture);
-    SDL_RenderTexture(panel.renderer, DayMap.texture, NULL, NULL);
+    SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
+    SDL_RenderTexture(panel.GetRenderer(), DayMap.texture, NULL, NULL);
 //    SDL_Log("Rendered Daymap to texture");
 
     // init the night map alpha mask
-    if (!night_mask || (old_renderer != panel.renderer)) {
+    if (!night_mask || (old_renderer != panel.GetRenderer())) {
         if (night_mask) {
             SDL_DestroySurface(night_mask);
         }
@@ -220,7 +220,7 @@ int draw_map(ScreenFrame& panel) {
         night_mask_args->dest = night_mask;
         night_mask_args->panel_dims = panel.dims;
         map_timer = SDL_AddTimer(30000, regen_mask, night_mask_args);
-        old_renderer = panel.renderer;
+        old_renderer = panel.GetRenderer();
 //        SDL_Log("Regen NightMask -- bad renderer");
         regen_mask_flag = true;
     }
@@ -232,7 +232,7 @@ int draw_map(ScreenFrame& panel) {
     // render the masked NightMap to the panel
 //    SDL_Log("render the masked NightMap to the panel");
     SDL_LockMutex(night_mask_mutex);    /// MUTEX LOCK
-    SDL_Texture* mask_tex = SDL_CreateTextureFromSurface(panel.renderer, night_mask);
+    SDL_Texture* mask_tex = SDL_CreateTextureFromSurface(panel.GetRenderer(), night_mask);
     SDL_UnlockMutex(night_mask_mutex);  /// MUTEX UNLOCK
     if (!mask_tex) {
         SDL_Log("Failed to create mask texture: %s", SDL_GetError());
@@ -240,20 +240,20 @@ int draw_map(ScreenFrame& panel) {
     }
     //set the blend mode for the alpha overlay of Night Map
     SDL_SetTextureBlendMode(mask_tex, SDL_BLENDMODE_BLEND);
-//    SDL_SetRenderTarget(panel.renderer, panel.texture);
-    SDL_RenderTexture(panel.renderer, mask_tex, NULL, NULL);
+//    SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
+    SDL_RenderTexture(panel.GetRenderer(), mask_tex, NULL, NULL);
     SDL_DestroyTexture(mask_tex);
-    SDL_RenderTexture(panel.renderer, CountriesMap.texture, NULL, NULL);
+    SDL_RenderTexture(panel.GetRenderer(), CountriesMap.texture, NULL, NULL);
 
     // draw equator and tropics
-    SDL_SetRenderDrawColor(panel.renderer, 128,128,128,64);
-    SDL_RenderLine(panel.renderer, 0,(panel.dims.h/2), panel.dims.w, (panel.dims.h/2));
-    SDL_SetRenderDrawColor(panel.renderer, 128,0,0,64);
+    SDL_SetRenderDrawColor(panel.GetRenderer(), 128,128,128,64);
+    SDL_RenderLine(panel.GetRenderer(), 0,(panel.dims.h/2), panel.dims.w, (panel.dims.h/2));
+    SDL_SetRenderDrawColor(panel.GetRenderer(), 128,0,0,64);
     int tropic;
     tropic = ((-23.4+90) * panel.dims.h)/180;
-    SDL_RenderLine(panel.renderer, 0,tropic, panel.dims.w, tropic);
+    SDL_RenderLine(panel.GetRenderer(), 0,tropic, panel.dims.w, tropic);
     tropic = ((23.4+90) * panel.dims.h)/180;
-    SDL_RenderLine(panel.renderer, 0,tropic, panel.dims.w, tropic);
+    SDL_RenderLine(panel.GetRenderer(), 0,tropic, panel.dims.w, tropic);
 
 //    SDL_Log("draw map pins");
     if (map_pins) {
@@ -265,7 +265,15 @@ int draw_map(ScreenFrame& panel) {
             current_pin=current_pin->next;
         }
     }
-
+    overlays.reset_index();
+    ScreenFrame* overlay = overlays.next_overlay();
+    while (overlay) {
+//        SDL_Log ("Drawing map overlay at ... %p\t Tex: %p", (void*)overlay, (void*)overlay->texture);
+         SDL_SetTextureBlendMode(overlay->texture, SDL_BLENDMODE_BLEND);
+         SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
+         SDL_RenderTexture(panel.GetRenderer(), overlay->texture, NULL, NULL);
+         overlay = overlays.next_overlay();
+    }
 //    SDL_Log("Drawing Map Complete");
     return 0;
 }

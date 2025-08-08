@@ -2,14 +2,14 @@
 #include "../aaediclock.h"
 
 void draw_callsign(ScreenFrame& panel, TTF_Font* font, const char* callsign) {
-    if (!panel.renderer) {
-        SDL_Log("Missing Renderer!");
-        return ;
-    }
-    if (!panel.texture) {
-        SDL_Log("Missing PANEL!");
-        return ;
-    }
+//    if (!panel.renderer) {
+//        SDL_Log("Missing Renderer!");
+//        return ;
+//    }
+//    if (!panel.texture) {
+//        SDL_Log("Missing PANEL!");
+//        return ;
+//    }
     panel.Clear();
 //    SDL_Log("Rendering Callsign");
     SDL_Color fontcolor;

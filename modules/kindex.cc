@@ -168,7 +168,7 @@ void k_index_chart (ScreenFrame& panel) {
 //                    SDL_Log("Failed to parse entry: %s -- %s", index_string.c_str(), e.what());
                 }
         }
-        SDL_SetRenderTarget(panel.renderer, panel.texture);
+        SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
 
 
         bar_box.x=1;
@@ -183,34 +183,34 @@ void k_index_chart (ScreenFrame& panel) {
             speed_prime.clear();
             density_prime.clear();
             if (spot.kindex < 1) {
-                SDL_SetRenderDrawColor(panel.renderer, 0, 128, 0, 255);
+                SDL_SetRenderDrawColor(panel.GetRenderer(), 0, 128, 0, 255);
             } else if (spot.kindex <2) {
-                SDL_SetRenderDrawColor(panel.renderer, 0, 128, 128, 255);
+                SDL_SetRenderDrawColor(panel.GetRenderer(), 0, 128, 128, 255);
             } else if (spot.kindex <3) {
-                SDL_SetRenderDrawColor(panel.renderer, 0, 0, 128, 255);
+                SDL_SetRenderDrawColor(panel.GetRenderer(), 0, 0, 128, 255);
             }
              else if (spot.kindex <4) {
-                SDL_SetRenderDrawColor(panel.renderer, 0, 0, 255, 255);
+                SDL_SetRenderDrawColor(panel.GetRenderer(), 0, 0, 255, 255);
             }
             else if (spot.kindex <5) {
-                SDL_SetRenderDrawColor(panel.renderer, 0, 255, 255, 255);
+                SDL_SetRenderDrawColor(panel.GetRenderer(), 0, 255, 255, 255);
             }
             else if (spot.kindex <6) {
-                SDL_SetRenderDrawColor(panel.renderer, 128, 128, 0, 255);
+                SDL_SetRenderDrawColor(panel.GetRenderer(), 128, 128, 0, 255);
             }
             else if (spot.kindex <7) {
-                SDL_SetRenderDrawColor(panel.renderer, 128, 0, 0, 255);
+                SDL_SetRenderDrawColor(panel.GetRenderer(), 128, 0, 0, 255);
             }
             else if (spot.kindex <8) {
-                SDL_SetRenderDrawColor(panel.renderer, 200, 0, 0, 255);
+                SDL_SetRenderDrawColor(panel.GetRenderer(), 200, 0, 0, 255);
             } else {
-                SDL_SetRenderDrawColor(panel.renderer, 255, 0, 0, 255);
+                SDL_SetRenderDrawColor(panel.GetRenderer(), 255, 0, 0, 255);
             }
 
 
             bar_box.h=((panel.dims.h*.75)/10)*spot.kindex;
             bar_box.y = panel.dims.h - bar_box.h;
-            SDL_RenderFillRect(panel.renderer, &bar_box );
+            SDL_RenderFillRect(panel.GetRenderer(), &bar_box );
 
 
             float speed_old, density_old;
@@ -249,8 +249,8 @@ void k_index_chart (ScreenFrame& panel) {
                 chart_pts.push_back(new_point);
                 new_point.x += point_width;
               }
-              SDL_SetRenderDrawColor(panel.renderer, 128, 64, 64, 64);
-              SDL_RenderLines(panel.renderer, chart_pts.data(), chart_pts.size());
+              SDL_SetRenderDrawColor(panel.GetRenderer(), 128, 64, 64, 64);
+              SDL_RenderLines(panel.GetRenderer(), chart_pts.data(), chart_pts.size());
             }
 
             if (density_prime.size()) {
@@ -267,14 +267,14 @@ void k_index_chart (ScreenFrame& panel) {
                 chart_pts.push_back(new_point);
                 new_point.x += point_width;
               }
-              SDL_SetRenderDrawColor(panel.renderer, 64, 255, 64, 200);
-              SDL_RenderLines(panel.renderer, chart_pts.data(), chart_pts.size());
+              SDL_SetRenderDrawColor(panel.GetRenderer(), 64, 255, 64, 200);
+              SDL_RenderLines(panel.GetRenderer(), chart_pts.data(), chart_pts.size());
             }
 
 
             if (spot.day_mark) {
-                SDL_SetRenderDrawColor(panel.renderer, 64, 64, 128, 64);
-                SDL_RenderLine(panel.renderer, bar_box.x,0, bar_box.x, panel.dims.h);
+                SDL_SetRenderDrawColor(panel.GetRenderer(), 64, 64, 128, 64);
+                SDL_RenderLine(panel.GetRenderer(), bar_box.x,0, bar_box.x, panel.dims.h);
             }
             bar_box.x += bar_box.w;
         }
@@ -287,10 +287,10 @@ void k_index_chart (ScreenFrame& panel) {
 
 
         // draw chart lines
-        SDL_SetRenderDrawColor(panel.renderer, 64, 64, 128, 128);
+        SDL_SetRenderDrawColor(panel.GetRenderer(), 64, 64, 128, 128);
         for (int c = 0; c < 10 ; c++) {
             int y = (panel.dims.h/4)+((panel.dims.h*.75)/10)*c;
-            SDL_RenderLine(panel.renderer, 0,y, panel.dims.w, y);
+            SDL_RenderLine(panel.GetRenderer(), 0,y, panel.dims.w, y);
         }
         if (k_indices.size() >0) {
             SDL_Color tempcolor={128,128,128,0};

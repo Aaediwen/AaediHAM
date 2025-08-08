@@ -4,6 +4,7 @@
 #include "../aaediclock.h"
 #include "../utils.h"
 
+
 TrackedSatellite::TrackedSatellite(const std::string& source_name, const std::string& l1, const std::string& l2): name(source_name), tle1(l1), tle2(l2) {
      sat_tle = new libsgp4::Tle(name, tle1, tle2);
      sgp4 = new libsgp4::SGP4(*sat_tle);
@@ -237,12 +238,16 @@ time_t TrackedSatellite::telemetry_age() {
     }
 }
 
+
+
+
+
 void TrackedSatellite::draw_telemetry(ScreenFrame& map) {
     // draw the satellite's telemetry track on the map
     if (this->telemetry.empty()) { return; }
-
-    SDL_SetRenderTarget(map.renderer, map.texture);
-    SDL_SetRenderDrawColor(map.renderer, this->color.r, this->color.g, this->color.b, this->color.a);
+//    SDL_Log("Draw telemetry on texture: %p", (void*)map.texture);
+    SDL_SetRenderTarget(map.GetRenderer(), map.texture);
+    SDL_SetRenderDrawColor(map.GetRenderer(), this->color.r, this->color.g, this->color.b, this->color.a);
     SDL_FPoint* SDLPoints = (SDL_FPoint*)malloc(sizeof(SDL_FPoint)*this->telemetry.size());
 
     int index=0;
@@ -255,15 +260,15 @@ void TrackedSatellite::draw_telemetry(ScreenFrame& map) {
         cords_to_px(point.lat, point.lon, xt, yt, &(SDLPoints[index]));
         render_size++;
         if (point.elevation >0) {
-            SDL_SetRenderDrawColor(map.renderer, 0, 0, 128, 255);
+            SDL_SetRenderDrawColor(map.GetRenderer(), 0, 0, 128, 255);
             SDL_FRect visirect = {SDLPoints[index].x, SDLPoints[index].y, 4.0, 4.0};
-            SDL_RenderFillRect(map.renderer, &visirect);
-            SDL_SetRenderDrawColor(map.renderer, this->color.r, this->color.g, this->color.b, this->color.a);
+            SDL_RenderFillRect(map.GetRenderer(), &visirect);
+            SDL_SetRenderDrawColor(map.GetRenderer(), this->color.r, this->color.g, this->color.b, this->color.a);
         }
         if (index >1) { // if we have a last point to compare to
             if (abs(SDLPoints[index-1].x - SDLPoints[index].x) > (xt/4)) {      // and the delta is greater than 100
                 //render the current segment
-                SDL_RenderLines(map.renderer, SDLPoints, render_size-1);
+                SDL_RenderLines(map.GetRenderer(), SDLPoints, render_size-1);
                 //reset the index
                 index=0;
                 render_size=1;
@@ -274,11 +279,11 @@ void TrackedSatellite::draw_telemetry(ScreenFrame& map) {
         index++;
     }
 
-    SDL_RenderLines(map.renderer, SDLPoints, render_size);
+    SDL_RenderLines(map.GetRenderer(), SDLPoints, render_size);
     free (SDLPoints);
-    map.present();
-//    SDL_SetRenderTarget(map.renderer, NULL);
-//    SDL_RenderTexture(map.renderer, map.texture, NULL, &(map.dims));
+     //    map.present();
+    SDL_SetRenderTarget(map.GetRenderer(), NULL);
+//    SDL_RenderTexture(map.GetRenderer(), map.texture, NULL, &(map.dims));
     return;
 }
 
@@ -325,7 +330,7 @@ void pass_tracker(ScreenFrame& panel, TrackedSatellite& sat) {
         panel.render_text(TextRect, Sans, sat.color, tempstr);
     }
 
-    SDL_SetRenderTarget(panel.renderer, panel.texture);
+    SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
     std::vector<SDL_FPoint> circle_pts;
     float radius = panel.dims.w/2;
     if (panel.dims.h < panel.dims.w) {
@@ -341,30 +346,30 @@ void pass_tracker(ScreenFrame& panel, TrackedSatellite& sat) {
 
 
     SDL_FPoint center = SDL_FPoint{panel.dims.w/2, panel.dims.h/2};
-    SDL_SetRenderDrawColor(panel.renderer, 64, 64, 0, 255);
-    SDL_RenderLine(panel.renderer, center.x, center.y, center.x-radius, center.y);
-    SDL_RenderLine(panel.renderer, center.x, center.y, center.x+radius, center.y);
-    SDL_RenderLine(panel.renderer, center.x, center.y, center.x, center.y+radius);
-    SDL_RenderLine(panel.renderer, center.x, center.y, center.x, center.y-radius);
-    SDL_SetRenderDrawColor(panel.renderer, 64, 0, 64, 255);
+    SDL_SetRenderDrawColor(panel.GetRenderer(), 64, 64, 0, 255);
+    SDL_RenderLine(panel.GetRenderer(), center.x, center.y, center.x-radius, center.y);
+    SDL_RenderLine(panel.GetRenderer(), center.x, center.y, center.x+radius, center.y);
+    SDL_RenderLine(panel.GetRenderer(), center.x, center.y, center.x, center.y+radius);
+    SDL_RenderLine(panel.GetRenderer(), center.x, center.y, center.x, center.y-radius);
+    SDL_SetRenderDrawColor(panel.GetRenderer(), 64, 0, 64, 255);
     circle_helper (&circle_pts, radius, center, 32);
-    SDL_RenderLines(panel.renderer, circle_pts.data(), circle_pts.size());
+    SDL_RenderLines(panel.GetRenderer(), circle_pts.data(), circle_pts.size());
     circle_pts.clear();
     radius /=2;
     circle_helper (&circle_pts, radius, center, 32);
-    SDL_RenderLines(panel.renderer, circle_pts.data(), circle_pts.size());
+    SDL_RenderLines(panel.GetRenderer(), circle_pts.data(), circle_pts.size());
     circle_pts.clear();
     radius /=2;
     circle_helper (&circle_pts, radius, center, 32);
-    SDL_RenderLines(panel.renderer, circle_pts.data(), circle_pts.size());
+    SDL_RenderLines(panel.GetRenderer(), circle_pts.data(), circle_pts.size());
     circle_pts.clear();
     radius *=3;
     circle_helper (&circle_pts, radius, center, 32);
-    SDL_RenderLines(panel.renderer, circle_pts.data(), circle_pts.size());
-    SDL_RenderPoint(panel.renderer, center.x, center.y);
+    SDL_RenderLines(panel.GetRenderer(), circle_pts.data(), circle_pts.size());
+    SDL_RenderPoint(panel.GetRenderer(), center.x, center.y);
     sat.draw_pass(sat.pass_start(), sat.pass_end(),  &pass_pts, &pass_box);
-    SDL_SetRenderDrawColor(panel.renderer, 0, 128, 0, 255);
-    SDL_RenderLines(panel.renderer, pass_pts.data(), pass_pts.size());
+    SDL_SetRenderDrawColor(panel.GetRenderer(), 0, 128, 0, 255);
+    SDL_RenderLines(panel.GetRenderer(), pass_pts.data(), pass_pts.size());
 
 
     return;
@@ -439,11 +444,6 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
                     		new_cache.color = trackcols;
                 	}
                     }
-//                    cache_stream.write(new_cache.name, 80);
-//                    cache_stream.write(new_cache.line1, 80);
-//                    cache_stream.write(new_cache.line2, 80);
-//                    cache_stream.write(reinterpret_cast<const char*>(&new_cache.color), sizeof(SDL_Color));
-//                    cache_stream.write(reinterpret_cast<const char*>(&new_cache.draw), sizeof(bool));
                     cache_stream.write(reinterpret_cast<const char*>(&new_cache), sizeof(new_cache));
                     if (new_cache.draw) {
 //                        SDL_Log ("Write Sat %s draw = %d", new_cache.name, new_cache.draw);
@@ -455,7 +455,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
 
 
             std::string blob = cache_stream.str();
-            SDL_Log ("caching %li Bytes of Sat Data", blob.length());
+//            SDL_Log ("caching %li Bytes of Sat Data", blob.length());
             add_data_cache(MOD_SAT, blob.length(), (void*)blob.data());
             data_size = blob.length();
             tle_raw.clear();
@@ -471,8 +471,14 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
 //    SDL_Log ("Read Sat List");
     // clear the box
     panel.Clear();
-//    SDL_SetRenderTarget(panel.renderer, panel.texture);
-
+    SDL_FRect mapsize ;
+    mapsize.w = map.dims.w;
+    mapsize.h = map.dims.h;
+    bool redraw_flag = false;
+    redraw_flag = (!overlays.overlay_check(MOD_SAT));
+    ScreenFrame* overlay = overlays.get_overlay(panel.GetRenderer(), MOD_SAT, mapsize);
+//    SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
+//    overlay->Clear(SDL_Color{0,0,0,0});
     // render the header
     TextRect.w=panel.dims.w/2-10;
     TextRect.h=panel.dims.h/11;
@@ -494,6 +500,9 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
 //    SDL_Log ("Reading Sat lists from Celestrak");
     struct tle_cache temp;
     while (tle_raw.read(reinterpret_cast<char*>(&temp), sizeof(temp))) {
+        temp.name[49]=0;
+        temp.line1[69]=0;
+        temp.line2[69]=0;
         // read the TLE for a sat
         // is it one we want to show?
 //        SDL_Log("Read Sat %s with draw=%d", temp.name, temp.draw);
@@ -510,20 +519,34 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
                     nextsat = &sat;
                 }
             }
+
             if (nextsat) {
+//                SDL_Log("Found NextSat: %s", temp.name);
                 if (reload_flag) {
                     nextsat->new_tracking(name, line1, line2);
                     nextsat->gen_telemetry(30, obs);
+//                    nextsat->draw_telemetry(*overlay);
+                    redraw_flag = true;
                 }
             } else {
-                nextsat = new TrackedSatellite(temp.name, temp.line1, temp.line2);
-                nextsat->color=temp.color;
-//                SDL_Log ("Regenerate track for %s", temp.name);
-                if (nextsat->gen_telemetry(30, obs)) {
-                    satlist.push_back(std::move(*nextsat));
+//                SDL_Log("New NextSat: %s", temp.name);
+//                SDL_Log("Creating New Sat entry with:\n%s\n%s\n%s", temp.name, temp.line1, temp.line2);
+                try {
+                    nextsat = new TrackedSatellite(temp.name, temp.line1, temp.line2);
+    //                SDL_Log("New Sat entry initialized with:\n%s\n%s\n%s", temp.name, temp.line1, temp.line2);
+                    nextsat->color=temp.color;
+    //                SDL_Log ("Regenerate track for %s", temp.name);
+                    if (nextsat->gen_telemetry(30, obs)) {
+                        satlist.push_back(std::move(*nextsat));
+//                        satlist.back().draw_telemetry(*overlay);
+                        redraw_flag= true;
+                    }
+                } catch (const std::exception& e){
+                    SDL_Log ("Failed to create Satellite tracking entry for %s\n%s", temp.name, e.what());
                 }
             }
         }
+//        SDL_Log ("Done with Sar %s", temp.name);
     } // read from Celestrak
     if (amateur_tle) {
         free(amateur_tle);
@@ -541,6 +564,9 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
             pass_pager[1]=0;
         }
         pass_pager[1]++;
+        if (redraw_flag) {
+            overlay->Clear(SDL_Color{0,0,0,0});
+        }
         for (TrackedSatellite& Sat : satlist) {
             bool draw_flag=false;
             for (const std::string& stropt : clockconfig.Sats()) {
@@ -553,7 +579,12 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
                 if ((Sat.telemetry_age() - time_now) < 60) {
                     Sat.gen_telemetry(30, obs);
                 }
-                Sat.draw_telemetry(map);
+//                SDL_Log("Drawing to Map directly");
+//                Sat.draw_telemetry(map);
+//                SDL_Log("Drawing to overlay");
+                if (redraw_flag) {
+                    Sat.draw_telemetry(*overlay);
+                }
                 // plot the sat's current location
                 struct map_pin sat_pin;
                 SDL_FPoint sat_loc;

@@ -4,14 +4,14 @@
 
 void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int de_dx) {
 
-    if (!panel.renderer) {
-        SDL_Log("Missing Renderer!");
-        return ;
-    }
-    if (!panel.texture) {
-        SDL_Log("Missing PANEL!");
-        return ;
-    }
+//    if (!panel.renderer) {
+//        SDL_Log("Missing Renderer!");
+//        return ;
+//    }
+//    if (!panel.texture) {
+//        SDL_Log("Missing PANEL!");
+//        return ;
+//    }
 //    SDL_Log("Drawing DE_DX");
     char tempstr[64];
     SDL_FRect TextRect;

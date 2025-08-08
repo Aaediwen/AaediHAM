@@ -24,6 +24,88 @@ ScreenFrame::~ScreenFrame() {
     Reset();
 }
 
+ScreenFrame::ScreenFrame(ScreenFrame&& source) noexcept {	// move to new instance
+    //SDL_Log ("New Move Operation");
+    dims = std::move(source.dims);
+    renderer = std::move(source.renderer);
+    surface = source.surface;
+    texture = source.texture;
+    source.surface = nullptr;
+    source.texture = nullptr;
+    source.renderer = nullptr;
+    source.dims = {};
+
+
+}
+
+ScreenFrame& ScreenFrame::operator=(ScreenFrame&& source) noexcept {	// move over existing
+    //SDL_Log ("Overwrite Move Operation");
+    if (this != &source) {
+        this->Reset();
+        dims = std::move(source.dims);
+        renderer = std::move(source.renderer);
+        surface = source.surface;
+        texture = source.texture;
+        source.surface = nullptr;
+        source.texture = nullptr;
+        source.renderer = nullptr;
+        source.dims = {};
+    }
+    return *this;
+}
+
+ScreenFrame::ScreenFrame(const ScreenFrame& source) {			// copy to new
+    //SDL_Log ("New Copy Operation");
+    dims = source.dims;
+    renderer = source.renderer;
+    surface=nullptr;
+    texture=nullptr;
+    if (source.surface) {
+        surface = SDL_DuplicateSurface(source.surface);
+         if (!surface) {
+            SDL_Log("Failed to copy surface: %s", SDL_GetError());
+            // Handle error if needed
+        }
+    }
+    if (renderer && surface) {
+//        SDL_Log("Attempting to create texture with renderer: %p and surface: %p", (void*)renderer, (void*)surface);
+        texture = SDL_CreateTextureFromSurface(renderer, surface);
+//        SDL_Log("texture Create result code: %s", SDL_GetError());
+
+        if (!texture) {
+            SDL_Log("Failed to create texture: %s", SDL_GetError());
+            // Handle error if needed
+        }
+    }
+}
+
+ScreenFrame& ScreenFrame::operator=(const ScreenFrame& source) {	// copy with overwrite
+    //SDL_Log ("Overwrite Copy Operation");
+     if (this != &source) {
+           this->Reset();
+           dims = source.dims;
+           renderer = source.renderer;
+           surface=nullptr;
+           texture=nullptr;
+           if (source.surface) {
+               surface = SDL_DuplicateSurface(source.surface);
+               if (!surface) {
+                   SDL_Log("Failed to copy surface: %s", SDL_GetError());
+               }
+           }
+           if (renderer && surface) {
+               texture = SDL_CreateTextureFromSurface(renderer, surface);
+               if (!texture) {
+                   SDL_Log("Failed to create texture: %s", SDL_GetError());
+               }
+           } else {
+               SDL_Log("Missing Render or Surface in Overwrite Copy");
+           }
+     }
+     return *this;
+}
+
+
 bool ScreenFrame::Create (SDL_Renderer* parent, SDL_FRect size) {
     dims=size;
     int h = static_cast<int>(size.h);
@@ -41,6 +123,10 @@ bool ScreenFrame::Create (SDL_Renderer* parent, SDL_FRect size) {
     Clear();
 
     return true;
+}
+
+SDL_Renderer* ScreenFrame::GetRenderer() {
+    return renderer;
 }
 
 void ScreenFrame::Reset() {
@@ -142,7 +228,7 @@ void config::qrz_sesskey() {
             if (( tag_start != std::string::npos ) && ( tag_stop != std::string::npos)) {
                 tag_start +=5;
                 m_QRZ.Key = keyline.substr(tag_start, tag_stop - tag_start);
-                printf ("Loaded QRZ Session Key\n");
+//                printf ("Loaded QRZ Session Key\n");
             }
 
             tag_start=keyline.find("<Error>");
@@ -296,3 +382,85 @@ const std::string& config::qrz_key(bool refresh) {
     }
     return m_QRZ.Key;
 }
+
+map_overlay::map_overlay () {
+    index = 0;
+    return;
+}
+
+map_overlay::~map_overlay() {
+    for (auto x : overlay_list) {
+        x.panel.Reset();
+    }
+    overlay_list.clear();
+    return;
+}
+
+void map_overlay::clear() {
+    for (auto& x : overlay_list) {
+        x.panel.Reset();
+    }
+    overlay_list.clear();
+    index = 0;
+    return;
+}
+ScreenFrame* map_overlay::get_overlay(SDL_Renderer* renderer, enum mod_name owner, SDL_FRect dims) {
+
+//SDL_Log("Current renderer pointer: %p", (void*)renderer);
+    for (auto& overlay : overlay_list) {
+        if (overlay.owner == owner) {
+            return &(overlay.panel);
+        }
+    }
+    if (renderer) {
+        struct transparancy new_overlay;
+        new_overlay.owner = owner;
+        new_overlay.panel.Create(renderer, dims);
+        if (!new_overlay.panel.texture) {
+            SDL_Log("Failed to create overlay texture: %s", SDL_GetError());
+            return nullptr;
+        } else {
+//            SDL_Log ("Created new overlay texture for module %i", owner);
+        }
+//        SDL_Log ("Createdo overlay ... %p\t Tex: %p", (void*)&(new_overlay.panel), (void*)(new_overlay.panel.texture));
+        SDL_SetTextureBlendMode(new_overlay.panel.texture, SDL_BLENDMODE_BLEND);
+        overlay_list.push_back(std::move(new_overlay));
+        return (&(overlay_list.back().panel));
+    }
+    return nullptr;
+}
+bool map_overlay::overlay_check(enum mod_name owner) {
+    for (auto& overlay : overlay_list) {
+        if (overlay.owner == owner) {
+            return true;
+        }
+    }
+    return false;
+}
+
+ScreenFrame* map_overlay::next_overlay() {
+    if (index < overlay_list.size()) {
+        index++;
+        return (&(overlay_list[index-1].panel));
+    } else {
+        index=0;
+        return nullptr;
+    }
+}
+
+void map_overlay::reset_index() {
+    index=0;
+}
+
+void map_overlay::remove_overlay(enum mod_name owner) {
+    for (auto it = overlay_list.begin(); it != overlay_list.end(); ++it) {
+        if (it->owner == owner) {
+            it->panel.Reset();
+            overlay_list.erase(it);
+            return;
+        }
+    }
+    return;
+}
+
+

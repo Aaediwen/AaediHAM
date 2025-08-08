@@ -29,7 +29,7 @@ else()
 endif()
 
 function (find_build symbol path tag target)
-#	find_package(${symbol} QUIET)
+	find_package(${symbol} QUIET)
  	if (NOT ${symbol}_FOUND)
 		message(STATUS "${symbol} not found, fetching...")
 		FetchContent_Declare(

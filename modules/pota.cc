@@ -1,7 +1,7 @@
 #include "pota.h"
 #include "../aaediclock.h"
 #include "../utils.h"
-#include "../json.hpp"
+#include <nlohmann/json.hpp>
 using json = nlohmann::json;
 
 
