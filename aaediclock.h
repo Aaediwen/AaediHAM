@@ -10,6 +10,8 @@
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
 #include <vector>
+#include <array>
+
 
 struct regen_mask_args {
     SDL_Surface* source;
