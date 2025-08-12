@@ -210,6 +210,7 @@ bool TrackedSatellite::gen_telemetry(const int resolution, libsgp4::Observer& ob
     double mean_motion =  this->sat_tle->MeanMotion();
     double period = (1440*60)/mean_motion; // period in seconds
     i = floor(period/resolution);
+//    i = (period/10)/resolution;
     for (int offset = 0 ; offset < (i*resolution) ; offset +=resolution) {
         try {
            libsgp4::DateTime dt = libsgp4::DateTime::Now().AddSeconds(offset);
@@ -564,40 +565,34 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
             pass_pager[1]=0;
         }
         pass_pager[1]++;
+        for (TrackedSatellite& Sat : satlist) {
+            const time_t time_now = time(NULL);
+            if ((Sat.telemetry_age() - time_now) < 60) {
+                Sat.gen_telemetry(30, obs);
+                redraw_flag = true;
+            }
+        }
         if (redraw_flag) {
             overlay->Clear(SDL_Color{0,0,0,0});
         }
         for (TrackedSatellite& Sat : satlist) {
-            bool draw_flag=false;
-            for (const std::string& stropt : clockconfig.Sats()) {
-                if (Sat.get_name().compare(0,stropt.length(),stropt)==0) {
-                    draw_flag=true;
-                }
+            bool draw_flag=true;
+            if (redraw_flag) {
+                SDL_Log ("Redrawing track for %s", Sat.get_name().c_str());
+                Sat.draw_telemetry(*overlay);
             }
-            if (draw_flag) {
-                const time_t time_now = time(NULL);
-                if ((Sat.telemetry_age() - time_now) < 60) {
-                    Sat.gen_telemetry(30, obs);
-                }
-//                SDL_Log("Drawing to Map directly");
-//                Sat.draw_telemetry(map);
-//                SDL_Log("Drawing to overlay");
-                if (redraw_flag) {
-                    Sat.draw_telemetry(*overlay);
-                }
-                // plot the sat's current location
-                struct map_pin sat_pin;
-                SDL_FPoint sat_loc;
-                Sat.location(&sat_loc);
-                sat_pin.owner   =               MOD_SAT;
-                sprintf(sat_pin.label, "%s", Sat.get_name().c_str());
-                sat_pin.lat     =               sat_loc.x;
-                sat_pin.lon     =               sat_loc.y;
-                sat_pin.icon    =               0;
-                sat_pin.color   =               Sat.color;;
-                sat_pin.tooltip[0]      =               0;
-                add_pin(&sat_pin);
-            }
+            // plot the sat's current location
+            struct map_pin sat_pin;
+            SDL_FPoint sat_loc;
+            Sat.location(&sat_loc);
+            sat_pin.owner   =               MOD_SAT;
+            sprintf(sat_pin.label, "%s", Sat.get_name().c_str());
+            sat_pin.lat     =               sat_loc.x;
+            sat_pin.lon     =               sat_loc.y;
+            sat_pin.icon    =               0;
+            sat_pin.color   =               Sat.color;;
+            sat_pin.tooltip[0]      =               0;
+            add_pin(&sat_pin);
         }
 
 //        SDL_Log("Loaded %li SATS", satlist.size());

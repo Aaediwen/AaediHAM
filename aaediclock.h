@@ -48,7 +48,7 @@ extern ScreenFrame DayMap;
 extern ScreenFrame NightMap;
 extern ScreenFrame CountriesMap;
 
-struct surfaces {
+/*struct surfaces {
     ScreenFrame  map;
     ScreenFrame  callsign;
     ScreenFrame  de;
@@ -63,7 +63,7 @@ struct surfaces {
     ScreenFrame  corner;
 
 } extern winboxes;
-
+*/
 struct GeoCoord {
     double latitude;
     double longitude;
@@ -102,18 +102,56 @@ extern config clockconfig;
 
 
 enum mod_name {
-        MOD_MAP		,
-        MOD_DE		,
-        MOD_DX		,
-        MOD_CLOCK       ,
-        MOD_CALL	,
-        MOD_POTA	,
-        MOD_PSK		,
-        MOD_SAT		,
-        MOD_DXSPOT	,
-        MOD_KINDEX	,
-        MOD_SOLAR
+    MOD_MAP		,
+    MOD_DE		,
+    MOD_DX		,
+    MOD_CLOCK       ,
+    MOD_CALL	,
+    MOD_POTA	,
+    MOD_PSK		,
+    MOD_SAT		,
+    MOD_DXSPOT	,
+    MOD_KINDEX	,
+    MOD_NCDXF	,
+    MOD_SOLAR
 };
+
+enum panel_names {
+    PANEL_CALLSIGN	,
+    PANEL_CLOCK		,
+    PANEL_MAP		,
+    PANEL_DE		,
+    PANEL_DX		,
+    PANEL_FLEXBOX1	,
+    PANEL_FLEXBOX2	,
+    PANEL_FLEXBOX3	,
+    PANEL_FLEXBOX4	,
+    PANEL_FLEXBOX5	,
+    PANEL_NULL
+};
+
+struct pager_node {
+    std::vector<enum mod_name> sequence;
+    ScreenFrame panel;
+    int index=0;
+};
+extern std::array<pager_node, 12> winboxes;
+/*struct surfaces {
+    pager_node  map;
+    pager_node  callsign;
+    pager_node  de;
+    pager_node  dx;
+    pager_node  clock;
+    pager_node  rowbox1;
+    pager_node  rowbox2;
+    pager_node  rowbox3;
+    pager_node  rowbox4;
+    pager_node  ticker;
+    pager_node  nullframe;
+    pager_node  corner;
+
+} extern winboxes;
+*/
 
 struct map_pin {
     enum mod_name owner;

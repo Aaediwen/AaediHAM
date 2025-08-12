@@ -22,7 +22,8 @@ time_t 			currenttime;
 ScreenFrame 	DayMap;
 ScreenFrame 	NightMap;
 ScreenFrame 	CountriesMap;
-struct surfaces 	winboxes;
+std::array<pager_node, 12> winboxes;
+//struct surfaces 	winboxes;
 struct map_pin 		*map_pins;
 struct data_blob	*data_cache;
 config 		clockconfig;
@@ -33,17 +34,25 @@ Uint8 interrupt_counter = 0;
 struct regen_mask_args* night_mask_args = nullptr;
 map_overlay overlays;
 
+struct ModuleControl {
+    bool draw_flag = true;
+    ScreenFrame* panel = &winboxes[PANEL_NULL].panel;
+};
+
 struct {
-    bool draw_callsign_flag = true;
-    bool draw_de_flag = true;
-    bool draw_dx_flag = true;
-    bool draw_pota_flag = true;
-    bool draw_sat_tracker_flag = true;
-    bool draw_dx_spots_flag = true;
-    bool draw_map_flag = true;
-    bool draw_clock_flag = true;
-    bool draw_kindex_flag = true;
+    ModuleControl sat_tracker;
+    ModuleControl dx_spots;
+    ModuleControl callsign;
+    ModuleControl de;
+    ModuleControl dx;
+    ModuleControl pota;
+    ModuleControl ncdxf;
+    ModuleControl map;
+    ModuleControl clock;
+    ModuleControl kindex;
 } static master_flags;
+
+
 SDL_TimerID flag_timer = 0;
 
 Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interval) {
@@ -55,26 +64,87 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
 //    SDL_Log ("In master flag timer");
     if (timerID) {
         SDL_LockMutex(master_clock_mutex);
-        if ((interrupt_counter % 1200)==0) {
-            master_flags.draw_kindex_flag = true;
+        if ((interrupt_counter % 1200)==0) {	// 120 seconds
+            master_flags.kindex.draw_flag = true;
         }
-        if ((interrupt_counter % 300)==0) {
-            master_flags.draw_callsign_flag = true;
-        }
-        if ((interrupt_counter % 10)==0) {
+        if ((interrupt_counter % 6000) == 0) {	// 60 seconds
+//            SDL_Log("MOD PAGER FIRED!");
+            master_flags.map.panel	=	&(winboxes[PANEL_MAP].panel);
+            master_flags.sat_tracker.panel	=	&(winboxes[PANEL_NULL].panel);
+            master_flags.dx_spots.panel	=	&(winboxes[PANEL_NULL].panel);
+            master_flags.callsign.panel	=	&(winboxes[PANEL_NULL].panel);
+            master_flags.de.panel	=	&(winboxes[PANEL_NULL].panel);
+            master_flags.dx.panel	=	&(winboxes[PANEL_NULL].panel);
+            master_flags.pota.panel	=	&(winboxes[PANEL_NULL].panel);
+            master_flags.ncdxf.panel	=	&(winboxes[PANEL_NULL].panel);
+            master_flags.clock.panel	=	&(winboxes[PANEL_NULL].panel);
+            master_flags.kindex.panel	=	&(winboxes[PANEL_NULL].panel);
 
-            master_flags.draw_map_flag = true;
-            master_flags.draw_clock_flag = true;
-            master_flags.draw_sat_tracker_flag = true;
-        }
-        if ((interrupt_counter % 50)==0) {
-            master_flags.draw_de_flag = true;
-            master_flags.draw_dx_flag = true;
-            master_flags.draw_pota_flag = true;
+            for (auto& panel : winboxes) {
+
+                if (panel.sequence.size()) {
+                    panel.index++;
+                    if (panel.index >= panel.sequence.size()) { panel.index = 0 ; }
+                    switch (panel.sequence[panel.index]) {
+                        case MOD_MAP:
+                            master_flags.map.panel = &panel.panel;
+                            break;
+                        case MOD_DE:
+                            master_flags.de.panel = &panel.panel;
+                            break;
+                        case MOD_DX:
+                            master_flags.dx.panel = &panel.panel;
+                            break;
+                        case MOD_CLOCK:
+                            master_flags.clock.panel = &panel.panel;
+                            break;
+                        case MOD_CALL:
+                            master_flags.callsign.panel = &panel.panel;
+                            break;
+                        case MOD_POTA:
+                            master_flags.pota.panel = &panel.panel;
+                            break;
+                        case MOD_PSK:
+                            break;
+                        case MOD_SAT:
+                            master_flags.sat_tracker.panel = &panel.panel;
+                            break;
+                        case MOD_DXSPOT:
+                            master_flags.dx_spots.panel = &panel.panel;
+                            break;
+                        case MOD_KINDEX:
+                            master_flags.kindex.panel = &panel.panel;
+                            break;
+                        case MOD_NCDXF:
+                            master_flags.ncdxf.panel = &panel.panel;
+                            break;
+
+                    }
+                }
+
+            }
+
         }
 
-        if ((interrupt_counter % 20)==0) {
-            master_flags.draw_dx_spots_flag = true;
+
+        if ((interrupt_counter % 300)==0) {	// 30 seconds
+            master_flags.callsign.draw_flag = true;
+        }
+        if ((interrupt_counter % 10)==0) {	// 1 second
+
+            master_flags.map.draw_flag = true;
+            master_flags.clock.draw_flag = true;
+            master_flags.sat_tracker.draw_flag = true;
+        }
+        if ((interrupt_counter % 50)==0) {	// 5 seconds
+            master_flags.de.draw_flag = true;
+            master_flags.dx.draw_flag = true;
+            master_flags.pota.draw_flag = true;
+            master_flags.ncdxf.draw_flag = true;
+        }
+
+        if ((interrupt_counter % 20)==0) {	// 2 seconds
+            master_flags.dx_spots.draw_flag = true;
         }
         SDL_UnlockMutex(master_clock_mutex);
         return (interval);
@@ -84,7 +154,7 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
 }
 
 
-void resize_panels(struct surfaces* panels) {
+void resize_panels(std::array<pager_node, 12>& panels) {
         int win_x;
         int win_y;
         SDL_LockMutex(night_mask_mutex);
@@ -92,15 +162,16 @@ void resize_panels(struct surfaces* panels) {
             SDL_RemoveTimer(flag_timer);
             flag_timer = 0;
         }
-        master_flags.draw_callsign_flag = false;
-        master_flags.draw_de_flag = false;
-        master_flags.draw_dx_flag = false;
-        master_flags.draw_pota_flag = false;
-        master_flags.draw_sat_tracker_flag = false;
-        master_flags.draw_dx_spots_flag = false;
-        master_flags.draw_map_flag = false;
-        master_flags.draw_kindex_flag = true;
-        master_flags.draw_clock_flag = false;
+        master_flags.callsign.draw_flag = false;
+        master_flags.de.draw_flag = false;
+        master_flags.dx.draw_flag = false;
+        master_flags.pota.draw_flag = false;
+        master_flags.sat_tracker.draw_flag = false;
+        master_flags.dx_spots.draw_flag = false;
+        master_flags.map.draw_flag = false;
+        master_flags.ncdxf.draw_flag = false;
+        master_flags.kindex.draw_flag = true;
+        master_flags.clock.draw_flag = false;
         if (map_timer) {
             SDL_RemoveTimer(map_timer);
             map_timer = 0;
@@ -111,17 +182,17 @@ void resize_panels(struct surfaces* panels) {
             DayMap.Reset();
             NightMap.Reset();
             CountriesMap.Reset();
-            panels->callsign.Reset();
-            panels->map.Reset();
-            panels->de.Reset();
-            panels->dx.Reset();
-            panels->clock.Reset();
-            panels->rowbox1.Reset();
-            panels->rowbox2.Reset();
-            panels->rowbox3.Reset();
-            panels->rowbox4.Reset();
-            panels->nullframe.Reset();
-            panels->corner.Reset();
+            panels[PANEL_CALLSIGN].panel.Reset();
+            panels[PANEL_MAP].panel.Reset();
+            panels[PANEL_DE].panel.Reset();
+            panels[PANEL_DX].panel.Reset();
+            panels[PANEL_CLOCK].panel.Reset();
+            panels[PANEL_FLEXBOX1].panel.Reset();
+            panels[PANEL_FLEXBOX2].panel.Reset();
+            panels[PANEL_FLEXBOX3].panel.Reset();
+            panels[PANEL_FLEXBOX4].panel.Reset();
+            panels[PANEL_NULL].panel.Reset();
+            panels[PANEL_FLEXBOX5].panel.Reset();
             SDL_DestroyRenderer(surface);
         }
 
@@ -148,7 +219,7 @@ void resize_panels(struct surfaces* panels) {
         panel_dims.y			=	0;
         panel_dims.w			=	( win_x / 6.0f ) * 2.0f;
         panel_dims.h			=	  win_y / 8.0f;
-        if (!panels->callsign.Create(surface, panel_dims)) {
+        if (!panels[PANEL_CALLSIGN].panel.Create(surface, panel_dims)) {
             printf("Error Creating callsign tex: %s\n", SDL_GetError());
         }
 
@@ -158,7 +229,7 @@ void resize_panels(struct surfaces* panels) {
         panel_dims.y			=	  win_y / 8.0f;
         panel_dims.w			=	( win_x / 6.0f) * 2.0f;
         panel_dims.h			=	  win_y / 8.0f;
-        if (!panels->clock.Create(surface, panel_dims)) {
+        if (!panels[PANEL_CLOCK].panel.Create(surface, panel_dims)) {
             printf("Error Creating Clock: %s\n", SDL_GetError());
         }
 
@@ -168,7 +239,7 @@ void resize_panels(struct surfaces* panels) {
         panel_dims.y			=	  win_y / 4.0f;
         panel_dims.w			= 	( win_x / 6.0f) * 5.0f;
         panel_dims.h			=	( win_y / 4.0f) * 3.0f;
-        if (!panels->map.Create(surface, panel_dims)) {
+        if (!panels[PANEL_MAP].panel.Create(surface, panel_dims)) {
             printf("Error Creating MAP: %s\n", SDL_GetError());
         }
 
@@ -178,7 +249,7 @@ void resize_panels(struct surfaces* panels) {
         panel_dims.y			=	win_y / 4.0f;
         panel_dims.w			=	win_x / 6.0f;
         panel_dims.h			=	win_y / 4.0f;
-        if (!panels->de.Create(surface, panel_dims)) {
+        if (!panels[PANEL_DE].panel.Create(surface, panel_dims)) {
             printf("Error Creating DE: %s\n", SDL_GetError());
         }
 
@@ -188,7 +259,7 @@ void resize_panels(struct surfaces* panels) {
         panel_dims.y			=	win_y / 2.0f;
         panel_dims.w			=	win_x / 6.0f;
         panel_dims.h			=	win_y / 4.0f;
-        if (!panels->dx.Create(surface, panel_dims)) {
+        if (!panels[PANEL_DX].panel.Create(surface, panel_dims)) {
             printf("Error Creating DX tex: %s\n", SDL_GetError());
         }
 
@@ -198,7 +269,7 @@ void resize_panels(struct surfaces* panels) {
         panel_dims.y			=	(win_y / 4.0f)*3.0f;
         panel_dims.w			=	win_x / 6.0f;
         panel_dims.h			=	win_y / 4.0f;
-        if (!panels->corner.Create(surface, panel_dims)) {
+        if (!panels[PANEL_FLEXBOX5].panel.Create(surface, panel_dims)) {
             printf("Error Creating corner tex: %s\n", SDL_GetError());
         }
 
@@ -208,7 +279,7 @@ void resize_panels(struct surfaces* panels) {
         panel_dims.y			=	0.0f;
         panel_dims.w			=	( win_x / 6.0f);
         panel_dims.h			=	  win_y / 4.0f;
-        if (!panels->rowbox1.Create(surface, panel_dims)) {
+        if (!panels[PANEL_FLEXBOX1].panel.Create(surface, panel_dims)) {
             printf("Error Creating Rowbox1 tex: %s\n", SDL_GetError());
         }
 
@@ -217,7 +288,7 @@ void resize_panels(struct surfaces* panels) {
         panel_dims.y			=	0.0f;
         panel_dims.w			=	( win_x / 6.0f);
         panel_dims.h			= 	win_y / 4.0f;
-        if (!panels->rowbox2.Create(surface, panel_dims)) {
+        if (!panels[PANEL_FLEXBOX2].panel.Create(surface, panel_dims)) {
             printf("Error Creating Rowbox2 tex: %s\n", SDL_GetError());
         }
 
@@ -226,7 +297,7 @@ void resize_panels(struct surfaces* panels) {
         panel_dims.y			= 	0;
         panel_dims.w			=	( win_x / 6.0f);
         panel_dims.h			=	  win_y / 4.0f;
-        if (!panels->rowbox3.Create(surface, panel_dims)) {
+        if (!panels[PANEL_FLEXBOX3].panel.Create(surface, panel_dims)) {
             printf("Error Creating Rowbox3 tex: %s\n", SDL_GetError());
         }
 
@@ -235,7 +306,7 @@ void resize_panels(struct surfaces* panels) {
         panel_dims.y			=	0.0f;
         panel_dims.w			=	( win_x / 6.0f);
         panel_dims.h			=	  win_y / 4.0f;
-        if (!panels->rowbox4.Create(surface, panel_dims)) {
+        if (!panels[PANEL_FLEXBOX4].panel.Create(surface, panel_dims)) {
             printf("Error Creating Rowbox4 tex: %s\n", SDL_GetError());
         }
 
@@ -244,22 +315,33 @@ void resize_panels(struct surfaces* panels) {
         panel_dims.y			=	0.0f;
         panel_dims.w			=	100.0f;
         panel_dims.h			=	100.0f;
-        if (!panels->nullframe.Create(surface, panel_dims)) {
+        if (!panels[PANEL_NULL].panel.Create(surface, panel_dims)) {
             printf("Error Creating nullframe tex: %s\n", SDL_GetError());
         }
 
         // recreate the map textures as well so they don't get lost
         load_maps(surface);
+/*            master_flags.map.panel      =       &winboxes[PANEL_MAP].panel;
+            master_flags.sat_tracker.panel      =       &winboxes[PANEL_FLEXBOX2].panel;
+            master_flags.dx_spots.panel =       &winboxes[PANEL_FLEXBOX3].panel;
+            master_flags.callsign.panel =       &winboxes[PANEL_CALLSIGN].panel;
+            master_flags.de.panel       =       &winboxes[PANEL_DE].panel;
+            master_flags.dx.panel       =       &winboxes[PANEL_DX].panel;
+            master_flags.pota.panel     =       &winboxes[PANEL_FLEXBOX1].panel;
+            master_flags.ncdxf.panel    =       &winboxes[PANEL_NULL].panel;
+            master_flags.clock.panel    =       &winboxes[PANEL_CLOCK].panel;
+            master_flags.kindex.panel   =       &winboxes[PANEL_FLEXBOX4].panel;
+*/
 
-
-        master_flags.draw_callsign_flag = true;
-        master_flags.draw_de_flag = true;
-        master_flags.draw_dx_flag = true;
-        master_flags.draw_pota_flag = true;
-        master_flags.draw_sat_tracker_flag = true;
-        master_flags.draw_dx_spots_flag = true;
-        master_flags.draw_map_flag = true;
-        master_flags.draw_clock_flag = true;
+        master_flags.callsign.draw_flag = true;
+        master_flags.de.draw_flag = true;
+        master_flags.dx.draw_flag = true;
+        master_flags.pota.draw_flag = true;
+        master_flags.sat_tracker.draw_flag = true;
+        master_flags.dx_spots.draw_flag = true;
+        master_flags.ncdxf.draw_flag = true;
+        master_flags.map.draw_flag = true;
+        master_flags.clock.draw_flag = true;
         flag_timer = SDL_AddTimer(100, master_clock, &master_flags);
         SDL_UnlockMutex(night_mask_mutex);
         SDL_Log("Done resizing panels");
@@ -406,7 +488,7 @@ int window_init(int x, int y) {
             return(1);
         }
         SDL_SetWindowResizable(window, 1);
-        resize_panels(&winboxes);
+        resize_panels(winboxes);
         if (!window || !surface) {
             printf("Window Renderer error\n");
             return(1);
@@ -429,20 +511,20 @@ int window_init(int x, int y) {
 
         // initial draws
         currenttime=time(NULL);
-          draw_callsign(winboxes.callsign, Sans, clockconfig.CallSign().c_str());
-        dx_cluster (winboxes.rowbox3);
+          draw_callsign(winboxes[PANEL_CALLSIGN].panel, Sans, clockconfig.CallSign().c_str());
+        dx_cluster (winboxes[PANEL_FLEXBOX3].panel);
 
         SDL_RenderPresent(surface);
 
-        master_flags.draw_callsign_flag = true;
-        master_flags.draw_de_flag = true;
-        master_flags.draw_dx_flag = true;
-        master_flags.draw_pota_flag = true;
-        master_flags.draw_sat_tracker_flag = true;
-        master_flags.draw_dx_spots_flag = true;
-        master_flags.draw_map_flag = true;
-        master_flags.draw_clock_flag = true;
-        master_flags.draw_kindex_flag = true;
+        master_flags.callsign.draw_flag = true;
+        master_flags.de.draw_flag = true;
+        master_flags.dx.draw_flag = true;
+        master_flags.pota.draw_flag = true;
+        master_flags.sat_tracker.draw_flag = true;
+        master_flags.dx_spots.draw_flag = true;
+        master_flags.map.draw_flag = true;
+        master_flags.clock.draw_flag = true;
+        master_flags.kindex.draw_flag = true;
         flag_timer = SDL_AddTimer(1000, master_clock, &master_flags);
     }
     return 0;
@@ -532,17 +614,45 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     // init globals
     map_pins			=	0;
     data_cache			=	0;
-    winboxes.callsign.Reset();
-    winboxes.map.Reset();
-    winboxes.dx.Reset();
-    winboxes.de.Reset();
-    winboxes.clock.Reset();
-    winboxes.rowbox1.Reset();
-    winboxes.rowbox2.Reset();
-    winboxes.rowbox3.Reset();
-    winboxes.rowbox4.Reset();
-    winboxes.nullframe.Reset();
-    winboxes.corner.Reset();
+    winboxes[PANEL_CALLSIGN].panel.Reset();
+    winboxes[PANEL_MAP].panel.Reset();
+    winboxes[PANEL_DX].panel.Reset();
+    winboxes[PANEL_DE].panel.Reset();
+    winboxes[PANEL_CLOCK].panel.Reset();
+    winboxes[PANEL_FLEXBOX1].panel.Reset();
+    winboxes[PANEL_FLEXBOX2].panel.Reset();
+    winboxes[PANEL_FLEXBOX3].panel.Reset();
+    winboxes[PANEL_FLEXBOX4].panel.Reset();
+    winboxes[PANEL_NULL].panel.Reset();
+    winboxes[PANEL_FLEXBOX5].panel.Reset();
+
+    winboxes[PANEL_MAP].sequence.push_back(MOD_MAP);
+    winboxes[PANEL_CALLSIGN].sequence.push_back(MOD_CALL);
+    winboxes[PANEL_CLOCK].sequence.push_back(MOD_CLOCK);
+    winboxes[PANEL_DE].sequence.push_back(MOD_DE);
+    winboxes[PANEL_DX].sequence.push_back(MOD_DX);
+    winboxes[PANEL_FLEXBOX1].sequence.push_back(MOD_POTA);
+    winboxes[PANEL_FLEXBOX1].sequence.push_back(MOD_NCDXF);
+    winboxes[PANEL_FLEXBOX2].sequence.push_back(MOD_SAT);
+    winboxes[PANEL_FLEXBOX3].sequence.push_back(MOD_DXSPOT);
+    winboxes[PANEL_FLEXBOX4].sequence.push_back(MOD_KINDEX);
+
+
+/*
+                master_flags.map.panel      =       &winboxes[PANEL_MAP].panel;
+            master_flags.sat_tracker.panel      =       &winboxes[PANEL_FLEXBOX2].panel;
+            master_flags.dx_spots.panel =       &winboxes[PANEL_FLEXBOX3].panel;
+            master_flags.callsign.panel =       &winboxes[PANEL_CALLSIGN].panel;
+            master_flags.de.panel       =       &winboxes[PANEL_DE].panel;
+            master_flags.dx.panel       =       &winboxes[PANEL_DX].panel;
+            master_flags.pota.panel     =       &winboxes[PANEL_FLEXBOX1].panel;
+            master_flags.ncdxf.panel    =       &winboxes[PANEL_NULL].panel;
+            master_flags.clock.panel    =       &winboxes[PANEL_CLOCK].panel;
+            master_flags.kindex.panel   =       &winboxes[PANEL_FLEXBOX4].panel;
+*/
+
+
+
     DayMap.Reset();
     NightMap.Reset();
     CountriesMap.Reset();
@@ -571,89 +681,86 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     SDL_Delay(10);			// slow down the program
     if (!resizing) {
         currenttime=time(NULL);
-//        if (currenttime != oldtime) {	// temporary one second timer
         SDL_LockMutex(master_clock_mutex);
-        if (master_flags.draw_clock_flag) {
-            draw_clock(winboxes.clock, Sans);
-//            winboxes.clock.draw_border();
-            master_flags.draw_clock_flag = false;
+        if (master_flags.clock.draw_flag) {
+            draw_clock(winboxes[PANEL_CLOCK].panel, Sans);
+            master_flags.clock.draw_flag = false;
         }
-        if (master_flags.draw_callsign_flag) {
-            draw_callsign(winboxes.callsign, Sans, clockconfig.CallSign().c_str());
-//            winboxes.callsign.draw_border();
-            master_flags.draw_callsign_flag = false;
+        if (master_flags.callsign.draw_flag) {
+            draw_callsign(*(master_flags.callsign.panel), Sans, clockconfig.CallSign().c_str());
+//            draw_callsign(winboxes.callsign, Sans, clockconfig.CallSign().c_str());
+            master_flags.callsign.draw_flag = false;
         }
-        if (master_flags.draw_map_flag) {
-            draw_map(winboxes.map);
-            winboxes.map.draw_border();
-            master_flags.draw_map_flag = false;
+        if (master_flags.map.draw_flag) {
+            draw_map(*(master_flags.map.panel));
+//            draw_map(winboxes.map);
+            winboxes[PANEL_MAP].panel.draw_border();
+            master_flags.map.draw_flag = false;
         }
-        if (master_flags.draw_de_flag) {
-            draw_de_dx(winboxes.de, Sans, clockconfig.DE().latitude, clockconfig.DE().longitude, 1);
-//            winboxes.de.draw_border();
-            master_flags.draw_de_flag = false;
+        if (master_flags.de.draw_flag) {
+            draw_de_dx(*(master_flags.de.panel), Sans, clockconfig.DE().latitude, clockconfig.DE().longitude, 1);
+//            draw_de_dx(winboxes.de, Sans, clockconfig.DE().latitude, clockconfig.DE().longitude, 1);
+            master_flags.de.draw_flag = false;
         }
-        if (master_flags.draw_dx_flag) {
-            draw_de_dx(winboxes.dx, Sans, clockconfig.DX().latitude, clockconfig.DX().longitude, 0);
-//            winboxes.dx.draw_border();
-            master_flags.draw_dx_flag = false;
+        if (master_flags.dx.draw_flag) {
+            draw_de_dx(*(master_flags.dx.panel), Sans, clockconfig.DX().latitude, clockconfig.DX().longitude, 0);
+//            draw_de_dx(winboxes.dx, Sans, clockconfig.DX().latitude, clockconfig.DX().longitude, 0);
+            master_flags.dx.draw_flag = false;
         }
-        if (master_flags.draw_pota_flag) {
-            pota_spots(winboxes.rowbox1, Sans);
-//            winboxes.rowbox1.draw_border();
-            master_flags.draw_pota_flag = false;
+        if (master_flags.pota.draw_flag) {
+            pota_spots(*(master_flags.pota.panel), Sans);
+//            pota_spots(winboxes.rowbox1, Sans);
+            master_flags.pota.draw_flag = false;
 
         }
-        if (master_flags.draw_kindex_flag) {
-            k_index_chart (winboxes.rowbox4);
-//            winboxes.rowbox4.draw_border();
-            master_flags.draw_kindex_flag = false;
+        if (master_flags.kindex.draw_flag) {
+            k_index_chart (*(master_flags.kindex.panel));
+//            k_index_chart (winboxes.rowbox4);
+            master_flags.kindex.draw_flag = false;
         }
 
-
-        if (master_flags.draw_sat_tracker_flag) {
-            sat_tracker (winboxes.rowbox2, Sans, winboxes.map);
-//            winboxes.rowbox2.draw_border();
-            master_flags.draw_sat_tracker_flag = false;
+        if (master_flags.sat_tracker.draw_flag) {
+//            sat_tracker (winboxes.rowbox2, Sans, winboxes.map);
+            sat_tracker (*(master_flags.sat_tracker.panel), Sans, winboxes[PANEL_MAP].panel);
+            master_flags.sat_tracker.draw_flag = false;
         }
-        if (master_flags.draw_dx_spots_flag) {
-            dx_cluster (winboxes.nullframe);
-            ncdxf_module(winboxes.rowbox3);
-//            winboxes.rowbox3.draw_border();
-            master_flags.draw_dx_spots_flag = false;
+        if (master_flags.dx_spots.draw_flag) {
+            dx_cluster(*(master_flags.dx_spots.panel));
+//            dx_cluster (winboxes.rowbox3);
+            master_flags.dx_spots.draw_flag = false;
         }
-        winboxes.callsign.present();
-        winboxes.clock.present();
-        winboxes.map.present();
-        winboxes.de.present();
-        winboxes.dx.present();
-        winboxes.rowbox1.present();
-        winboxes.rowbox2.present();
-        winboxes.rowbox3.present();
-        winboxes.rowbox4.present();
-        winboxes.corner.present();
+        if (master_flags.ncdxf.draw_flag) {
+            ncdxf_module(*(master_flags.ncdxf.panel));
+//            ncdxf_module(winboxes[PANEL_NULL].panel);
+            master_flags.ncdxf.draw_flag = false;
+        }
+        winboxes[PANEL_CALLSIGN].panel.present();
+        winboxes[PANEL_CLOCK].panel.present();
+        winboxes[PANEL_MAP].panel.present();
+        winboxes[PANEL_DE].panel.present();
+        winboxes[PANEL_DX].panel.present();
+        winboxes[PANEL_FLEXBOX1].panel.present();
+        winboxes[PANEL_FLEXBOX2].panel.present();
+        winboxes[PANEL_FLEXBOX3].panel.present();
+        winboxes[PANEL_FLEXBOX4].panel.present();
+        winboxes[PANEL_FLEXBOX5].panel.present();
             SDL_UnlockMutex(master_clock_mutex);
             SDL_RenderPresent(surface);
             if (headless && (!outfile.empty())) {
                 // dump surface to image file here
                 int width, height;
                 SDL_GetCurrentRenderOutputSize(surface, &width, &height);
-//                SDL_Surface* saveSurface = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_ARGB8888);
                 SDL_Surface* savesurface = SDL_RenderReadPixels(surface, NULL);
-//                SDL_SaveBMP(saveSurface, output_file_path.c_str());  // output_file_path from --output
                 SDL_SaveBMP(savesurface, outfile.c_str());  // output_file_path from --output
                 SDL_DestroySurface(savesurface);
             }
-//            oldtime = currenttime;
-//        }
     }
     return(SDL_APP_CONTINUE);
 }
 
 
     /* This function runs once at shutdown. */
-void SDL_AppQuit(void *appstate, SDL_AppResult result)
-{
+void SDL_AppQuit(void *appstate, SDL_AppResult result) {
      (void)appstate;
     (void)result;
     free (night_mask_args);
@@ -676,10 +783,10 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
         if (!resizing) {
             resizing=1;
             SDL_Log("RESIZING");
-            resize_panels(&winboxes);
+            resize_panels(winboxes);
 //            SDL_Delay(1000);
             SDL_Log("drawing call on resize");
-            draw_callsign(winboxes.callsign, Sans, clockconfig.CallSign().c_str());
+            draw_callsign(winboxes[PANEL_CALLSIGN].panel, Sans, clockconfig.CallSign().c_str());
             SDL_Log("Completed drawing call on resize");
 //            SDL_Delay(1000);
             resizing=0;

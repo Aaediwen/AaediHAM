@@ -110,7 +110,7 @@ void k_index_chart (ScreenFrame& panel) {
     time_t cache_time;
     bool reload_flag = false;
     std::string combined;
-    SDL_Log ("Kindex checking cache");
+//    SDL_Log ("Kindex checking cache");
     data_size = cache_loader(MOD_KINDEX, (void**)&k_index_list, &cache_time);
     if (!data_size) {
         reload_flag=true;
@@ -126,10 +126,10 @@ void k_index_chart (ScreenFrame& panel) {
     }
 
     if (reload_flag) {
-        SDL_Log("Kindex cache Miss");
+//        SDL_Log("Kindex cache Miss");
         data_size = http_loader("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json", (void**)&k_index_list);   // live
         data_size += http_loader("https://services.swpc.noaa.gov/products/solar-wind/plasma-7-day.json", (void**)&solar_wind_list);
-        SDL_Log("Fetched Sources");
+//        SDL_Log("Fetched Sources");
         if (data_size) {
             json k_list = json::parse(k_index_list);
             json solar_index = json::parse(solar_wind_list);
@@ -173,7 +173,7 @@ void k_index_chart (ScreenFrame& panel) {
 
         bar_box.x=1;
         bar_box.w = (panel.dims.w-2)/k_indices.size();
-        SDL_Log("Drawing chart size %zu", k_indices.size());
+//        SDL_Log("Drawing chart size %zu", k_indices.size());
         auto wind_index =  merged["solar_wind"].begin();
         std::deque<float>speed_queue;
         std::deque<float>density_queue;

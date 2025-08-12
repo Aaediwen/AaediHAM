@@ -225,6 +225,7 @@ void duplicate_spot(dxspot& needle) {
     }
 //    SDL_Log ("Pushing Spot %s : Age: %li Seconds", needle.dx.c_str(), (time(NULL) - needle.timestamp)) ;
     dxspots.push_back(needle);
+    SDL_Log ("Stored: %i DX Spots", dxspots.size());
 }
 
 void dx_cluster (ScreenFrame& panel) {
