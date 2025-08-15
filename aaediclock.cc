@@ -33,6 +33,7 @@ SDL_TimerID map_timer = 0;
 Uint8 interrupt_counter = 0;
 struct regen_mask_args* night_mask_args = nullptr;
 map_overlay overlays;
+map_icons icon_bin;
 
 struct ModuleControl {
     bool draw_flag = true;
@@ -321,6 +322,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
 
         // recreate the map textures as well so they don't get lost
         load_maps(surface);
+        icon_bin.reload_icons(surface);
 /*            master_flags.map.panel      =       &winboxes[PANEL_MAP].panel;
             master_flags.sat_tracker.panel      =       &winboxes[PANEL_FLEXBOX2].panel;
             master_flags.dx_spots.panel =       &winboxes[PANEL_FLEXBOX3].panel;

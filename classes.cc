@@ -463,4 +463,51 @@ void map_overlay::remove_overlay(enum mod_name owner) {
     return;
 }
 
+map_icons::map_icons (SDL_Renderer* renderer) {
+    if (renderer) {
+        reload_icons(renderer);
+    }
+}
+map_icons::~map_icons() {
+    clear_icons();
+}
+void map_icons::clear_icons() {
+    for (SDL_Texture*& tex : icons) {
+        if (tex) {
+            SDL_DestroyTexture(tex);
+            tex = nullptr;
+        }
+    }
+}
 
+void map_icons::load_texture (SDL_Renderer* renderer, const std::string& path, const enum icon_names index) {
+    icons[index]=nullptr;
+    if (renderer) {
+        SDL_Surface* loadsurface = SDL_LoadBMP(path.c_str());
+        if (loadsurface) {
+            icons[index] = SDL_CreateTextureFromSurface(renderer, loadsurface);
+            if (!icons[index]) {
+                SDL_Log("Unable to generate Icon Texture from %s", path.c_str());
+                return;
+            }
+        } else {
+            SDL_Log("Unable to load icon texture: %s", path.c_str());
+            return;
+        }
+
+    } else {
+        SDL_Log("No Icon load renderer provided!");
+        return;
+    }
+    return;
+}
+void map_icons::reload_icons(SDL_Renderer* renderer) {
+    if (renderer) {
+        clear_icons();
+        load_texture(renderer, "images/satellite.bmp", map_icons::ICON_SAT);
+    }
+    return;
+}
+SDL_Texture* map_icons::get_icon(const enum icon_names index) {
+    return (icons[index]);
+}

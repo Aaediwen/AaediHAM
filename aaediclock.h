@@ -138,22 +138,6 @@ struct pager_node {
     int index=0;
 };
 extern std::array<pager_node, 12> winboxes;
-/*struct surfaces {
-    pager_node  map;
-    pager_node  callsign;
-    pager_node  de;
-    pager_node  dx;
-    pager_node  clock;
-    pager_node  rowbox1;
-    pager_node  rowbox2;
-    pager_node  rowbox3;
-    pager_node  rowbox4;
-    pager_node  ticker;
-    pager_node  nullframe;
-    pager_node  corner;
-
-} extern winboxes;
-*/
 
 struct map_pin {
     enum mod_name owner;
@@ -194,4 +178,26 @@ class map_overlay {
 };
 
 extern map_overlay overlays;
+
+class map_icons {
+
+    public:
+        enum icon_names {
+            ICON_SAT
+        };
+        map_icons(SDL_Renderer* renderer = nullptr);
+        ~map_icons();
+        map_icons(ScreenFrame&& source) = delete;
+        map_icons& operator=(map_icons&& source) = delete;
+        map_icons(const map_icons& source) = delete;
+        map_icons& operator=(const map_icons& source) = delete;
+        void reload_icons(SDL_Renderer* renderer = nullptr);
+        SDL_Texture* get_icon(enum icon_names);
+    private:
+        std::array<SDL_Texture*,1> icons{};
+        void load_texture (SDL_Renderer* renderer, const std::string& path, const enum icon_names index);
+        void clear_icons();
+};
+
+extern map_icons icon_bin;
 #endif
