@@ -14,6 +14,7 @@ void load_maps(SDL_Renderer* surface) {
         SDL_Log("Unable to load DayMap Surface: %s\n", SDL_GetError());
         exit(1);
     }
+
     NightMap.surface = SDL_LoadBMP("images/Black_Marble_2016.bmp");
     if (NightMap.surface) {
         NightMap.texture = SDL_CreateTextureFromSurface(surface,NightMap.surface);
@@ -64,25 +65,37 @@ void load_maps(SDL_Renderer* surface) {
 
 void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
 
-    SDL_Texture* icon_tex = SDL_CreateTexture(panel->GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 16, 16);
-    if (!icon_tex) {
-        SDL_Log("Failed to create icon texture: %s", SDL_GetError());
-        return ;
-    }
-    // render the icon
-     SDL_SetRenderTarget(panel->GetRenderer(), icon_tex);
+    SDL_Texture* icon_tex = nullptr;
+    SDL_FRect target_rect;
     if (current_pin->icon) {
+        icon_tex = SDL_CreateTexture(panel->GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 64, 64);
+        if (!icon_tex) {
+            SDL_Log("Failed to create icon texture: %s", SDL_GetError());
+            return ;
+        }
+        // render the icon
+        SDL_SetRenderTarget(panel->GetRenderer(), icon_tex);
         SDL_RenderTexture(panel->GetRenderer(), current_pin->icon, NULL, NULL);
+        target_rect.h=32;
+        target_rect.w=32;
     } else {
+        icon_tex = SDL_CreateTexture(panel->GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 16, 16);
+        if (!icon_tex) {
+            SDL_Log("Failed to create icon texture: %s", SDL_GetError());
+            return ;
+        }
+    // render the icon
+         SDL_SetRenderTarget(panel->GetRenderer(), icon_tex);
          SDL_FRect pin_rect = {4.0f, 4.0f, 8.0f, 8.0f};
          SDL_SetRenderDrawColor(panel->GetRenderer(), 16, 16, 16, 128);
          SDL_RenderFillRect(panel->GetRenderer(), NULL);
          SDL_SetRenderDrawColor(panel->GetRenderer(), current_pin->color.r, current_pin->color.g, current_pin->color.b, current_pin->color.a);
          SDL_RenderFillRect(panel->GetRenderer(), &pin_rect );
+         target_rect.h=8;
+         target_rect.w=8;
     }
-    SDL_FRect target_rect;
-    target_rect.h=8;
-    target_rect.w=8;
+
+
     SDL_FPoint tgt_px;
     cords_to_px(current_pin->lat, current_pin->lon, (int)panel->texture->w, (int)panel->texture->h, &tgt_px);
     target_rect.x=tgt_px.x;

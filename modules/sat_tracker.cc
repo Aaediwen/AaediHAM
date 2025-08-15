@@ -376,17 +376,57 @@ void pass_tracker(ScreenFrame& panel, TrackedSatellite& sat) {
     return;
 }
 
+struct tle_cache {
+    char name[80];
+    char line1[80];
+    char line2[80];
+    SDL_Color color;
+    bool draw;
+};
+
+std::string sat_json_parser(const char* input_string) {
+    std::ostringstream cache_stream;
+    std::istringstream iostring_buffer;
+    std::string sanitized(input_string);  // Make a copy (if amateur_tle is char*)
+    sanitized.erase(std::remove(sanitized.begin(), sanitized.end(), '\r'), sanitized.end());
+    iostring_buffer.clear();
+    iostring_buffer.str(sanitized);
+    SDL_Color trackcols = {255,0,0,255};
+    Uint32 data_size = 0;
+    while (true) {
+        struct tle_cache new_cache;
+        memset(&new_cache, 0, sizeof(new_cache));
+        std::string instring;
+        std::getline(iostring_buffer, instring);
+        strncpy(new_cache.name, instring.c_str(),80);
+        new_cache.name[79]=0;
+        std::getline(iostring_buffer, instring);
+        strncpy(new_cache.line1, instring.c_str(),80);
+        new_cache.line1[79]=0;
+        std::getline(iostring_buffer, instring);
+        strncpy(new_cache.line2, instring.c_str(),80);
+        new_cache.line2[79]=0;
+        if (new_cache.name[0] && new_cache.line1[0] && new_cache.line2[0]) { // valid entry?
+            new_cache.draw=false;
+            trackcols.r -= 20;
+            trackcols.g += 20;
+            trackcols.b += 10;
+            for (const std::string& stropt : clockconfig.Sats()) {
+                instring = new_cache.name;
+                if (instring.compare(0,stropt.length(),stropt)==0) {
+        	    new_cache.draw=true;
+                    new_cache.color = trackcols;
+                }
+            }
+            cache_stream.write(reinterpret_cast<const char*>(&new_cache), sizeof(new_cache));
+        } else { break; }
+    }
+    return (cache_stream.str());
+}
 
 Uint16 pass_pager[2] = {0,0};
 std::vector<TrackedSatellite> satlist;
 void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
-    struct tle_cache {
-        char name[80];
-        char line1[80];
-        char line2[80];
-        SDL_Color color;
-        bool draw;
-    };
 
     std::istringstream tle_raw;
     char* amateur_tle = 0 ;
@@ -411,51 +451,8 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
         satlist.clear();
         if (data_size) {
 //            SDL_Log ("Fetched New Sat data");
-            tle_raw.clear();
-            std::istringstream iostring_buffer;
-            std::string sanitized(amateur_tle);  // Make a copy (if amateur_tle is char*)
-            sanitized.erase(std::remove(sanitized.begin(), sanitized.end(), '\r'), sanitized.end());
-            iostring_buffer.clear();
-            iostring_buffer.str(sanitized);
-            SDL_Color trackcols = {255,0,0,255};
-            data_size = 0;
-//            SDL_Log ("Itterating Sat Data");
-            while (true) {
-                struct tle_cache new_cache;
-                memset(&new_cache, 0, sizeof(new_cache));
-                std::string instring;
-                std::getline(iostring_buffer, instring);
-                strncpy(new_cache.name, instring.c_str(),80);
-                new_cache.name[79]=0;
-                std::getline(iostring_buffer, instring);
-                strncpy(new_cache.line1, instring.c_str(),80);
-                new_cache.line1[79]=0;
-                std::getline(iostring_buffer, instring);
-                strncpy(new_cache.line2, instring.c_str(),80);
-                new_cache.line2[79]=0;
-                if (new_cache.name[0] && new_cache.line1[0] && new_cache.line2[0]) { // valid entry?
-                    new_cache.draw=false;
-                    trackcols.r -= 20;
-                    trackcols.g += 20;
-                    trackcols.b += 10;
-                    for (const std::string& stropt : clockconfig.Sats()) {
-                        instring = new_cache.name;
-                	if (instring.compare(0,stropt.length(),stropt)==0) {
-                    		new_cache.draw=true;
-                    		new_cache.color = trackcols;
-                	}
-                    }
-                    cache_stream.write(reinterpret_cast<const char*>(&new_cache), sizeof(new_cache));
-                    if (new_cache.draw) {
-//                        SDL_Log ("Write Sat %s draw = %d", new_cache.name, new_cache.draw);
-                    }
-                } else { break; }
-
-
-            }
-
-
-            std::string blob = cache_stream.str();
+            std::string blob = sat_json_parser(amateur_tle);
+//            std::string blob = cache_stream.str();
 //            SDL_Log ("caching %li Bytes of Sat Data", blob.length());
             add_data_cache(MOD_SAT, blob.length(), (void*)blob.data());
             data_size = blob.length();
@@ -589,7 +586,8 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
             sprintf(sat_pin.label, "%s", Sat.get_name().c_str());
             sat_pin.lat     =               sat_loc.x;
             sat_pin.lon     =               sat_loc.y;
-            sat_pin.icon    =               0;
+            sat_pin.icon    =               icon_bin.get_icon(map_icons::ICON_SAT);
+//            SDL_Log("Sat Tracker got pin %p", sat_pin.icon);
             sat_pin.color   =               Sat.color;;
             sat_pin.tooltip[0]      =               0;
             add_pin(&sat_pin);
