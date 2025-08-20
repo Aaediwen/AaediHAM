@@ -318,6 +318,23 @@ int delete_mod_cache(enum mod_name owner) {
 
 }
 
+void dump_cache() {
+
+    struct data_blob* current_chunk;
+     if (data_cache) {
+           std::ofstream out("cache.dump", std::ios::binary);
+           current_chunk = data_cache;
+           while (current_chunk) {
+               out.write(reinterpret_cast<const char*>(current_chunk), sizeof(struct data_blob));
+               out.write(reinterpret_cast<const char*>(current_chunk->data), current_chunk->size);
+               current_chunk = current_chunk->next;
+           }
+           out.close();
+     }
+     return;
+}
+
+
 int add_data_cache(enum mod_name owner, const Uint32 size, const void* data) {
     delete_mod_cache(owner);
 
@@ -351,7 +368,7 @@ int add_data_cache(enum mod_name owner, const Uint32 size, const void* data) {
     } else {
         return (0);
     }
-
+//    dump_cache();
 //    printf ("Test stored data\n %s \n -----------\n",(char*)empty_locker->data);
     return (1);
 
