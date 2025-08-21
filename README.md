@@ -1,3 +1,7 @@
+![Screenshot](/images/screenshot.jpg?raw=true "Program Screenshot")
+
+<HR>
+
 This is my attempt at re-implementing the idea behind HamClock from Clear Sky Institute as an SDL application eventually with versions for Windows, Mac, and Linux from the same code base.
   
 The program now requires a config file (aaediclock_config.json) in the Current Directory. 
