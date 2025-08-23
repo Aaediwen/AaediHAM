@@ -1,4 +1,4 @@
-
+![Screenshot](/images/screenshot.jpg "New Program Screenshot")
 
 <HR>
 
