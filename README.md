@@ -1,4 +1,4 @@
-![Screenshot](/images/screenshot.jpg?raw=true "Program Screenshot")
+
 
 <HR>
 
