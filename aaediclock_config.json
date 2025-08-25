@@ -1,8 +1,8 @@
 {
      "CallSign": "N0CALL",
      "DE": {
-          "Latitude": 36.978,         
-          "Longitude": -85.495
+          "Latitude": 30.578,         
+          "Longitude": -80.395
      },
      "DX": {
           "Latitude": 0.0,
@@ -22,4 +22,5 @@
           "NOAA 18"
      ]
 }
+
 
