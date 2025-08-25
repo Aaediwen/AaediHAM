@@ -14,6 +14,10 @@
           10,
           10
      ],
+     "DX_Server": {
+          "Name": "dxfun.com",
+          "Port": 8000
+     },
      "SatList": [
           "LES-5", 
           "NOAA 15",
@@ -22,5 +26,6 @@
           "NOAA 18"
      ]
 }
+
 
 
