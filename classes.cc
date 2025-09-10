@@ -1,9 +1,7 @@
 #include "aaediclock.h"
 #include "utils.h"
 #include "modules.h"
-//#include <sstream>
-//#include "json.hpp"
-//#include <libsgp4/CoordTopocentric.h>
+#include <SDL3_image/SDL_image.h>
 
 using json = nlohmann::json;
 
@@ -213,10 +211,13 @@ void ScreenFrame::Clear(const SDL_Color& color) {
 
 void config::qrz_sesskey() {
     char* xml = 0 ;
-    Uint32 key_size;
+    Uint32 key_size =0;
+    m_QRZ.Key.clear();
+    if (!m_QRZ.Secret.empty()) {
     //std::string url = "https://xmldata.qrz.com/xml/current/?username="+m_CallSign+"&password="+m_QRZ.Secret;
     std::string url = "https://xmldata.qrz.com/xml/current/?username=" + m_CallSign + ";password=" + m_QRZ.Secret;
     key_size = http_loader(url.c_str(), (void**)&xml);
+    }
     if (key_size) {
         // parse XML for session key
         std::istringstream stream(xml);
@@ -246,6 +247,21 @@ void config::qrz_sesskey() {
     return;
 }
 
+bool config::next_wspr(std::string *callsign, int *band) {
+    if (m_WSPRList.empty()) {
+        return false;
+    }
+    if (m_WSPRIndex < m_WSPRList.size()) {
+        *callsign = m_WSPRList[m_WSPRIndex].callsign;
+        *band = m_WSPRList[m_WSPRIndex].band;
+        m_WSPRIndex++;
+        return true;
+    } else {
+        m_WSPRIndex = 0;
+        return false;
+    }
+}
+
 void config::write_config() {
     json data = json({});
     data["CallSign"]=m_CallSign.c_str();
@@ -259,7 +275,16 @@ void config::write_config() {
         QRZ_secret[i] ^= static_cast<uint8_t>(i);
     }
     data["QRZ"]=QRZ_secret;
+    data["DX_Server"]["Name"] = m_dxserver.name;
+    data["DX_Server"]["Port"] = m_dxserver.port;
     data["SatList"]=m_sats;
+    data["WSPR"]=nlohmann::json::array();
+    for (const auto& entry : m_WSPRList) {
+        data["WSPR"].push_back({
+            {"callsign", entry.callsign},
+            {"band", entry.band}
+        });
+    }
     std::ofstream f("aaediclock_config.json");
     f << data.dump(5);
     f.close();
@@ -279,6 +304,8 @@ void config::load_config() {
     m_DX={0, 0};
     m_QRZ.Secret.clear();
     m_QRZ.Key.clear();
+    m_dxserver.name = "dxfun.com";
+    m_dxserver.port = 8000;
 
     SDL_Log ("Loading CONFIG");
     std::ifstream f("aaediclock_config.json");
@@ -314,12 +341,35 @@ void config::load_config() {
             }
         }
 
+        if (data.contains("DX_Server")) {
+            if (data["DX_Server"].contains("Name") && data["DX_Server"].contains("Port")) {
+                if (data["DX_Server"]["Name"].is_string() && data["DX_Server"]["Port"].is_number()) {
+                    m_dxserver.name= data["DX_Server"]["Name"];
+                    m_dxserver.port = data["DX_Server"]["Port"];
+                }
+            }
+        }
+
+
         if (data.contains("CallSign")) {
             if (data["CallSign"].is_string()) {
                 m_CallSign=data["CallSign"];
             }
         }
+        m_WSPRList.clear();
+        m_WSPRIndex = 0;
+        if (data.contains("WSPR")) {
+            if (data["WSPR"].is_array()) {
+                for (const auto& entry : data["WSPR"]) {
+                    if (entry.contains("callsign") && entry.contains("band") && entry["band"].is_number()) {
+                        m_WSPRList.push_back({entry["callsign"].get<std::string>(), entry["band"].get<int>()});
+                    }
+                }
+            }
+        }
+
         if (data.contains("QRZ")) {
+            try {
             if (data["QRZ"].is_string()) {
                 m_QRZ.Secret=data["QRZ"];
                 qrz_sesskey();
@@ -331,6 +381,9 @@ void config::load_config() {
                 }
                 m_QRZ.Secret = json::from_cbor(QRZ_secret).get<std::string>();
                 qrz_sesskey();
+            }
+            } catch (json::parse_error &e) {
+                SDL_Log ("Invalid QRZ Passowrd");
             }
         }
 
@@ -370,6 +423,10 @@ const GeoCoord& config::DE() const {
 
 const GeoCoord& config::DX() const {
     return m_DX;
+}
+
+const config::ip_server_t& config::dxserver() const {
+    return m_dxserver;
 }
 
 const std::vector<std::string>& config::Sats() const {
@@ -441,6 +498,7 @@ bool map_overlay::overlay_check(enum mod_name owner) {
 ScreenFrame* map_overlay::next_overlay() {
     if (index < overlay_list.size()) {
         index++;
+//        SDL_Log("Returning Next panel: %i",overlay_list[index-1].owner);
         return (&(overlay_list[index-1].panel));
     } else {
         index=0;
@@ -483,7 +541,8 @@ void map_icons::clear_icons() {
 void map_icons::load_texture (SDL_Renderer* renderer, const std::string& path, const enum icon_names index) {
     icons[index]=nullptr;
     if (renderer) {
-        SDL_Surface* loadsurface = SDL_LoadBMP(path.c_str());
+//      SDL_Surface* loadsurface = SDL_LoadBMP(path.c_str());
+        SDL_Surface* loadsurface = IMG_Load(path.c_str());
         if (loadsurface) {
             icons[index] = SDL_CreateTextureFromSurface(renderer, loadsurface);
             if (!icons[index]) {
@@ -504,7 +563,8 @@ void map_icons::load_texture (SDL_Renderer* renderer, const std::string& path, c
 void map_icons::reload_icons(SDL_Renderer* renderer) {
     if (renderer) {
         clear_icons();
-        load_texture(renderer, "images/satellite.bmp", map_icons::ICON_SAT);
+//        load_texture(renderer, "images/satellite.bmp", map_icons::ICON_SAT);
+        load_texture(renderer, "images/satellite.png", map_icons::ICON_SAT);
     }
     return;
 }

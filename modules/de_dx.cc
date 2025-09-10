@@ -43,7 +43,7 @@ void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int 
     double solar_alt;
     // find the next zero crossing for sunrise if current alt <0
 
-    sun_times(lat, lon, &sunrise, &sunset, &solar_alt, currenttime);
+    sun_times(lat, lon, &sunrise, &sunset, &solar_alt, time(NULL));
     // render the header
     TextRect.x=2;
     TextRect.y=2;

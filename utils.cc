@@ -17,7 +17,7 @@
 
 
 
-int read_socket(int fd, std::string &result) {
+int read_socket(dx_socket_t fd, std::string &result) {
 
     int bytesin = 7;
     char temp[10];
@@ -56,59 +56,6 @@ int read_socket(int fd, std::string &result) {
    return total;
 }
 
-
-int read_socket(int fd, char** result) {
-    int bytesin = 7;
-    char temp[10];
-    temp[0]=0;
-    char* str_ptr;
-    int total = 0;
-    pollfd poll_list;
-    poll_list.fd=fd;
-    poll_list.events = POLLIN;
-    *result=(char*)malloc(1);
-    while (bytesin >0 && temp[0] !=10) {
-        if (poll(&poll_list, 1, 100) >0) {
-            if (poll_list.revents & POLLIN) {
-                *result=(char*)realloc(*result,total+2);
-                SDL_Log("MALLOCED %i", total+2);
-                if (*result) {
-                    bytesin=0;
-                    str_ptr = (*result)+total;
-#ifdef _WIN32
-                    bytesin = recv(fd, temp, 1, 0);
-#else
-                    bytesin = recv(fd, (void*)temp, 1, 0);
-#endif
-
-                    if (bytesin) {
-                        temp[1]=0;
-                        str_ptr[0]=temp[0];
-                        str_ptr[1]=0;
-                        total += bytesin;
-                        (*result)[total]=0;
-                    }
-//                    SDL_Log("read: %s %i", *result, bytesin);
-                } else {
-                    SDL_Log ("Socket read MALLOC error");
-                    bytesin=-1;
-                }
-            } else {
-                SDL_Log ("Nothing to read");
-                bytesin=-1;
-            }
-        } else {
-            SDL_Log ("Other POLL error");
-            bytesin=-1;
-            temp[0]=0;
-            SDL_Log ("returning empty");
-        }
-    }
-    (*result)[total]=0;
-    SDL_Log ("Returning %s", *result);
-   return total;
-
-}
 
 double solar_altitude(double lat_deg, double lon_deg, struct tm *utc, double decl_deg) {
     //Converts latitude and solar declination from degrees to radians
@@ -508,7 +455,7 @@ int http_loader(const char* source_url, void** result) {
 
     http_connection = WinHttpConnect(http, host.c_str(),
         exploded_url.nPort, 0);
-    SDL_Log("Attemped to connect to server. (Error %u)", GetLastError());
+    SDL_Log("Attemped to connect to server. %s (Error %u)", host.c_str(), GetLastError());
     if (!http_connection) {
         SDL_Log("Unable to connect to %ls on %u", host.c_str(), exploded_url.nPort);
         WinHttpCloseHandle(http);
@@ -665,3 +612,22 @@ Uint32 cache_loader(const enum mod_name owner, void** result, time_t *result_tim
     }
 }
 
+std::string url_encode(const std::string& input) {
+    static const char hex[] = "0123456789ABCDEF";
+    std::string result;
+    result.reserve(input.size() * 3);
+
+    for (unsigned char c : input) {
+        if ((c >= 'A' && c <= 'Z') ||
+            (c >= 'a' && c <= 'z') ||
+            (c >= '0' && c <= '9')) {
+            result.push_back(c);
+        } else {
+            result.push_back('%');
+            result.push_back(hex[c >> 4]);
+            result.push_back(hex[c & 0xF]);
+        }
+    }
+//    SDL_Log ("DEBUG URL_Encoded string: %s", result.c_str());
+    return result;
+}

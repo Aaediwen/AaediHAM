@@ -1,3 +1,3 @@
 #include "../aaediclock.h"
 
-void sun_module(ScreenFrame& panel);
+void sdo_image(ScreenFrame& panel);

@@ -490,6 +490,13 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
 //        SDL_Log ("We have tracking data: %i Bytes", data_size);
     } else {
         SDL_Log ("Tracking Data Fetch Error!");
+        TextRect.w=panel.dims.w-10;
+        TextRect.h=panel.dims.h/11;
+        TextRect.x=5;
+        TextRect.y=panel.dims.h/10;
+        if (TextRect.w > 5) {
+            panel.render_text(TextRect, font, {128,128,0,255}, "NO SAT DATA");
+        }
         return;
     }
 

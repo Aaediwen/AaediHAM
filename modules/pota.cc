@@ -68,7 +68,7 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
     c=0;
     tot=0;
 
-
+    int pin_alpha = 192;
     char tempstr[64];
     SDL_FRect TextRect;
 
@@ -76,7 +76,7 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
     pota_color.r = 0;
     pota_color.g = 128;
     pota_color.b = 0;
-    pota_color.a = 200;
+    pota_color.a = 0;
     Uint32 data_size;
     time_t cache_time;
     int reload_flag =0;
@@ -123,19 +123,17 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
     TextRect.h=panel.dims.h/11;
     TextRect.x=5;
     TextRect.y=2;
-    pota_color.a = 0;
     panel.render_text(TextRect, font, pota_color, "POTA ACTIVATORS");
-
+    if (spots_raw.str().size() < 5) {
+     goodread = false;
+    }
     // set up for rendering the lista and submitting the pins
-    pota_color.a = 200;
     TextRect.w=(panel.dims.w/4)-(panel.dims.w/20);
     TextRect.h=panel.dims.h/11;
     TextRect.x=5;
     TextRect.y=((panel.dims.h/11)+(panel.dims.h/150));;
-//    SDL_Log("rendered header");
     if (goodread) {
         struct pota_spot spot;
-//        SDL_Log("Reading from %zu buffer size", spots_raw.str().size());
         while (spots_raw.read(reinterpret_cast<char*>(&spot), sizeof(spot))) {
 
              tot++;
@@ -145,19 +143,24 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
              pota_pin.lat    =               spot.latitude;
              pota_pin.lon    =            spot.longitude;
              pota_pin.icon   =               0;
+             pota_color.a = pin_alpha;
              pota_pin.color  =               pota_color;
+             pota_color.a = 0;
              pota_pin.tooltip[0]=            0;
              add_pin(&pota_pin);
              if ((c >= pota_page[0]*9) && (c<(pota_page[0]*9)+9)) {
-                 pota_color.a = 0;
                  panel.render_text(TextRect, font, pota_color, pota_pin.label);
                  TextRect.x += (panel.dims.w/4)+2;
                  sprintf(tempstr, "%4.3f", (spot.frequency));
                  panel.render_text(TextRect, font, pota_color, tempstr);
                  TextRect.x += (panel.dims.w/4)+2;
-                 panel.render_text(TextRect, font, pota_color, spot.mode);
+                 if (spot.mode[0]) {
+                  panel.render_text(TextRect, font, pota_color, spot.mode);
+                 }
                  TextRect.x += (panel.dims.w/4);
-                 panel.render_text(TextRect, font, pota_color, spot.park);
+                 if (spot.park[0]) {
+                  panel.render_text(TextRect, font, pota_color, spot.park);
+                 }
                  TextRect.x = 5;
                  TextRect.y += ((panel.dims.h/11)+(panel.dims.h/150));
              }
@@ -169,18 +172,18 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
         if (pota_page[0] > (tot/9)) {
             pota_page[0]=0;
         }
-//        SDL_Log("rendering count");
         // render the total count of POTA activators
         TextRect.w=panel.dims.w/2-10;
         TextRect.h=panel.dims.h/11;
         TextRect.x=5+(panel.dims.w/2);
         TextRect.y=2;
-        pota_color.a = 0;
         sprintf(tempstr, "%i", tot);
         panel.render_text(TextRect, font, pota_color, tempstr);
-//        SDL_Log("done rendering spots");
-    } // good read
-    // clean up
-//    SDL_SetRenderTarget(surface, NULL);
-//    SDL_RenderTexture(surface, panel.texture, NULL, &(panel.dims));
+    } else {// good read
+        TextRect.w=panel.dims.w-10;
+        if (TextRect.w > 2) {
+           panel.render_text(TextRect, font, pota_color, "NO POTA DATA");
+        }
+    }
+    return;
 }

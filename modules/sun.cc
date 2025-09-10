@@ -1,62 +1,66 @@
 #include "sun.h"
-#include <cstddef>
-#include <cstdio>
-#include <jpeglib.h>
-#include <jerror.h>
+#include "../aaediclock.h"
 #include "../utils.h"
+#include <sstream>
+#include <SDL3/SDL_iostream.h>
+#include <SDL3_image/SDL_image.h>
 
 
-void sun_module(ScreenFrame& panel) {
-
-    Uint8* sun_raw = 0 ;
+void sdo_image(ScreenFrame& panel) {
     Uint32 data_size;
     time_t cache_time;
-    bool reload_flag = false;
-    data_size = cache_loader(MOD_SOLAR, (void**)&sun_raw, &cache_time);
+    int reload_flag =0;
+    char* raw_image = 0 ;
+    data_size = cache_loader(MOD_SOLAR, (void**)&raw_image, &cache_time);
     if (!data_size) {
-        reload_flag=true;
-    } else if ((time(NULL) - cache_time) > 14400) {
-        reload_flag=true;
-    }
-
+        reload_flag=1;
+    } else if ((time(NULL) - cache_time) > 7200) { // 432000
+        reload_flag=1;
+    }					// add valid JPEG check
+//    SDL_Log ("READ %i FROM CACHE!!!!", data_size);
+    bool goodread;
+    goodread = true;
     if (reload_flag) {
-        data_size = http_loader("https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg", (void**)&sun_raw);   // live
-        if (data_size) {
-            add_data_cache(MOD_SOLAR, data_size, sun_raw);
-        }
+         data_size = http_loader("https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg", (void**)&raw_image);                           // live
+         if (data_size) {
+//             SDL_Log("Loaded image size: %zu bytes", data_size);
+             add_data_cache(MOD_SOLAR, data_size, (void*)raw_image);
+         }
     }
 
-    struct jpeg_decompress_struct info;
-    struct jpeg_error_mgr err;
-    info.err = jpeg_std_error(&err);
-    jpeg_create_decompress(&info);
-    jpeg_stdio_src(&info, sun_raw);
-    jpeg_read_header(&info, TRUE);
-    jpeg_start_decompress(&info);
-    unsigned long int imgWidth, imgHeight;
-    int numComponents;
-    imgWidth = info.output_width;
-	imgHeight = info.output_height;
-	numComponents = info.num_components;
+    if (data_size < 10) {
+        goodread = false;
+    }
+    // clear the box
+    panel.Clear();
 
-	dwBufferBytes = imgWidth * imgHeight * 3; /* We only read RGB, not A */
-	lpData = (unsigned char*)malloc(sizeof(unsigned char)*dwBufferBytes);
+    if (goodread) {
+        SDL_Texture* SDO_Texture = nullptr;
+        SDL_Surface* SDO_Surface = nullptr;
+//        SDL_Log ("Read %zu bytes of data", data_size);
+        try {
+           SDL_IOStream *imgdata = SDL_IOFromConstMem((void*)raw_image, data_size);
+           SDO_Surface = IMG_Load_IO(imgdata, true);
+           if (SDO_Surface) {
+               SDO_Texture = SDL_CreateTextureFromSurface(panel.GetRenderer(), SDO_Surface);
+               if (SDO_Texture) {
+                    SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
+                    SDL_RenderTexture(panel.GetRenderer(), SDO_Texture, NULL, NULL);
+               } else {
+                    SDL_Log ("Unable to load SDO Image Texture");
+              }
 
-	lpNewImage = (struct imgRawImage*)malloc(sizeof(struct imgRawImage));
-	lpNewImage->numComponents = numComponents;
-	lpNewImage->width = imgWidth;
-	lpNewImage->height = imgHeight;
-	lpNewImage->lpData = lpData;
-
-	/* Read scanline by scanline */
-	while(info.output_scanline < info.output_height) {
-		lpRowBuffer[0] = (unsigned char *)(&lpData[3*info.output_width*info.output_scanline]);
-		jpeg_read_scanlines(&info, lpRowBuffer, 1);
-	}
-
-	jpeg_finish_decompress(&info);
-	jpeg_destroy_decompress(&info);
+           } else {
+          SDL_Log ("Unable to load SDO Image Surface");
+        }
+        } catch (const std::exception& e){
+        SDL_Log ("Error loading SDO Image  %s", e.what());
+        }
 
 
-	return;
+
+    } else {// good read
+        panel.render_text(SDL_FRect{2,2,panel.dims.w,(panel.dims.h/10)}, Sans, SDL_Color{255,0,0,0}, "NO SDO DATA");
+    }
+    return;
 }

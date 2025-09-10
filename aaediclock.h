@@ -23,7 +23,6 @@ extern struct regen_mask_args* night_mask_args;
 extern SDL_Mutex* night_mask_mutex;
 extern SDL_TimerID map_timer;
 extern TTF_Font* Sans;
-extern time_t currenttime;
 
 class ScreenFrame {
     private:
@@ -50,33 +49,39 @@ extern ScreenFrame DayMap;
 extern ScreenFrame NightMap;
 extern ScreenFrame CountriesMap;
 
-/*struct surfaces {
-    ScreenFrame  map;
-    ScreenFrame  callsign;
-    ScreenFrame  de;
-    ScreenFrame  dx;
-    ScreenFrame  clock;
-    ScreenFrame  rowbox1;
-    ScreenFrame  rowbox2;
-    ScreenFrame  rowbox3;
-    ScreenFrame  rowbox4;
-    ScreenFrame  ticker;
-    ScreenFrame  nullframe;
-    ScreenFrame  corner;
-
-} extern winboxes;
-*/
 struct GeoCoord {
     double latitude;
     double longitude;
 };
 
 class config {
+public:
+    struct ip_server_t {
+        std::string name;
+        uint16_t port;
+    };
+    config();
+    ~config();
+    const std::string& CallSign() const;
+    const GeoCoord& DE() const;
+    const GeoCoord& DX() const;
+    const ip_server_t& dxserver() const;
+    const std::vector<std::string>& Sats() const;
+    const std::string& qrz_key(bool refresh = false);
+    void set_qrz_pass(const std::string& newpass);
+    bool next_wspr(std::string *callsign, int *band);
     private:
+        struct WSPRTarget {
+            std::string callsign;
+            int band;
+        };
+        std::vector<struct WSPRTarget> m_WSPRList;
+        int m_WSPRIndex;
         std::string m_CallSign;
         std::vector<std::string> m_sats;
         struct GeoCoord m_DE;
         struct GeoCoord m_DX;
+        ip_server_t m_dxserver;
         struct {
             std::string Secret;
             std::string Key;
@@ -85,21 +90,7 @@ class config {
         void qrz_sesskey();
         void write_config();
         void load_config();
-
-    public:
-        config();
-        ~config();
-        const std::string& CallSign() const;
-        const GeoCoord& DE() const;
-        const GeoCoord& DX() const;
-        const std::vector<std::string>& Sats() const;
-        const std::string& qrz_key(bool refresh=false);
-        void set_qrz_pass(const std::string& newpass);
-
 };
-
-
-
 extern config clockconfig;
 
 
@@ -115,7 +106,8 @@ enum mod_name {
     MOD_DXSPOT	,
     MOD_KINDEX	,
     MOD_NCDXF	,
-    MOD_SOLAR
+    MOD_SOLAR	,
+    MOD_WSPR
 };
 
 enum panel_names {
@@ -176,7 +168,6 @@ class map_overlay {
         void reset_index();
         void clear(); // nuke all overlays
 };
-
 extern map_overlay overlays;
 
 class map_icons {
@@ -198,6 +189,5 @@ class map_icons {
         void load_texture (SDL_Renderer* renderer, const std::string& path, const enum icon_names index);
         void clear_icons();
 };
-
 extern map_icons icon_bin;
 #endif

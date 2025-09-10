@@ -19,17 +19,22 @@ set(SOURCES
     modules/map.cc
     modules/clock.cc
     modules/ncdxf.cc
-#    modules/sun.cc
+    modules/sun.cc
+    modules/wspr_tracker.cc
 )
 
 if(MSVC)
  #   add_compile_options(/W4 /WX)
+
 else()
 #    add_compile_options(-Wall -Wextra -Werror -Os)
+     add_compile_options (-pg)
 endif()
 
 function (find_build symbol path tag target)
+if (NOT WIN32)
 	find_package(${symbol} QUIET)
+endif()
  	if (NOT ${symbol}_FOUND)
 		message(STATUS "${symbol} not found, fetching...")
 		FetchContent_Declare(
@@ -39,8 +44,10 @@ function (find_build symbol path tag target)
  			GIT_TAG ${tag}
 		)
 		FetchContent_MakeAvailable(${symbol})
+		 set(${symbol}_SOURCE_DIR ${${symbol}_SOURCE_DIR} PARENT_SCOPE)
+        set(${symbol}_BINARY_DIR ${${symbol}_BINARY_DIR} PARENT_SCOPE)
 		target_include_directories(clock PRIVATE
-		${EXTERNAL_DIR}/${target})
+		${EXTERNAL_DIR}/${target} ${${symbol}_SOURCE_DIR}/include)
 	else()
 		message(STATUS "Using System ${symbol} ")
 	endif()
@@ -50,15 +57,28 @@ add_executable(clock ${SOURCES})
 
 if(WIN32)
 	set(CMAKE_CXX_STANDARD 17)
+	 execute_process(
+    COMMAND git config --global --add safe.directory "*"
+    RESULT_VARIABLE result
+)
     target_compile_definitions(clock PRIVATE _CRT_SECURE_NO_WARNINGS)
     set(EXTERNAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/Windows")
     list(APPEND CMAKE_PREFIX_PATH "${EXTERNAL_DIR}")
-    add_subdirectory(${EXTERNAL_DIR}/libsgp4)
-    target_include_directories(clock PRIVATE ${EXTERNAL_DIR}/ ${EXTERNAL_DIR}/json-develop/include)
-    find_package(SDL3 REQUIRED)
-    find_package(SDL3_ttf REQUIRED)
+#    target_include_directories(clock PRIVATE ${EXTERNAL_DIR}/json-develop/include)
+	find_build(SDL3 "https://github.com/libsdl-org/SDL.git" release-3.2.x .)
+	find_build(SDL3_ttf "https://github.com/libsdl-org/SDL_ttf.git" release-3.2.2 .)
+	find_build(SDL3_image "https://github.com/libsdl-org/SDL_image.git" release-3.2.4
+	sdl3_image-src/include)
+	find_build(nlohmann_json "https://github.com/nlohmann/json.git" "master" .)
+	find_build(sgp4 https://github.com/dnwrnr/sgp4.git "master" .)
+#    find_package(SDL3_image REQUIRED)
     set(SGP4_LIB sgp4)
-    target_link_libraries(clock PRIVATE winhttp sgp4 SDL3::SDL3 SDL3_ttf::SDL3_ttf ${SGP4_LIB} )
+	message(STATUS "SGP4_SOURCE_DIR = ${sgp4_SOURCE_DIR}")
+	message(STATUS "SGP4_BINARY_DIR = ${sgp4_BINARY_DIR}")
+	target_include_directories(clock PRIVATE ${sgp4_SOURCE_DIR})
+    target_link_libraries(clock PRIVATE winhttp sgp4 SDL3::SDL3
+    SDL3_image::SDL3_image SDL3_ttf::SDL3_ttf ${SGP4_LIB} )
+	
 
 
 elseif(APPLE)
@@ -71,11 +91,13 @@ elseif(APPLE)
 
 	find_build(SDL3 "https://github.com/libsdl-org/SDL.git" release-3.2.18 .)
 	find_build(SDL3_ttf "https://github.com/libsdl-org/SDL_ttf.git" release-3.2.2 .)
+	find_build(SDL3_image "https://github.com/libsdl-org/SDL_image.git" release-3.2.4
+	sdl3_image-src/include)
 	find_build(nlohmann_json "https://github.com/nlohmann/json.git" "master" .)
 	find_build(sgp4 https://github.com/dnwrnr/sgp4.git "master" "sgp4-src/")
 	set(SGP4_LIB sgp4)
 	target_link_libraries(clock PRIVATE SDL3::SDL3 SDL3_ttf::SDL3_ttf 
-	sgp4 nlohmann_json::nlohmann_json)
+	sgp4 nlohmann_json::nlohmann_json SDL3_image::SDL3_image)
 
 else()
 	set(EXTERNAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/linux")
@@ -87,11 +109,12 @@ else()
 
 	find_build(SDL3 "https://github.com/libsdl-org/SDL.git" release-3.2.18 .)
 	find_build(SDL3_ttf "https://github.com/libsdl-org/SDL_ttf.git" release-3.2.2 .)
+        find_build(SDL3_image "https://github.com/libsdl-org/SDL_image.git" release-3.2.4 .)
 	find_build(nlohmann_json "https://github.com/nlohmann/json.git" "master" .)
 	find_build(sgp4 https://github.com/dnwrnr/sgp4.git "master" "sgp4-src/")
 	set(SGP4_LIB sgp4)
 	target_link_libraries(clock PRIVATE SDL3::SDL3 SDL3_ttf::SDL3_ttf 
-	sgp4 nlohmann_json::nlohmann_json)
+	sgp4 nlohmann_json::nlohmann_json SDL3_image::SDL3_image)
 endif()
 
 

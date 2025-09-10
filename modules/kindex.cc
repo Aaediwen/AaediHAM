@@ -164,7 +164,7 @@ void k_index_chart (ScreenFrame& panel) {
     } else if ((time(NULL) - cache_time) > 14400) {
         reload_flag=true;
     } else {
-        SDL_Log("Cache size: %i", data_size);
+//        SDL_Log("Cache size: %i", data_size);
         merged.assign(k_index_list, data_size);
     }
 
@@ -179,7 +179,7 @@ void k_index_chart (ScreenFrame& panel) {
         }
     }
     data.clear();
-    SDL_Log("Cache Data size! %zu", merged.size());
+//    SDL_Log("Cache Data size! %zu", merged.size());
     data.str(merged);
 
 
@@ -198,8 +198,13 @@ void k_index_chart (ScreenFrame& panel) {
     float klast, dlast, slast;
     uint8_t type;
     size_t kindex_count;
+    if (merged.length() < 5) {
+      SDL_Log ("Missing Solar Data!");
+      return;
+    }
+
     data.read(reinterpret_cast<char*>(&kindex_count), sizeof(kindex_count));
-    SDL_Log("Drawing chart size %zu", kindex_count);
+//    SDL_Log("Drawing chart size %zu", kindex_count);
     bar_box.x=1;
     bar_box.w = (panel.dims.w-2)/kindex_count;
     for (int ki = 0 ; ki < kindex_count ; ki++) {	// read each K Index value

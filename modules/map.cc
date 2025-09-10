@@ -3,6 +3,9 @@
 
 void load_maps(SDL_Renderer* surface) {
 //    SDL_Log("Reloading Maps");
+    DayMap.Reset();
+    NightMap.Reset();
+    CountriesMap.Reset();
     DayMap.surface = SDL_LoadBMP("images/Blue_Marble_2002.bmp");
     if (DayMap.surface) {
         DayMap.texture = SDL_CreateTextureFromSurface(surface,DayMap.surface);
@@ -67,8 +70,10 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
 
     SDL_Texture* icon_tex = nullptr;
     SDL_FRect target_rect;
+    int unit_scale = (panel->dims.w/100);
     if (current_pin->icon) {
-        icon_tex = SDL_CreateTexture(panel->GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 64, 64);
+//        icon_tex = SDL_CreateTexture(panel->GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 64, 64);
+        icon_tex = SDL_CreateTexture(panel->GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, unit_scale*4, unit_scale*4);
         if (!icon_tex) {
             SDL_Log("Failed to create icon texture: %s", SDL_GetError());
             return ;
@@ -76,10 +81,10 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
         // render the icon
         SDL_SetRenderTarget(panel->GetRenderer(), icon_tex);
         SDL_RenderTexture(panel->GetRenderer(), current_pin->icon, NULL, NULL);
-        target_rect.h=32;
-        target_rect.w=32;
+        target_rect.h=unit_scale*2;
+        target_rect.w=unit_scale*2;
     } else {
-        icon_tex = SDL_CreateTexture(panel->GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 16, 16);
+        icon_tex = SDL_CreateTexture(panel->GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, unit_scale, unit_scale);
         if (!icon_tex) {
             SDL_Log("Failed to create icon texture: %s", SDL_GetError());
             return ;
@@ -91,8 +96,8 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
          SDL_RenderFillRect(panel->GetRenderer(), NULL);
          SDL_SetRenderDrawColor(panel->GetRenderer(), current_pin->color.r, current_pin->color.g, current_pin->color.b, current_pin->color.a);
          SDL_RenderFillRect(panel->GetRenderer(), &pin_rect );
-         target_rect.h=8;
-         target_rect.w=8;
+         target_rect.h=unit_scale/2;
+         target_rect.w=unit_scale/2;
     }
 
 
@@ -214,7 +219,10 @@ int draw_map(ScreenFrame& panel) {
 //    SDL_Log("Rendered Daymap to texture");
 
     // init the night map alpha mask
-    if (!night_mask || (old_renderer != panel.GetRenderer())) {
+    if (!night_mask ||
+        (old_renderer != panel.GetRenderer()) ||
+        night_mask->w != panel.dims.w ||
+        night_mask->h != panel.dims.h) {
         if (night_mask) {
             SDL_DestroySurface(night_mask);
         }
@@ -224,7 +232,10 @@ int draw_map(ScreenFrame& panel) {
             return 1;
         }
 
-
+        if ((NightMap.dims.w < DayMap.dims.w) || (NightMap.dims.h < DayMap.dims.h)) {
+            SDL_Log("Map renderer reloading maps");
+           load_maps(panel.GetRenderer());
+        }
         if (map_timer) {
             SDL_RemoveTimer(map_timer);
             map_timer = 0;
@@ -273,7 +284,6 @@ int draw_map(ScreenFrame& panel) {
         struct map_pin* current_pin;
         current_pin=map_pins;
         while (current_pin) {
-//            SDL_Log("rendering pin %i, %i, %i, %i for %i", current_pin->color.r, current_pin->color.g, current_pin->color.b, current_pin->color.a, current_pin->owner);
             render_pin(&panel, current_pin);
             current_pin=current_pin->next;
         }
@@ -281,7 +291,6 @@ int draw_map(ScreenFrame& panel) {
     overlays.reset_index();
     ScreenFrame* overlay = overlays.next_overlay();
     while (overlay) {
-//        SDL_Log ("Drawing map overlay at ... %p\t Tex: %p", (void*)overlay, (void*)overlay->texture);
          SDL_SetTextureBlendMode(overlay->texture, SDL_BLENDMODE_BLEND);
          SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
          SDL_RenderTexture(panel.GetRenderer(), overlay->texture, NULL, NULL);

@@ -169,34 +169,82 @@ void dxspot::query_qrz () {
 
 
 
-
+#ifdef _WIN32
+SOCKET dxsocket = 0;
+#else
 int dxsocket = 0;
+#endif
 std::vector<dxspot>dxspots;
 
 void init_fd() {
-        std::string serverip="dxfun.com";
-        std::string serverport=std::to_string(8000);
-//        std::cout << "Client connecting to server: "<< serverip << "\n";
-        struct addrinfo *serveraddr;
-
+        std::string serverip=clockconfig.dxserver().name;
+        std::string serverport=std::to_string(clockconfig.dxserver().port);
+        struct addrinfo* serveraddr;
         struct addrinfo hints;
+        dxsocket = 0;
+        int res = 0;
         memset(&hints, 0, sizeof hints);
         hints.ai_family = AF_INET;       // or AF_UNSPEC to allow IPv4/IPv6
         hints.ai_socktype = SOCK_STREAM;
-        getaddrinfo(serverip.c_str(), serverport.c_str(), &hints, &serveraddr);
 #ifdef _WIN32
-        dxsocket = (int)socket(serveraddr->ai_family, serveraddr->ai_socktype, serveraddr->ai_protocol);
-#else
-        dxsocket = socket(serveraddr->ai_family, serveraddr->ai_socktype, serveraddr->ai_protocol);
-#endif
-
-        if ( connect(dxsocket, serveraddr->ai_addr, serveraddr->ai_addrlen) == -1) {
-                std::cout << "server connect error on client: " << errno << "\n";
-                shutdown (dxsocket, SHUT_RDWR);
-                dxsocket=0;
+        WSADATA wsaData;
+        std::cout << "WSAStartup ... ";
+        res = WSAStartup(MAKEWORD(2, 2), &wsaData);
+        if (res != 0) {
+            std::cout << "failed: " << res << "\n";
+            freeaddrinfo(serveraddr);
+            return;
         } else {
-//                std::cout << "client reporting connected to server on fd " << dxsocket << "with errno: " << errno << "\n";
+            std::cout << "Success" << "\n";
         }
+
+        std::cout << "GetAddrInfo ... ";
+        res = getaddrinfo(serverip.c_str(), serverport.c_str(), &hints, &serveraddr);
+        if (res == 0) {
+            std::cout << "Success" << "\n";
+        } else {
+            std::cout << "Failed " << WSAGetLastError() << "\n";
+            WSACleanup();
+            freeaddrinfo(serveraddr);
+            return;
+        }
+
+        std::cout << "Getting DX Socket ... ";
+        dxsocket = socket(serveraddr->ai_family, serveraddr->ai_socktype, serveraddr->ai_protocol);
+        if (dxsocket == INVALID_SOCKET) {
+            std::cout << "Bad DX socket " << WSAGetLastError() << "\n";
+            WSACleanup();
+            freeaddrinfo(serveraddr);
+            return;
+        } else {
+            std::cout << "Got DX socket" << "\n";
+        }
+        std::cout << "Connecting to " << serverip << " " << serverport << "\n";
+        if (connect(dxsocket, serveraddr->ai_addr, serveraddr->ai_addrlen) == SOCKET_ERROR) {
+            std::cout << "server connect error on client: " << WSAGetLastError() << "\n";
+            shutdown(dxsocket, SHUT_RDWR);
+            WSACleanup();
+            dxsocket = 0;
+        } else {
+            std::cout << "client reporting connected to server on fd " << dxsocket << "with errno: " << errno << "\n";
+        }
+#else
+        getaddrinfo(serverip.c_str(), serverport.c_str(), &hints, &serveraddr);
+        dxsocket = socket(serveraddr->ai_family, serveraddr->ai_socktype, serveraddr->ai_protocol);
+        if (!dxsocket) {
+            std::cout << "Bad DX socket" << errno << "\n";
+        }
+
+        if (connect(dxsocket, serveraddr->ai_addr, serveraddr->ai_addrlen) == -1) {
+            std::cout << "server connect error on client: " << errno << "\n";
+            std::cout << "Connecting to " << serverip << " " << serverport << "\n";
+            shutdown(dxsocket, SHUT_RDWR);
+            dxsocket = 0;
+        }
+        else {
+            std::cout << "client reporting connected to server on fd " << dxsocket << "with errno: " << errno << "\n";
+        }
+#endif
         freeaddrinfo(serveraddr);
         return;
 }
@@ -225,7 +273,7 @@ void duplicate_spot(dxspot& needle) {
     }
 //    SDL_Log ("Pushing Spot %s : Age: %li Seconds", needle.dx.c_str(), (time(NULL) - needle.timestamp)) ;
     dxspots.push_back(needle);
-    SDL_Log ("Stored: %i DX Spots", dxspots.size());
+//    SDL_Log ("Stored: %i DX Spots", dxspots.size());
 }
 
 void dx_cluster (ScreenFrame& panel) {
@@ -235,6 +283,7 @@ void dx_cluster (ScreenFrame& panel) {
 //    SDL_Log("DX Cluster");
     // clear the box
     panel.Clear();
+    time_t currenttime = time(NULL);
     const int max_age=1800;
     for (size_t c = dxspots.size() ; c-- > 0 ;) {
         if ((currenttime - dxspots[c].timestamp) > max_age) {

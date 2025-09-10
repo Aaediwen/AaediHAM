@@ -10,5 +10,7 @@
 #include "modules/map.h"
 #include "modules/clock.h"
 #include "modules/ncdxf.h"
+#include "modules/sun.h"
+#include "modules/wspr_tracker.h"
 #endif
 

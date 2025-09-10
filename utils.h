@@ -1,12 +1,19 @@
 #ifndef UTILS_H
 #define UTILS_H
+#ifdef _WIN32
+using dx_socket_t = uintptr_t;
+#else
+using dx_socket_t = int;
+#endif
+
 #include <math.h>
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
+#include <string>
+
 //void draw_panel_border(ScreenFrame panel);
-int read_socket(int fd, std::string &result);
-int read_socket(int fd, char** result);
+int read_socket(dx_socket_t fd, std::string &result);
 double solar_altitude(double lat_deg, double lon_deg, struct tm *utc, double decl_deg);
 void maidenhead(double lat, double lon, char* maiden);
 void cords_to_px(double lat, double lon, int w, int h, SDL_FPoint* result);
@@ -19,5 +26,5 @@ int add_data_cache(enum mod_name owner, const Uint32 size, const void* data);
 int fetch_data_cache(enum mod_name owner, time_t *age, Uint32 *size, void* data);
 int http_loader(const char* source_url, void** result);
 Uint32 cache_loader(const enum mod_name owner, void** result, time_t *result_time);
-
+std::string url_encode(const std::string& input);
 #endif
