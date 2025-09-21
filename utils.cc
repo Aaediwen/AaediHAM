@@ -42,13 +42,14 @@ int read_socket(dx_socket_t fd, std::string &result) {
                         result += temp[0];
                     }
             } else {
-//                SDL_Log ("Nothing to read");
+                SDL_Log ("Nothing to read");
                 bytesin=-1;
             }
         } else {
-//            SDL_Log ("Other POLL error: %s", strerror(errno));
+            SDL_Log ("Other POLL error: %s", strerror(errno));
             bytesin=-1;
             temp[0]=0;
+			return (-1);
 //            SDL_Log ("returning empty");
         }
     }
@@ -107,8 +108,178 @@ int month_to_int(const std::string& month) {
         return -1;
     }
 }
+/*
+struct GeoCoord subsolar(const time_t now) {
+    struct GeoCoord result;
+    tm* utc = gmtime(&now);
+    result.latitude = 23.44 * sin(2 * M_PI / 365 * (284+utc->tm_yday+1 ));
+    result.longitude = 15 * (utc->tm_hour + utc->tm_min / 60.0 + utc->tm_sec / 3600.0);
+    // wrap to [-180, 180)
+    while (result.longitude < -180.0) result.longitude += 360.0;
+    while (result.longitude >= 180.0) result.longitude -= 360.0;
+    return (result);
+}
+*/
+/*
+
+n = -1.5+(Year - 2000)*365 + leap_yr_count + DOY + (fraction_of_day from 00:00Z)	(day)
+corrected_mean_solar_lon = 280.46646 + 0.9856474n					(deg)
+mean_anomaly = 357.528 + 0.9856003n							(deg)
+g = mean_anomaly									(deg)
+ecliptic_lon = corrected_mean_solar_lon + 1.915*sin(g)+0.020*sin(2g)			(deg)
+
+obliquity_ecliptic = 23.440 - 0.0000004n						(deg)
+decl = sin-1(sin(obliquity_ecliptic)*sin(ecliptic_lon))*180/pi				(deg)
+right_ascension = tan-1(cos(obliquity_ecliptic)*tan(ecliptic_lon))*180/pi		(deg)
+
+Emin = (corrected_mean_solar_lon - right_ascension)*4 					(min)
+
+subsolar_lat = decl
+subsolar_lon = -15(Tgmt - 12 + Emin/60)
 
 
+Note that corrected_mean_solar_lon and mean_anomaly as well as ecliptic_lon given above can be either positive or negative,
+but computationally they need to be put in the range 0°–360°
+this can be accomplished by using the modulo function;
+
+right_ascension needs to be in the same quadrant as ecliptic_lon
+and this can be done by using the atan2 function,
+which takes two arguments, instead of the atan function, which takes only one.
+All these treatments have been properly taken care of in the code in Appendix A.
+
+According to the Almanac,
+the errors of the right ascension and declination of the Sun given by these formulas are less than (1/60)°,
+and the error of the equation of time is less than 3.5 s, if the input year is between 1950 and 2050.
+
+https://archive.org/details/astronomicalalgorithmsjeanmeeus1991/page/n155/mode/2up
+Jean Meesus Astronomical Algorithms Ch 24 (1991)
+https://www.sciencedirect.com/science/article/pii/S0960148121004031?via%3Dihub#sec2
+A solar azimuth formula that renders circumstantial treatment unnecessary without compromising mathematical rigor: Mathematical setup, application and extension of a formula based on the subsolar point and atan2 function
+Author links open overlay panelTaiping Zhang a
+, Paul W. Stackhouse Jr. b, Bradley Macpherson c, J. Colleen Mikovitz a
+(2021)
+
+*/
+struct GeoCoord subsolar (const time_t now) {
+//https://archive.org/details/astronomicalalgorithmsjeanmeeus1991/page/n155/mode/2up
+//Jean Meesus Astronomical Algorithms Ch 24 (1991)
+
+    struct GeoCoord result;
+    // convert to Julian Centuries since J2000 (January 2000)
+     // divide Unix Time by seconds per day(86400), and adjust offset to 01-01-1970 (2440587.5)
+     double jd = (now / 86400.0) + 2440587.5;
+     // adjust again to January 2000 and divide by 36525 days/Julian century (MESSUS P 151 24.1) T
+     double T = (jd - 2451545.0) / 36525.0;
+     // error of 0.00001 in T == 0.37 days
+
+     // Sun mean anomaly (deg) (MEESUS P151 24.3) M
+     double M = fmod(357.52910 + (35999.05030*T) - (0.0001559*T*T) - (0.00000048*T*T*T), 360.0);
+     double M_rad = M * M_PI / 180.0;
+
+     // Solar Equation of Center C (MEESUS P152)
+     // ChatGPT gave slightly different values:
+//         double C = (1.914602 - 0.004817*T - 0.000014*T*T)*sin(M*M_PI/180.0)
+//             + (0.019993 - 0.000101*T)*sin(2*M*M_PI/180.0)
+//             + 0.000289*sin(3*M*M_PI/180.0);
+     // here we use values per Meesus
+     double C = (1.914600 - (0.004817*T) - (0.000014*T*T)) * sin(M_rad)
+                + (0.019993 - (0.000101*T)) * sin(2*M_rad)
+                + 0.000290 * sin(3*M_rad);
+
+     // Sun mean longitude (deg) (MEESUS P151 24.2) L0
+     // per ScienceDirect article 2.1, needs to be in range 0 - 360, hence fmod 360.0
+     double L0 = fmod(280.46645 + 36000.76983*T + 0.0003032*T*T, 360.0);
+     // sun's true geometric Longitude and anomaly (MEESUS P152)
+     double corrected_mean_solar_lon = L0 + C;
+     double corrected_mean_solar_lon_rad = corrected_mean_solar_lon * M_PI/180.0;
+     double corrected_mean_anomaly   = M + C;
+
+     // calculate apparent longitude (MEESUS P152)
+     double omega = 125.04 - 1934.136 * T;
+     double apparent_longitude = corrected_mean_solar_lon - 0.00569 - 0.00478 * sin(omega * M_PI/180);
+     double apparent_longitude_rad = apparent_longitude * M_PI/180.0;
+     // obliquity of the eleptic per MEESUS 21.2
+     // deg + min/60 + sec/3600
+     double obliquity = (23.0 + (26.0/60.0) + (21.448/3600.0) )
+                    - ((46.8150/3600.0) * T)
+                    - ((0.00059/3600.0) * T * T)
+                    + ((0.001813/3600.0) * T * T * T);
+     double obliquity_rad = obliquity * M_PI / 180.0;
+     // solar latitude (MEESUS P153)
+     // meesus 24.6 + see note after 24.8
+     double right_ascension = atan2(cos(obliquity_rad) * sin(apparent_longitude_rad), cos(apparent_longitude_rad));
+//     double right_ascension = cot((cos(obliquity_rad) * sin(corrected_mean_solar_lon_rad))
+//                              / cos(corrected_mean_solar_lon_rad));
+     right_ascension *= (180.0/M_PI);
+     if(right_ascension < 0) right_ascension += 360.0;  // normalize to [0,360)
+     // meesus 24.7
+     double declination = asin(sin(obliquity_rad) * sin(apparent_longitude_rad));
+     declination *= (180.0/M_PI);
+
+     // adjust coordinate system from Celestial to geographical relative to Greenwich
+//      Meesus P89
+        // Greenwich Mean Sidereal Time (deg)
+     double d = jd - 2451545.0;
+     double GMST = fmod(280.46061837 + 360.98564736629*d, 360.0);
+
+      // Subsolar longitude
+      double lon = fmod(right_ascension - GMST, 360.0);
+      if (lon < -180) lon += 360;
+      if (lon > 180) lon -= 360;
+
+     result.longitude = lon;
+     result.latitude = declination;
+    return (result);
+}
+
+/*
+// AI Generated
+struct GeoCoord subsolar (const time_t now) {
+    struct GeoCoord result;
+     // Convert to Julian Date
+    double jd = (now / 86400.0) + 2440587.5;
+    double T = (jd - 2451545.0) / 36525.0;
+
+    // Sun mean longitude (deg)
+    double L0 = fmod(280.46645 + 36000.76983*T + 0.0003032*T*T, 360.0);
+
+    // Sun mean anomaly (deg)
+    double M = fmod(357.52911 + 35999.05029*T - 0.0001537*T*T, 360.0);
+
+    // Equation of center (deg)
+    double C = (1.914602 - 0.004817*T - 0.000014*T*T)*sin(M*M_PI/180.0)
+             + (0.019993 - 0.000101*T)*sin(2*M*M_PI/180.0)
+             + 0.000289*sin(3*M*M_PI/180.0);
+
+    // True longitude (deg)
+    double true_long = L0 + C;
+
+    // Apparent longitude (deg) – corrected for nutation
+    double omega = 125.04 - 1934.136 * T;
+    double lambda = true_long - 0.00569 - 0.00478*sin(omega*M_PI/180.0);
+
+    // Obliquity of the ecliptic (deg)
+    double eps = 23.439291 - 0.0130042*T;
+
+    // Right ascension and declination
+    double alpha = atan2(cos(eps*M_PI/180.0)*sin(lambda*M_PI/180.0),
+                         cos(lambda*M_PI/180.0)) * 180.0/M_PI;
+    double delta = asin(sin(eps*M_PI/180.0)*sin(lambda*M_PI/180.0)) * 180.0/M_PI;
+
+    // Greenwich Mean Sidereal Time (deg)
+    double d = jd - 2451545.0;
+    double GMST = fmod(280.46061837 + 360.98564736629*d, 360.0);
+
+    // Subsolar longitude
+    double lon = fmod(alpha - GMST, 360.0);
+    if (lon < -180) lon += 360;
+    if (lon > 180) lon -= 360;
+
+    result.latitude = delta;
+    result.longitude = lon;
+    return (result);
+}
+*/
 void sun_times(double lat, double lon, time_t* sunrise, time_t* sunset, double *solar_alt, time_t now) {
     // fet sunrise and sunset times
     tm* utc = gmtime(&now);

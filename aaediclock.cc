@@ -685,6 +685,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         }
         if (master_flags.pota.draw_flag) {
             pota_spots(*(master_flags.pota.panel), Sans);
+            lunar_module(*(master_flags.solar.panel));
             master_flags.pota.draw_flag = false;
         }
         if (master_flags.kindex.draw_flag) {
@@ -761,6 +762,22 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
             resizing=1;
             resize_panels(winboxes);
             resizing=0;
+        }
+    }
+    if (event->type==SDL_EVENT_MOUSE_BUTTON_UP) {
+        if (event->button.button ==1 && event->button.clicks ==1) {
+            SDL_Log ("Got single left click at %f, %f", event->button.x, event->button.y);
+            for (auto& pager : winboxes) {
+                if ((event->button.x > pager.panel.dims.x) && (event->button.x < (pager.panel.dims.x+pager.panel.dims.w)) &&
+                    (event->button.y > pager.panel.dims.y) && (event->button.y < (pager.panel.dims.y+pager.panel.dims.h))) {
+                        float modx, mody;
+                        modx = event->button.x - pager.panel.dims.x;
+                        mody = event->button.y - pager.panel.dims.y;
+                        SDL_Log ("Panel event coords: %f, %f", modx, mody);
+                        pager.clickpoint={modx, mody};
+                        pager.clickcount = event->button.clicks;
+                    }
+            }
         }
     }
     if (event->type==SDL_EVENT_KEY_UP) {

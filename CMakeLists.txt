@@ -21,6 +21,7 @@ set(SOURCES
     modules/ncdxf.cc
     modules/sun.cc
     modules/wspr_tracker.cc
+    modules/lunar.cc
 )
 
 if(MSVC)

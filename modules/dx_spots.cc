@@ -271,7 +271,7 @@ void duplicate_spot(dxspot& needle) {
     } else {
         needle.fill_qrz();
     }
-//    SDL_Log ("Pushing Spot %s : Age: %li Seconds", needle.dx.c_str(), (time(NULL) - needle.timestamp)) ;
+    SDL_Log ("Pushing Spot %s : Age: %li Seconds", needle.dx.c_str(), (time(NULL) - needle.timestamp)) ;
     dxspots.push_back(needle);
 //    SDL_Log ("Stored: %i DX Spots", dxspots.size());
 }
@@ -285,24 +285,25 @@ void dx_cluster (ScreenFrame& panel) {
     panel.Clear();
     time_t currenttime = time(NULL);
     const int max_age=1800;
-    for (size_t c = dxspots.size() ; c-- > 0 ;) {
-        if ((currenttime - dxspots[c].timestamp) > max_age) {
-//            SDL_Log("Erasing entry %s", dxspots[c].dx.c_str());
-            dxspots.erase(dxspots.begin()+c);
-        }
-    }
-
+	if (!dxspots.empty()) {
+		for (size_t c = dxspots.size() ; c-- > 0 ;) {
+			if ((currenttime - dxspots[c].timestamp) > max_age) {
+	//            SDL_Log("Erasing entry %s", dxspots[c].dx.c_str());
+				dxspots.erase(dxspots.begin()+c);
+			}
+		}
+	}
     if (!dxsocket) {
-            SDL_Log("Error Connecting to DX Spot Telnet Session");
-            SDL_Color tempcolor={128,0,0,0};
-            SDL_FRect TextRect;
-            TextRect.x=2;
-            TextRect.y=2;
-                    TextRect.w=panel.dims.w-4;
-                    TextRect.h=panel.dims.h/7;
-                    panel.render_text(TextRect, Sans, tempcolor, "NOT CONNECTED");
-            return;
-        }
+        SDL_Log("Error Connecting to DX Spot Telnet Session");
+        SDL_Color tempcolor={128,0,0,0};
+        SDL_FRect TextRect;
+        TextRect.x=2;
+        TextRect.y=2;
+        TextRect.w=panel.dims.w-4;
+        TextRect.h=panel.dims.h/7;
+        panel.render_text(TextRect, Sans, tempcolor, "NOT CONNECTED");
+        return;
+    }
 
     std::vector<std::string> dxbuffer;
     std::string tempstr;
@@ -310,7 +311,13 @@ void dx_cluster (ScreenFrame& panel) {
     int read_limit=0;
     while (!readcount && read_limit < 5) {
         read_limit++;
-        readcount = read_socket(dxsocket, tempstr);
+		if (dxsocket) {
+			readcount = read_socket(dxsocket, tempstr);
+		}
+		if (readcount < 0) {
+			dxsocket = 0;
+			readcount = 0;
+		}
     }
     if (read_limit <5) {
 //    SDL_Log ("Read input");
@@ -321,7 +328,7 @@ void dx_cluster (ScreenFrame& panel) {
         }
         readcount = read_socket(dxsocket, tempstr);
     }
-//        SDL_Log ("DONE Reading %li lines of input", dxbuffer.size());
+    SDL_Log ("DONE Reading %li lines of input", dxbuffer.size());
     for (std::string buffstr : dxbuffer) {
     // scan variables for line ID
     float freq;

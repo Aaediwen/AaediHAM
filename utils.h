@@ -18,6 +18,7 @@ double solar_altitude(double lat_deg, double lon_deg, struct tm *utc, double dec
 void maidenhead(double lat, double lon, char* maiden);
 void cords_to_px(double lat, double lon, int w, int h, SDL_FPoint* result);
 int month_to_int(const std::string& month);
+struct GeoCoord subsolar(const time_t now);
 void sun_times(double lat, double lon, time_t* sunrise, time_t* sunset, double *solar_alt, time_t now);
 int add_pin(struct map_pin* new_pin);
 int delete_owner_pins(enum mod_name owner);

@@ -538,6 +538,22 @@ void map_icons::clear_icons() {
     }
 }
 
+void map_icons::set_dynamic(SDL_Renderer* renderer, SDL_Surface* source, enum icon_names id) {
+    if (renderer && source) {
+        if (icons[id]) {
+            SDL_DestroyTexture(icons[id]);
+            icons[id]=nullptr;
+        }
+        icons[id] = SDL_CreateTextureFromSurface(renderer, source);
+        if (!icons[id]) {
+            SDL_Log ("Unable to create dynamic icon");
+        }
+    } else {
+        SDL_Log ("Missing Renderer ot Source for Dynamic Icon");
+    }
+    return;
+}
+
 void map_icons::load_texture (SDL_Renderer* renderer, const std::string& path, const enum icon_names index) {
     icons[index]=nullptr;
     if (renderer) {
