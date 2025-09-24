@@ -16,6 +16,10 @@ void sdo_image(ScreenFrame& panel) {
         reload_flag=1;
     } else if ((time(NULL) - cache_time) > 7200) { // 432000
         reload_flag=1;
+        if (raw_image) {
+        free (raw_image);
+        raw_image=0;
+        }
     }					// add valid JPEG check
 //    SDL_Log ("READ %i FROM CACHE!!!!", data_size);
     bool goodread;
@@ -49,6 +53,7 @@ void sdo_image(ScreenFrame& panel) {
         try {
            SDL_IOStream *imgdata = SDL_IOFromConstMem((void*)raw_image, data_size);
            SDO_Surface = IMG_Load_IO(imgdata, true);
+
            if (SDO_Surface) {
                SDO_Texture = SDL_CreateTextureFromSurface(panel.GetRenderer(), SDO_Surface);
                if (SDO_Texture) {
@@ -69,7 +74,10 @@ void sdo_image(ScreenFrame& panel) {
         } catch (const std::exception& e){
         SDL_Log ("Error loading SDO Image  %s", e.what());
         }
-
+        if (raw_image) {
+            free (raw_image);
+            raw_image=0;
+        }
         add_pin(&solar_pin);
 
     } else {// good read

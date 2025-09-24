@@ -88,6 +88,10 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
         reload_flag=1;
     } else if ((time(NULL) - cache_time) > 300) {
         reload_flag=1;
+        if(json_spots) {
+              free (json_spots);
+              json_spots=0;
+        }
     }
 //    SDL_Log ("READ %i FROM CACHE!!!!", data_size);
     if (reload_flag) {
@@ -100,12 +104,20 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
              data_size = blob.length();
              spots_raw.clear();
              spots_raw.str(blob);
+             if(json_spots) {
+              free (json_spots);
+              json_spots=0;
+             }
          }
     } else {
         spots_raw.clear();
         std::string sanitized(json_spots, data_size);
         spots_raw.str(sanitized);
-//        SDL_Log("from cache  %zu buffer size", spots_raw.str().size());
+             if(json_spots) {
+              free (json_spots);
+              json_spots=0;
+             }
+             //        SDL_Log("from cache  %zu buffer size", spots_raw.str().size());
     }
 
 

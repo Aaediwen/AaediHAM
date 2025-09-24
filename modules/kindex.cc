@@ -163,9 +163,17 @@ void k_index_chart (ScreenFrame& panel) {
         reload_flag=true;
     } else if ((time(NULL) - cache_time) > 14400) {
         reload_flag=true;
+        if (k_index_list) {
+          free (k_index_list);
+          k_index_list = 0;
+        }
     } else {
 //        SDL_Log("Cache size: %i", data_size);
         merged.assign(k_index_list, data_size);
+        if (k_index_list) {
+          free (k_index_list);
+          k_index_list = 0;
+        }
     }
 
     if (reload_flag) {
@@ -176,12 +184,19 @@ void k_index_chart (ScreenFrame& panel) {
         if (data_size) {
             merged = merge_json(k_index_list, solar_wind_list);
             add_data_cache(MOD_KINDEX, merged.length(), (void*)merged.data());
+            if (k_index_list) {
+              free (k_index_list);
+              k_index_list = 0;
+            }
+            if (solar_wind_list) {
+              free (solar_wind_list);
+              solar_wind_list = 0;
+            }
         }
     }
     data.clear();
 //    SDL_Log("Cache Data size! %zu", merged.size());
     data.str(merged);
-
 
     // clear the box
     panel.Clear();

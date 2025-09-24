@@ -34,6 +34,17 @@ Uint8 interrupt_counter = 0;
 struct regen_mask_args* night_mask_args = nullptr;
 map_overlay overlays;
 map_icons icon_bin;
+#ifdef CLOCK_DEBUG
+std::fstream debug_log;
+#else
+struct DummyLog {
+    template<typename T>
+    DummyLog& operator<<(const T&) { return *this; }
+    DummyLog& operator<<(std::ostream& (*)(std::ostream&)) { return *this; } // handle std::endl
+} debug_log;
+#endif
+
+
 
 struct ModuleControl {
     bool draw_flag = true;
@@ -533,12 +544,17 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     int x, y;
     x=800;
     y=480;
+#ifdef CLOCK_DEBUG
+    debug_log.open("clock_debug.log", std::fstream::out);
+#endif
+    debug_log << "------------------------ NEW RUN ------------\n";
     bool fs_start = false;
     outfile.clear();
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--headless") {
             printf("Running Headless\n");
+            debug_log << "Running Headless\n";
 #ifdef _WIN32
             _putenv_s("SDL_VIDEO_DRIVER", "dummy");
 #else

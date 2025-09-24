@@ -229,7 +229,10 @@ void init_fd() {
             std::cout << "client reporting connected to server on fd " << dxsocket << "with errno: " << errno << "\n";
         }
 #else
-        getaddrinfo(serverip.c_str(), serverport.c_str(), &hints, &serveraddr);
+        int addrerr =getaddrinfo(serverip.c_str(), serverport.c_str(), &hints, &serveraddr);
+        if (addrerr !=0) {
+            std::cout << "DX Spots connection error: " << gai_strerror(addrerr) << "\n";
+        }
         dxsocket = socket(serveraddr->ai_family, serveraddr->ai_socktype, serveraddr->ai_protocol);
         if (!dxsocket) {
             std::cout << "Bad DX socket" << errno << "\n";
@@ -280,7 +283,7 @@ void dx_cluster (ScreenFrame& panel) {
     if (!dxsocket) {
         init_fd();
     }
-//    SDL_Log("DX Cluster");
+//    SDL_Log("DX Cluster module");
     // clear the box
     panel.Clear();
     time_t currenttime = time(NULL);
@@ -309,36 +312,38 @@ void dx_cluster (ScreenFrame& panel) {
     std::string tempstr;
     int readcount=0;
     int read_limit=0;
+//    SDL_Log("DX initialized");
     while (!readcount && read_limit < 5) {
         read_limit++;
 		if (dxsocket) {
 			readcount = read_socket(dxsocket, tempstr);
 		}
 		if (readcount < 0) {
-			dxsocket = 0;
+//			dxsocket = 0;
 			readcount = 0;
 		}
     }
+//    SDL_Log ("Read input limit = %i", read_limit);
     if (read_limit <5) {
-//    SDL_Log ("Read input");
-    while (readcount) {
-        if (!tempstr.empty()) {
-            dxbuffer.push_back(tempstr);
-            tempstr.clear();;
+
+        while (readcount) {
+            if (!tempstr.empty()) {
+                dxbuffer.push_back(tempstr);
+                tempstr.clear();;
+            }
+            readcount = read_socket(dxsocket, tempstr);
         }
-        readcount = read_socket(dxsocket, tempstr);
-    }
-    SDL_Log ("DONE Reading %li lines of input", dxbuffer.size());
-    for (std::string buffstr : dxbuffer) {
-    // scan variables for line ID
-    float freq;
-    char call[32] = {0};
-    char date[16] = {0};
-    char timez[8] = {0};
+//        SDL_Log ("DONE Reading %li lines of input", dxbuffer.size());
+        for (std::string buffstr : dxbuffer) {
+            // scan variables for line ID
+            float freq;
+            char call[32] = {0};
+            char date[16] = {0};
+            char timez[8] = {0};
 
 
 
-
+//        SDL_Log ("buffstr %s", buffstr.c_str());
         if (!buffstr.compare(1,5, "ogin:")) {
                send(dxsocket, clockconfig.CallSign().c_str(), clockconfig.CallSign().length(),0);
                send(dxsocket, "\n", 1,0);
@@ -363,18 +368,23 @@ void dx_cluster (ScreenFrame& panel) {
               new_spot.dx=call;
 //              SDL_Log ("Extracted DX %s", new_spot.dx.c_str());
               spotter_end = buffstr.find_last_of('Z', (std::string::npos));
-              tempstring = buffstr.substr(spotter_end-4, spotter_end-1 );
-              struct tm *new_time;
-              std::memset(&new_time, 0, sizeof(new_time));
-              new_time = gmtime(&currenttime);
-              if (sscanf(tempstring.c_str(), "%2d%2d",
-                &(new_time->tm_hour), &(new_time->tm_min)) != 2) {
-                   SDL_Log("Date Parse Error %i %i", new_time->tm_hour, new_time->tm_min);
-                 }
-              new_spot.timestamp=0;
-              new_spot.timestamp = timegm(new_time);
-//              SDL_Log("Timestamp:%s \n Remaining:%s", tempstring.c_str(), buffstr.c_str());
-              new_spot.note=buffstr.substr(0, spotter_end-4 );
+              if (spotter_end != std::string::npos) {
+                  tempstring = buffstr.substr(spotter_end-4, spotter_end-1 );
+                  struct tm *new_time;
+                  std::memset(&new_time, 0, sizeof(new_time));
+                  new_time = gmtime(&currenttime);
+                  if (sscanf(tempstring.c_str(), "%2d%2d",
+                      &(new_time->tm_hour), &(new_time->tm_min)) != 2) {
+                      SDL_Log("Date Parse Error %i %i", new_time->tm_hour, new_time->tm_min);
+                  }
+                  new_spot.timestamp=0;
+                  new_spot.timestamp = timegm(new_time);
+//                  SDL_Log("Timestamp:%s \n Remaining:%s", tempstring.c_str(), buffstr.c_str());
+                  new_spot.note=buffstr.substr(0, spotter_end-4 );
+              } else {
+                  new_spot.timestamp = time(NULL);
+                  new_spot.note="";
+              }
               new_spot.find_mode();
               duplicate_spot(new_spot);
 //              new_spot.fill_qrz();
@@ -382,6 +392,10 @@ void dx_cluster (ScreenFrame& panel) {
               // need routine here to find and merge duplicates instead of repeating fill qrz
 
         } else if (sscanf(buffstr.c_str(), "%f %31s %15s %7s", &freq, call, date, timez)==4) {
+                if (date[0] =='U') {
+//                    SDL_Log("Skipping line with unexpected keyword: %s", buffstr.c_str());
+                } else {
+
 //              SDL_Log ("Got cached DX entry\n%s", buffstr.c_str());
 
 
@@ -418,8 +432,11 @@ void dx_cluster (ScreenFrame& panel) {
                 duplicate_spot(new_spot);
 //                new_spot.fill_qrz();
 //                dxspots.push_back(new_spot);
+            }
 
 
+        } else {
+//            SDL_Log("Ignoring line");
         }
     }
     dxbuffer.clear();

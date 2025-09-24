@@ -27,34 +27,42 @@ int read_socket(dx_socket_t fd, std::string &result) {
     poll_list.fd=fd;
     poll_list.events = POLLIN;
     result.clear();
+    int max_count = 0;
     while (bytesin >0 && temp[0] !=10) {
         errno = 0;
-        if (poll(&poll_list, 1, 100) >0) {
+        int poll_res = poll(&poll_list, 1, 100);
+//        max_count++;
+        bytesin=0;
+        if (poll_res > 0) {
             if (poll_list.revents & POLLIN) {
-                    bytesin=0;
+
 #ifdef _WIN32
-                    bytesin = recv(fd, temp, 1, 0);
+                bytesin = recv(fd, temp, 1, 0);
 #else
-                    bytesin = recv(fd, (void*)temp, 1, 0);
+                bytesin = recv(fd, (void*)temp, 1, 0);
 #endif
-                    if (bytesin) {
-                        total += bytesin;
-                        result += temp[0];
-                    }
+                if (bytesin) {
+                    total += bytesin;
+                    result += temp[0];
+                } else {
+//                    SDL_Log ("Poll says there is something here, but got nothing");
+                }
             } else {
-                SDL_Log ("Nothing to read");
+//                SDL_Log ("Nothing to read");
                 bytesin=-1;
             }
+        } else if (poll_res < 0) {
+            // error condition
+            SDL_Log("Read Poll Error: %s", strerror(errno));
         } else {
-            SDL_Log ("Other POLL error: %s", strerror(errno));
-            bytesin=-1;
-            temp[0]=0;
-			return (-1);
-//            SDL_Log ("returning empty");
+//            SDL_Log("Read Poll Timeout");
         }
+//        if (max_count > 5) {
+//            bytesin=0;
+//        }
     }
 //    SDL_Log ("Returning %s", result.c_str());
-   return total;
+    return total;
 }
 
 

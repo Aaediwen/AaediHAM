@@ -240,6 +240,9 @@ void config::qrz_sesskey() {
                 printf ("QRZ Session Key Error: %s\n", QRZ_Err.c_str());
             }
         }
+        if (xml) {
+            free(xml);
+        }
     }
     if (m_QRZ.Key.empty()) {
         printf ("Failed to load QRZ Session Key!\n");
@@ -307,7 +310,7 @@ void config::load_config() {
     m_dxserver.name = "dxfun.com";
     m_dxserver.port = 8000;
 
-    SDL_Log ("Loading CONFIG");
+    printf ("Loading CONFIG");
     std::ifstream f("aaediclock_config.json");
     if (f.good()) {
         try {
@@ -383,7 +386,7 @@ void config::load_config() {
                 qrz_sesskey();
             }
             } catch (json::parse_error &e) {
-                SDL_Log ("Invalid QRZ Passowrd");
+                printf ("Invalid QRZ Passowrd");
             }
         }
 

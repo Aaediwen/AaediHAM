@@ -443,6 +443,10 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
         reload_flag=true;
     } else if ((time(NULL) - cache_time) > 14400) {
         reload_flag=true;
+        if (amateur_tle) {
+            free (amateur_tle);
+            amateur_tle=0;
+        }
     }
     if (reload_flag) {	// fetch new
         std::ostringstream cache_stream;
@@ -458,11 +462,19 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
             data_size = blob.length();
             tle_raw.clear();
             tle_raw.str(blob);
+            if (amateur_tle) {
+                free(amateur_tle);
+                amateur_tle=0;
+            }
         } // we got input data
     } else {	// use cache[D
         tle_raw.clear();
         std::string sanitized(amateur_tle);
         tle_raw.str(sanitized);
+        if (amateur_tle) {
+            free(amateur_tle);
+            amateur_tle=0;
+        }
 //        SDL_Log ("Using %i Bytes of Cached Data!", data_size);
     }
 

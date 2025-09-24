@@ -233,6 +233,10 @@ bool TrackedWSPR::gen_telemetry() {
 		}
             }
 	}
+	if (data_buffer) {
+	    free (data_buffer);
+	    data_buffer=nullptr;
+	}
     }
 
     if (use_cache && telemetry_data) {
@@ -272,6 +276,7 @@ bool TrackedWSPR::gen_telemetry() {
         std::istringstream stringbuffer(data);
         load_new_telemetry(stringbuffer);
         save_cache();
+        free (http_buffer);
         // process raw new entries
         // update caches
     }
