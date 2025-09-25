@@ -44,7 +44,7 @@ struct DummyLog {
 } debug_log;
 #endif
 
-
+std::string render_engine;
 
 struct ModuleControl {
     bool draw_flag = true;
@@ -226,7 +226,11 @@ void resize_panels(std::array<pager_node, 12>& panels) {
         }
 
         // create a new renderer
-        surface					=	SDL_CreateRenderer(window, NULL);
+        if (render_engine.empty()) {
+            surface					=	SDL_CreateRenderer(window, NULL);
+        } else {
+            surface					=	SDL_CreateRenderer(window, render_engine.c_str());
+        }
         if (!surface) {
             SDL_Log("Failed to create renderer: %s", SDL_GetError());
             exit(1);
@@ -550,6 +554,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     debug_log << "------------------------ NEW RUN ------------\n";
     bool fs_start = false;
     outfile.clear();
+    render_engine.clear();
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--headless") {
@@ -562,6 +567,21 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 #endif
             SDL_SetHintWithPriority(SDL_HINT_VIDEO_DRIVER, "dummy", SDL_HINT_OVERRIDE);
             headless=true;
+        } else if (arg.rfind("--renderer",0)==0) {
+            size_t eqpos = arg.find('=');
+             if (eqpos != std::string::npos) {
+                 render_engine = arg.substr(11);
+                 if (render_engine == "list" || render_engine == "help") {
+                     int maxcount = SDL_GetNumRenderDrivers();
+                     for (int c = 0; c < maxcount ; c++) {
+                         printf("Driver %i: %s\n", c, SDL_GetRenderDriver(c));
+                     }
+                     return (SDL_APP_FAILURE);
+                 }
+                 printf("Attempting to use SDL Rendering Engine: %s\n", render_engine.c_str());
+             } else {
+                    printf("Invalid Renderer: %s\n", arg.c_str());
+             }
         } else if (arg.rfind("--geometry",0)==0) {
              size_t eqpos = arg.find('=');
              if (eqpos != std::string::npos) {
@@ -595,6 +615,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
             printf("Options:\n");
             printf("\t--headless\tRun in a headless mode with graphical output redirected to a disk file\n");
             printf("\t--fullscreen\tStart in fullscreen mode\n");
+            printf("\t--renderer\tset the SDL renderer to use. renderer=help or renderer=list will show a list of avaliable rendering engines\n");
             printf("\t--geometry\tResolution of the output from --headless, or the starting window resolution in a GUI environment\n");
             printf("\t--output\tOutput file path for --headless\n");
             printf("\t--QRZ_Pass\tSet the password to use for QRZ.com (uses the Callsign for UserName\n");
