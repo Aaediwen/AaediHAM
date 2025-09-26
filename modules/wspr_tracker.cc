@@ -107,7 +107,6 @@ void TrackedWSPR::save_cache() {
     }
     std::string cache_string;
     cache_string = cache_stream.str();
-//    add_data_cache(MOD_WSPR, cache_string.length(), (void*)cache_string.data());
     std::fstream disk_file;
     disk_file.open((this->m_tx_sign+std::to_string(static_cast<int>(m_band))+".wspr"), (std::fstream::binary | std::fstream::out ));
     if (disk_file.is_open()) {
@@ -123,8 +122,6 @@ void TrackedWSPR::load_new_telemetry(std::istream& input) {
     while (std::getline(input, input_line)) {
         std::vector<std::string> fields;
         fields.clear();
-//        SDL_Log ("Input line: %s", input_line.c_str());
-        // explode the input on \t
         size_t start_index = 0;
         size_t end_index =0;
         while (start_index != std::string::npos) {
@@ -140,22 +137,20 @@ void TrackedWSPR::load_new_telemetry(std::istream& input) {
             datapoint.id = std::stoull(fields[0]);
             // convert raw_time to time_t here for timestamp
             struct tm new_time {};
-//            new_time = gmtime(time(nullptr));
-//            std::memset(new_time, 0, sizeof(new_time));
 
             if (sscanf(fields[1].c_str(), "%4d-%2d-%2d %2d:%2d:%2d",
             &(new_time.tm_year), &(new_time.tm_mon), &(new_time.tm_mday),
             &(new_time.tm_hour), &(new_time.tm_min), &(new_time.tm_sec)) !=6) {
-                SDL_Log ("WSPR Time parse error %s", fields[1].c_str());
+                debug_log << "WSPR: Time parse error " <<  fields[1].c_str() << "\n";
             } else {
                 new_time.tm_year -=1900;
                 new_time.tm_mon--;
             }
             datapoint.timestamp = 0;
             datapoint.timestamp = timegm(&new_time);
-//            SDL_Log ("Input RX Latitude: %s", fields[4].c_str());
+            debug_log << "WSPR: Input RX Latitude: " << fields[4].c_str();
             datapoint.rx_loc.latitude = std::stod(fields[4]);
-//            SDL_Log ("Input RX Long: %s", fields[5].c_str());
+            debug_log << " Input RX Long: " << fields[5].c_str() << "\n";
             datapoint.rx_loc.longitude = std::stod(fields[5]);
             datapoint.tx_loc.latitude = std::stod(fields[8]);
             datapoint.tx_loc.longitude = std::stod(fields[9]);
@@ -197,7 +192,6 @@ bool TrackedWSPR::gen_telemetry() {
     bool use_cache = false;
     std::istringstream telemetry_buffer;
     if (data_size) {
-//        SDL_Log ("We got cache data from RAM. do we have one for this balloon?");
         // if we find an entry set use_cache
         struct head {
             char tx_sign[32];
@@ -208,7 +202,6 @@ bool TrackedWSPR::gen_telemetry() {
         std::string data(reinterpret_cast<const char*>(data_buffer), data_size);
         std::istringstream stringbuffer(data);
         // find the telemetry buffer we need
-//        SDL_Log ("Searching Cache");
         while (stringbuffer.read (reinterpret_cast<char*>(&header), sizeof(header))) {
         size_t telemetry_size = (header.telemetry_size * sizeof(TrackedWSPR::WSPRTelemetry));
         telemetry_data = malloc(telemetry_size);
@@ -216,7 +209,7 @@ bool TrackedWSPR::gen_telemetry() {
 		// more magic to read our telemetry goes here
 		if (telemetry_data) {
                     if (stringbuffer.read(reinterpret_cast<char*>(telemetry_data), telemetry_size)) {
-//                        SDL_Log ("Got a cache Hit with %zu entries!", header.telemetry_size);
+                        debug_log << "WSPR: Got a cache Hit with "<<header.telemetry_size << " entries!\n";
                         std::string telemetry_str(reinterpret_cast<const char*>(telemetry_data), telemetry_size);
                         telemetry_buffer.str(telemetry_str);
                         use_cache=true;
@@ -224,7 +217,6 @@ bool TrackedWSPR::gen_telemetry() {
 		}
             } else {
 		// seek past telemetry data here
-//		SDL_Log ("Not ours");
 		if (stringbuffer.read(reinterpret_cast<char*>(telemetry_data), telemetry_size)) {
 		    if (telemetry_data) {
 	                free (telemetry_data);
@@ -240,13 +232,13 @@ bool TrackedWSPR::gen_telemetry() {
     }
 
     if (use_cache && telemetry_data) {
-//        SDL_Log ("Using Cache data");
+        debug_log << "WSPR: Using Cache data\n";
         load_telemetry(telemetry_buffer);
         free (telemetry_data);
         telemetry_data = nullptr;
     } else {
         // read cache from disk
-//        SDL_Log ("Trying Disk cache");
+        debug_log << "WSPR: Trying Disk cache\n";
         cache_time = 0;
         std::fstream disk_file;
         disk_file.open((this->m_tx_sign+std::to_string(static_cast<int>(m_band))+".wspr"), (std::fstream::binary | std::fstream::in ));
@@ -260,18 +252,18 @@ bool TrackedWSPR::gen_telemetry() {
     }
 //    SDL_Log ("Balloon spot count: %zu", m_telemetry.size());
     if ((time(NULL) - cache_time) > 1400) {
-//    SDL_Log ("Checking for new data from db1.wspr.live");
+    SDL_Log ("Checking for new data from db1.wspr.live");
+    debug_log << "WSPR: Checking for new data from db1.wspr.live\n";
     std::string query = "SELECT * FROM wspr.rx WHERE tx_sign='"+m_tx_sign+"'";
     query += " AND band="+std::to_string(static_cast<int16_t>(m_band));
     if (!m_telemetry.empty()) {
         query += " AND id > " + std::to_string(m_telemetry.back().id);
     }
     const std::string url_string = "http://db1.wspr.live/?query="+url_encode(query);
-    SDL_Log ("Calling http loader with %s\n\n", url_string.c_str());
+    debug_log << "WSPR: Calling http loader with " << url_string.c_str() << "\n";;
     data_size = http_loader(url_string.c_str(), &http_buffer);   // live
-//    SDL_Log ("Back from HTTP loader\n\n");
     if (data_size) {
-//        SDL_Log ("Got new data from web");
+        debug_log << "WSPR: Got new data from web\n";
         std::string data(reinterpret_cast<const char*>(http_buffer), data_size);
         std::istringstream stringbuffer(data);
         load_new_telemetry(stringbuffer);
@@ -299,7 +291,7 @@ time_t TrackedWSPR::telemetry_age() {
 void TrackedWSPR::draw_telemetry(ScreenFrame& map) {
     // draw the satellite's telemetry track on the map
     if (this->m_telemetry.empty()) { return; }
-//    SDL_Log("Draw telemetry on texture: %p", (void*)map.texture);
+    debug_log << "WSPR: Draw telemetry on texture: " << (void*)map.texture << "\n";
     SDL_SetRenderTarget(map.GetRenderer(), map.texture);
     SDL_SetRenderDrawColor(map.GetRenderer(), this->m_color.r, this->m_color.g, this->m_color.b, this->m_color.a);
     SDL_FPoint* SDLPoints = (SDL_FPoint*)malloc(sizeof(SDL_FPoint)*this->m_telemetry.size());
@@ -324,8 +316,6 @@ void TrackedWSPR::draw_telemetry(ScreenFrame& map) {
                       render_size = 1;
                       // re-gen the current pixel
                       cords_to_px(point.tx_loc.latitude, point.tx_loc.longitude, xt, yt, &(SDLPoints[index]));
-//                  } else {
-//                      SDL_Log ("FAILED TO SET WSPR TRACK COLOR %s", SDL_GetError());
                   }
 
              }
@@ -354,7 +344,6 @@ void wspr_serialize() {
 }
 
 void wspr_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
-//    SDL_Log ("Populating balloon data");
     if (wsprlist.empty()) {
         SDL_Color wsprcolor;
         wsprcolor = {128, 128, 128, 255};
@@ -388,7 +377,7 @@ void wspr_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     overlay->Clear(SDL_Color{0,0,0,0});
     bool redraw_flag = false;
     redraw_flag = (!overlays.overlay_check(MOD_WSPR));
-//    SDL_Log ("Drawing overlay");
+    debug_log << "WSPR: Drawing overlay\n";
     if (!wsprlist.empty()) {
         SDL_FRect TextBox ;
         char timestr[64];
@@ -410,12 +399,10 @@ void wspr_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
                 struct tm* clocktime = gmtime(&age);
                 strftime(timestr, sizeof(timestr), "%y-%m-%d %H:%M", clocktime);
                 panel.render_text(TextBox, Sans, new_wspr.m_color, timestr);
-//                free (clocktime);
                 TextBox.y += height_unit*2;
             }
         }
     }
-//    SDL_Log ("Overlays ready");
 
     return;
 }

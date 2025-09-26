@@ -1,31 +1,83 @@
 #include "../aaediclock.h"
 #include "../utils.h"
 
-void load_maps(SDL_Renderer* surface) {
-//    SDL_Log("Reloading Maps");
+void load_maps(SDL_Renderer* surface, SDL_FRect size) {
+    debug_log << "MAP: Reloading Maps\n";
     DayMap.Reset();
     NightMap.Reset();
     CountriesMap.Reset();
-    DayMap.surface = SDL_LoadBMP("images/Blue_Marble_2002.bmp");
+    SDL_Surface* temp_surface = nullptr;
+//    DayMap.surface = SDL_LoadBMP("images/Blue_Marble_2002.bmp");
+    temp_surface = SDL_LoadBMP("images/Blue_Marble_2002.bmp");
+    if (temp_surface) {
+        DayMap.surface = SDL_CreateSurface(size.w, size.h, SDL_PIXELFORMAT_RGBA32);
+        if (DayMap.surface) {
+            if (!SDL_BlitSurfaceScaled(temp_surface, NULL, DayMap.surface, NULL, SDL_SCALEMODE_LINEAR)) {
+                debug_log << "MAP: Error scaling Day Map to DayMap surface!\n";
+                SDL_DestroySurface(DayMap.surface);
+                DayMap.surface = nullptr;
+            }
+        }
+        SDL_DestroySurface(temp_surface);
+        temp_surface = nullptr;
+    }
     if (DayMap.surface) {
         DayMap.texture = SDL_CreateTextureFromSurface(surface,DayMap.surface);
         if (!DayMap.texture) {
             SDL_Log("Unable to load DayMap Texture: %s\n", SDL_GetError());
+            debug_log << "Unable to load DayMap Texture: " << SDL_GetError() << "\n";
             exit(1);
+        } else {
+            int w = DayMap.surface->w;
+            int h = DayMap.surface->h;
+            int bpp = 4;
+            double surf_size_kb = (DayMap.surface->pitch * DayMap.surface->h) / 1024.0;
+            double tex_size_kb = (w * h * 4.0) / 1024.0; // assuming RGBA8888
+            debug_log << "MAP: Created DayMap texture "
+              << w << "x" << h << " "
+              << bpp * 8 << "-bit surface ≈ " << surf_size_kb << " KB "
+              << "=> GPU texture ≈ " << tex_size_kb << " KB "
+              << "at " << static_cast<void*>(DayMap.texture) << "\n";
         }
     } else {
         SDL_Log("Unable to load DayMap Surface: %s\n", SDL_GetError());
+        debug_log << "Unable to load DayMap Surface: " << SDL_GetError() << "\n";
         exit(1);
     }
-
-    NightMap.surface = SDL_LoadBMP("images/Black_Marble_2016.bmp");
+//    NightMap.surface = SDL_LoadBMP("images/Black_Marble_2016.bmp");
+    temp_surface = SDL_LoadBMP("images/Black_Marble_2016.bmp");
+    if (temp_surface) {
+        NightMap.surface = SDL_CreateSurface(size.w, size.h, SDL_PIXELFORMAT_RGBA32);
+        if (NightMap.surface) {
+            if (!SDL_BlitSurfaceScaled(temp_surface, NULL, NightMap.surface, NULL, SDL_SCALEMODE_LINEAR)) {
+                debug_log << "MAP: Error scaling Night Map to NightMap surface!\n";
+                SDL_DestroySurface(NightMap.surface);
+                NightMap.surface = nullptr;
+            }
+        }
+        SDL_DestroySurface(temp_surface);
+        temp_surface = nullptr;
+    }
     if (NightMap.surface) {
         NightMap.texture = SDL_CreateTextureFromSurface(surface,NightMap.surface);
         if (!NightMap.texture) {
-        SDL_Log("Unable to load NightMap Texture: %s\n", SDL_GetError());
+            SDL_Log("Unable to load NightMap Texture: %s\n", SDL_GetError());
+            debug_log << "Unable to load NightMap Texture: " << SDL_GetError() << "\n";
+        } else {
+            int w = NightMap.surface->w;
+            int h = NightMap.surface->h;
+            int bpp = 4;
+            double surf_size_kb = (NightMap.surface->pitch * NightMap.surface->h) / 1024.0;
+            double tex_size_kb = (w * h * 4.0) / 1024.0; // assuming RGBA8888
+            debug_log << "MAP: Created NightMap texture "
+              << w << "x" << h << " "
+              << bpp * 8 << "-bit surface ≈ " << surf_size_kb << " KB "
+              << "=> GPU texture ≈ " << tex_size_kb << " KB "
+              << "at " << static_cast<void*>(NightMap.texture) << "\n";
         }
     } else {
         SDL_Log("Unable to load NightMap Surface: %s\n", SDL_GetError());
+        debug_log << "Unable to load NightMap Surface: " << SDL_GetError() << "\n";
         exit(1);
     }
 
@@ -35,7 +87,19 @@ void load_maps(SDL_Renderer* surface) {
 
     SDL_SetTextureBlendMode(DayMap.texture, SDL_BLENDMODE_NONE);
     SDL_SetTextureBlendMode(NightMap.texture, SDL_BLENDMODE_NONE);
-    CountriesMap.surface = SDL_LoadBMP("images/outline.bmp");
+    temp_surface = SDL_LoadBMP("images/outline.bmp");
+    if (temp_surface) {
+        CountriesMap.surface = SDL_CreateSurface(size.w, size.h, SDL_PIXELFORMAT_RGBA32);
+        if (CountriesMap.surface) {
+            if (!SDL_BlitSurfaceScaled(temp_surface, NULL, CountriesMap.surface, NULL, SDL_SCALEMODE_LINEAR)) {
+                debug_log << "MAP: Error scaling Countries Map to CountriesMap surface!\n";
+                SDL_DestroySurface(CountriesMap.surface);
+                CountriesMap.surface = nullptr;
+            }
+        }
+        SDL_DestroySurface(temp_surface);
+        temp_surface = nullptr;
+    }
     if (CountriesMap.surface) {
         int x, y;
         Uint8 cg, cr, cb;
@@ -55,10 +119,19 @@ void load_maps(SDL_Renderer* surface) {
         CountriesMap.texture = SDL_CreateTextureFromSurface(surface,CountriesMap.surface);
         if (!CountriesMap.texture) {
                 SDL_Log("Unable to load Country texture: %s\n", SDL_GetError());
+                debug_log << "Unable to load Country texture: " << SDL_GetError() << "\n";
                 exit(1);
+        }  else {
+            double surf_size_kb = (CountriesMap.surface->pitch * CountriesMap.surface->h) / 1024.0;
+            double tex_size_kb = (x * y * 4.0) / 1024.0; // assuming RGBA8888
+            debug_log << "MAP: Created CountriesMap texture "
+              << x << "x" << y << " "
+              << bpp * 8 << "-bit surface ≈ " << surf_size_kb << " KB "
+              << "=> GPU texture ≈ " << tex_size_kb << " KB "
+              << "at " << static_cast<void*>(CountriesMap.texture) << "\n";
         }
     } else {
-        SDL_Log("Unable to load Country Surface: %s\n", SDL_GetError());
+        SDL_Log("MAP: Unable to load Country Surface: %s\n", SDL_GetError());
         exit(1);
     }
 //    SDL_Log("ALL MAPS LOADED %s\n", SDL_GetError());
@@ -72,10 +145,9 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
     SDL_FRect target_rect;
     int unit_scale = (panel->dims.w/100);
     if (current_pin->icon) {
-//        icon_tex = SDL_CreateTexture(panel->GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 64, 64);
         icon_tex = SDL_CreateTexture(panel->GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, unit_scale*4, unit_scale*4);
         if (!icon_tex) {
-            SDL_Log("Failed to create icon texture: %s", SDL_GetError());
+            debug_log << "MAP: Failed to create icon texture: " << SDL_GetError() << "\n";
             return ;
         }
         // render the icon
@@ -86,7 +158,7 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
     } else {
         icon_tex = SDL_CreateTexture(panel->GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, unit_scale, unit_scale);
         if (!icon_tex) {
-            SDL_Log("Failed to create icon texture: %s", SDL_GetError());
+            debug_log << "MAP: Failed to create icon texture: " <<  SDL_GetError() << "\n";
             return ;
         }
     // render the icon
@@ -118,7 +190,6 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
     SDL_RenderTexture(panel->GetRenderer(), icon_tex, NULL, &target_rect);
     SDL_SetRenderTarget(panel->GetRenderer(), NULL);
     SDL_DestroyTexture(icon_tex);
-//    SDL_Log("DONE RENDERING PIN");
     return;
 }
 
@@ -134,9 +205,9 @@ void regen_mask (SDL_Surface* source, SDL_Surface* dest, const SDL_FRect& panel_
     SDL_Rect panel_cords, source_cords;
     double softness = 10.0;
     double solar_decl = 23.45 * (sin( (2 * M_PI/365) * (284+(utc.tm_yday+1)) ));
-//    SDL_Log("Regen Terminator Alpha Mask — source: %p, dest: %p, dims: %.1fx%.1f",
-//    (void*)source, (void*)dest,
-//    panel_dims.w, panel_dims.h);
+    debug_log <<"MAP: Regen Terminator Alpha Mask — source: "
+            << (void*)source << ", dest: " << (void*)dest
+            <<", dims: " << panel_dims.w << "x" << panel_dims.h << "\n";
 
     SDL_LockMutex(night_mask_mutex);    /// MUTEX LOCK
 
@@ -202,11 +273,11 @@ int draw_map(ScreenFrame& panel) {
     bool regen_mask_flag = false;
 //    SDL_Log("Drawing Map ");
     if (!panel.GetRenderer()) {
-        SDL_Log("Missing Surface!");
+        debug_log << "MAP: Missing Surface!\n";
         return 1;
     }
     if (!panel.texture) {
-        SDL_Log("Missing PANEL!");
+        debug_log << "MAP: Missing PANEL!\n";
         return 1;
     }
 
@@ -216,7 +287,6 @@ int draw_map(ScreenFrame& panel) {
     // start with the day map
     SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
     SDL_RenderTexture(panel.GetRenderer(), DayMap.texture, NULL, NULL);
-//    SDL_Log("Rendered Daymap to texture");
 
     // init the night map alpha mask
     if (!night_mask ||
@@ -228,13 +298,14 @@ int draw_map(ScreenFrame& panel) {
         }
         night_mask = SDL_CreateSurface(panel.dims.w, panel.dims.h, SDL_PIXELFORMAT_RGBA32);
         if (!night_mask) {
-            SDL_Log("Failed to create mask surface: %s", SDL_GetError());
+            debug_log << "Failed to create mask surface: " << SDL_GetError() << "\n";
             return 1;
         }
 
         if ((NightMap.dims.w < DayMap.dims.w) || (NightMap.dims.h < DayMap.dims.h)) {
             SDL_Log("Map renderer reloading maps");
-           load_maps(panel.GetRenderer());
+            debug_log << "MAP: Map renderer reloading maps\n";
+           load_maps(panel.GetRenderer(), panel.dims);
         }
         if (map_timer) {
             SDL_RemoveTimer(map_timer);
@@ -245,11 +316,11 @@ int draw_map(ScreenFrame& panel) {
         night_mask_args->panel_dims = panel.dims;
         map_timer = SDL_AddTimer(30000, regen_mask, night_mask_args);
         old_renderer = panel.GetRenderer();
-//        SDL_Log("Regen NightMask -- bad renderer");
+        debug_log << "MAP: Regen NightMask -- bad renderer\n";
         regen_mask_flag = true;
     }
     if (regen_mask_flag) {
-//        SDL_Log("Regen NightMask");
+        debug_log << "MAP: Regen NightMask\n";
         // calculate the NightMap Alpha mask
          regen_mask (NightMap.surface, night_mask, panel.dims);
     }
@@ -259,7 +330,7 @@ int draw_map(ScreenFrame& panel) {
     SDL_Texture* mask_tex = SDL_CreateTextureFromSurface(panel.GetRenderer(), night_mask);
     SDL_UnlockMutex(night_mask_mutex);  /// MUTEX UNLOCK
     if (!mask_tex) {
-        SDL_Log("Failed to create mask texture: %s", SDL_GetError());
+        debug_log << "Failed to create mask texture: " << SDL_GetError() << "\n";
         return 1;
     }
     //set the blend mode for the alpha overlay of Night Map
@@ -279,7 +350,7 @@ int draw_map(ScreenFrame& panel) {
     tropic = ((23.4+90) * panel.dims.h)/180;
     SDL_RenderLine(panel.GetRenderer(), 0,tropic, panel.dims.w, tropic);
 
-//    SDL_Log("draw map pins");
+    debug_log << "MAP: draw map pins\n";
     if (map_pins) {
         struct map_pin* current_pin;
         current_pin=map_pins;

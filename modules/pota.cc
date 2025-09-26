@@ -24,7 +24,7 @@ std::string pota_json_parser(const char* input_string) {
     try {
         spot_list=json::parse(input_string);
     } catch (const json::parse_error &e) {
-        SDL_Log("POTA Json Parse Error %zu bytes %s\n", strlen(input_string), input_string);
+        debug_log << "POTA: Json Parse Error " << strlen(input_string) << " bytes " << input_string << "\n";
         return "";
     }
 
@@ -60,9 +60,7 @@ std::string pota_json_parser(const char* input_string) {
 
 int pota_page[2]={0,2};
 void pota_spots(ScreenFrame& panel, TTF_Font* font) {
-//    SDL_Log("Drawing POTA");
     char* json_spots = 0 ;
-//    char** cache_data_address;
 
     int c, tot;
     c=0;
@@ -93,13 +91,13 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
               json_spots=0;
         }
     }
-//    SDL_Log ("READ %i FROM CACHE!!!!", data_size);
+    debug_log << "POTA: READ "<< data_size << " FROM CACHE!!!!\n";
     if (reload_flag) {
+         debug_log <<"POTA: Fetching Spots from pota.app\n";
+         SDL_Log("POTA: Fetching Spots from pota.app");
          data_size = http_loader("https://api.pota.app/spot/activator", (void**)&json_spots);                           // live
-//         data_size = http_loader("https://aaediwen.theaudioauthority.net/morse/activator", &json_spots);      // debug
          if (data_size) {
              std::string blob = pota_json_parser(json_spots);
-//             SDL_Log("POTA STRING: %zu size", blob.length());
              add_data_cache(MOD_POTA, blob.length(), (void*)blob.data());
              data_size = blob.length();
              spots_raw.clear();
@@ -117,12 +115,10 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
               free (json_spots);
               json_spots=0;
              }
-             //        SDL_Log("from cache  %zu buffer size", spots_raw.str().size());
+             debug_log << "POTA: from cache "<< spots_raw.str().size()<<" buffer size\n";
     }
 
 
-//    json_spots = *cache_data_address;
-//    SDL_Log("POTA Cache loader call complete");
     // convert the POTA JSON to an object
     int goodread;
     goodread = 1;

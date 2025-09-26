@@ -48,7 +48,7 @@ void ncdxf_module(ScreenFrame& panel) {
             beacon_offset +=18;
         }
         sprintf(tempstr, "%4.3f", beacon_freqs[i]);
-//        SDL_Log (tempstr);
+        debug_log <<"NCDXF: " << tempstr << "\n";
         panel.render_text(TextBox, Sans, {128,128,64,0}, tempstr);
         TextBox.x = (panel.dims.w/3)*2;
         sprintf(tempstr, "%s", beacons[beacon_offset].call);

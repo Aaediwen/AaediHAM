@@ -12,7 +12,6 @@ ScreenFrame::ScreenFrame() {
     this->dims.h=0;
     this->dims.w=0;
 
-
     this->texture = 0;
     this->surface = 0;
     this->renderer = 0;
@@ -23,7 +22,6 @@ ScreenFrame::~ScreenFrame() {
 }
 
 ScreenFrame::ScreenFrame(ScreenFrame&& source) noexcept {	// move to new instance
-    //SDL_Log ("New Move Operation");
     dims = std::move(source.dims);
     renderer = std::move(source.renderer);
     surface = source.surface;
@@ -32,12 +30,9 @@ ScreenFrame::ScreenFrame(ScreenFrame&& source) noexcept {	// move to new instanc
     source.texture = nullptr;
     source.renderer = nullptr;
     source.dims = {};
-
-
 }
 
 ScreenFrame& ScreenFrame::operator=(ScreenFrame&& source) noexcept {	// move over existing
-    //SDL_Log ("Overwrite Move Operation");
     if (this != &source) {
         this->Reset();
         dims = std::move(source.dims);
@@ -53,7 +48,6 @@ ScreenFrame& ScreenFrame::operator=(ScreenFrame&& source) noexcept {	// move ove
 }
 
 ScreenFrame::ScreenFrame(const ScreenFrame& source) {			// copy to new
-    //SDL_Log ("New Copy Operation");
     dims = source.dims;
     renderer = source.renderer;
     surface=nullptr;
@@ -62,16 +56,17 @@ ScreenFrame::ScreenFrame(const ScreenFrame& source) {			// copy to new
         surface = SDL_DuplicateSurface(source.surface);
          if (!surface) {
             SDL_Log("Failed to copy surface: %s", SDL_GetError());
+            debug_log << "SCREENFRAME: Failed to copy surface: " << SDL_GetError() << "\n";
             // Handle error if needed
         }
     }
     if (renderer && surface) {
-//        SDL_Log("Attempting to create texture with renderer: %p and surface: %p", (void*)renderer, (void*)surface);
+        debug_log << "SCREENFRAME: Attempting to create texture with renderer: "<< (void*)renderer << " and surface: " << (void*)surface << "\n";
         texture = SDL_CreateTextureFromSurface(renderer, surface);
 //        SDL_Log("texture Create result code: %s", SDL_GetError());
-
         if (!texture) {
             SDL_Log("Failed to create texture: %s", SDL_GetError());
+            debug_log << "SCREENFRAME: Failed to create Texture: " << SDL_GetError() << "\n";
             // Handle error if needed
         }
     }
@@ -89,15 +84,18 @@ ScreenFrame& ScreenFrame::operator=(const ScreenFrame& source) {	// copy with ov
                surface = SDL_DuplicateSurface(source.surface);
                if (!surface) {
                    SDL_Log("Failed to copy surface: %s", SDL_GetError());
+                   debug_log << "SCREENFRAME: Failed to copy surface: " << SDL_GetError() << "\n";
                }
            }
            if (renderer && surface) {
                texture = SDL_CreateTextureFromSurface(renderer, surface);
                if (!texture) {
                    SDL_Log("Failed to create texture: %s", SDL_GetError());
+                   debug_log << "SCREENFRAME: Failed to create Texture: " << SDL_GetError() << "\n";
                }
            } else {
                SDL_Log("Missing Render or Surface in Overwrite Copy");
+               debug_log << "SCREENFRAME: Missing Render or Surface in Overwrite Copy\n";
            }
      }
      return *this;
@@ -109,14 +107,17 @@ bool ScreenFrame::Create (SDL_Renderer* parent, SDL_FRect size) {
     int h = static_cast<int>(size.h);
     int w = static_cast<int>(size.w);
     if (texture) {
+        debug_log << "SCREENFRAME: Destroying " << ((dims.w*dims.h*4.0)/1024.0) << "KB 32 bit Texture " << dims.w << "x" << dims.h << "At " << (void*)texture << "\n";
         SDL_DestroyTexture(texture);
     }
     texture = SDL_CreateTexture (parent, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET,
                                        w, h );
     if (!this->texture) {
         SDL_Log("Error Creating Texture!");
+        debug_log << "SCREENFRAME: Error Creating Texture!\n";
         return false;
     }
+    debug_log << "SCREENFRAME: Created " << ((w*h*4.0)/1024.0) << "KB 32 bit Texture " << w << "x" << h << "At " << (void*)texture << "\n";
     renderer=parent;
     Clear();
 
@@ -129,6 +130,7 @@ SDL_Renderer* ScreenFrame::GetRenderer() {
 
 void ScreenFrame::Reset() {
     if (this->texture) {
+        debug_log << "SCREENFRAME: Destroying " << ((dims.w*dims.h*4.0)/1024.0) << "KB 32 bit Texture " << dims.w << "x" << dims.h << "At " << (void*)texture << "\n";
         SDL_DestroyTexture(this->texture);
     }
     if (this->surface) {
@@ -156,6 +158,7 @@ void ScreenFrame::draw_border() {
     }
     else {
         SDL_Log("Bad renderer or texture on border draw");
+        debug_log << "SCREENFRAME: Bad renderer or texture on border draw\n";
     }
     return;
 }
@@ -169,7 +172,8 @@ void ScreenFrame::render_text(const SDL_FRect& text_box, TTF_Font *font, const S
     textsurface = TTF_RenderText_Shaded(font, str, strlen(str), color, SDL_Color{0,0,0,0});
 //    textsurface = TTF_RenderText_LCD(font, str, strlen(str), color, bg_color);
     if (textsurface==NULL) {
-        SDL_Log("Text render error: %s", SDL_GetError());
+//        SDL_Log("Text render error: %s", SDL_GetError());
+        debug_log << "SCREENFRAME: Text render error: " << SDL_GetError() << "\n";
         return;
     }
     TextTexture = SDL_CreateTextureFromSurface(renderer, textsurface);
@@ -179,10 +183,10 @@ void ScreenFrame::render_text(const SDL_FRect& text_box, TTF_Font *font, const S
     SDL_DestroyTexture(TextTexture);
     SDL_DestroySurface(textsurface);
 
+} else {
+//    SDL_Log("Bad renderer or texture on Text Render");
+    debug_log << "SCREENFRAME: Bad renderer or texture on Text Render\n";
 }
-    else {
-        SDL_Log("Bad renderer or texture on Text Render");
-        }
 
 }
 
@@ -205,6 +209,7 @@ void ScreenFrame::Clear(const SDL_Color& color) {
     }
     else {
         SDL_Log("Bad Renderer or Texture on Clear");
+        debug_log << "SCREENFRAME: Bad renderer or texture on Clear\n";
     }
     return;
 }
@@ -214,6 +219,8 @@ void config::qrz_sesskey() {
     Uint32 key_size =0;
     m_QRZ.Key.clear();
     if (!m_QRZ.Secret.empty()) {
+    SDL_Log ("Fetching QRZ Session Key");
+//    debug_log << "CONFIF: Fetching QRZ Session Key\n";
     //std::string url = "https://xmldata.qrz.com/xml/current/?username="+m_CallSign+"&password="+m_QRZ.Secret;
     std::string url = "https://xmldata.qrz.com/xml/current/?username=" + m_CallSign + ";password=" + m_QRZ.Secret;
     key_size = http_loader(url.c_str(), (void**)&xml);
@@ -229,7 +236,7 @@ void config::qrz_sesskey() {
             if (( tag_start != std::string::npos ) && ( tag_stop != std::string::npos)) {
                 tag_start +=5;
                 m_QRZ.Key = keyline.substr(tag_start, tag_stop - tag_start);
-//                printf ("Loaded QRZ Session Key\n");
+//                debug_log << "CONFIG: Loaded QRZ Session Key\n";
             }
 
             tag_start=keyline.find("<Error>");
@@ -238,6 +245,7 @@ void config::qrz_sesskey() {
                 tag_start +=7;
                 std::string QRZ_Err = keyline.substr(tag_start, tag_stop - tag_start);
                 printf ("QRZ Session Key Error: %s\n", QRZ_Err.c_str());
+//                debug_log << "CONFIG: QRZ Session Key Error: " << QRZ_Err.c_str() << "\n";
             }
         }
         if (xml) {
@@ -246,6 +254,7 @@ void config::qrz_sesskey() {
     }
     if (m_QRZ.Key.empty()) {
         printf ("Failed to load QRZ Session Key!\n");
+//        debug_log << "CONFIG: Failed to load QRZ Session Key!\n";
     }
     return;
 }
@@ -310,7 +319,8 @@ void config::load_config() {
     m_dxserver.name = "dxfun.com";
     m_dxserver.port = 8000;
 
-    printf ("Loading CONFIG");
+    printf ("Loading CONFIG\n");
+//    debug_log << "CONFIG: Loading CONFIG\n";
     std::ifstream f("aaediclock_config.json");
     if (f.good()) {
         try {
@@ -318,15 +328,16 @@ void config::load_config() {
             goodread=true;
         } catch (const json::parse_error &e) {
             printf ("JSON parse error: %s\n",  e.what());
+//            debug_log << "CONFIG: Config JSON parse error: " << e.what() << "\n";
             goodread=false;
         }
     } else {
         printf ("Config File Read error\n");
+//        debug_log << "CONFIG: Config File Read error\n";
         goodread=false;
     }
 
     if (goodread) {
-        printf ("Reading CONFIG\n");
         if (data.contains("DE")) {
             if (data["DE"].contains("Latitude") && data["DE"].contains("Longitude")) {
                 if (data["DE"]["Latitude"].is_number() && data["DE"]["Longitude"].is_number() ) {
@@ -386,7 +397,8 @@ void config::load_config() {
                 qrz_sesskey();
             }
             } catch (json::parse_error &e) {
-                printf ("Invalid QRZ Passowrd");
+                printf ("Invalid QRZ Passowrd\n");
+//                debug_log << "CONFIG: Invalid QRZ Passowrd\n";
             }
         }
 
@@ -401,6 +413,7 @@ void config::load_config() {
         }
     } else {
         printf ("ERROR Reading CONFIG. Defaults used\n");
+//        debug_log << "CONFIG: ERROR Reading CONFIG. Defaults used\n";
     }
     return;
 } // loadconfig
@@ -466,7 +479,7 @@ void map_overlay::clear() {
 }
 ScreenFrame* map_overlay::get_overlay(SDL_Renderer* renderer, enum mod_name owner, SDL_FRect dims) {
 
-//SDL_Log("Current renderer pointer: %p", (void*)renderer);
+    debug_log << "OVERLAY: Fetching Overlay : Current renderer pointer: " << (void*)renderer << "\n";
     for (auto& overlay : overlay_list) {
         if (overlay.owner == owner) {
             return &(overlay.panel);
@@ -478,11 +491,13 @@ ScreenFrame* map_overlay::get_overlay(SDL_Renderer* renderer, enum mod_name owne
         new_overlay.panel.Create(renderer, dims);
         if (!new_overlay.panel.texture) {
             SDL_Log("Failed to create overlay texture: %s", SDL_GetError());
+            debug_log << "OVERLAY: Failed to create overlay texture: " << SDL_GetError() << "\n";
             return nullptr;
         } else {
-//            SDL_Log ("Created new overlay texture for module %i", owner);
+            debug_log << "OVERLAY: Created new overlay texture for module "<< owner << "\n";
         }
-//        SDL_Log ("Createdo overlay ... %p\t Tex: %p", (void*)&(new_overlay.panel), (void*)(new_overlay.panel.texture));
+//        SDL_Log ("Created overlay ... %p\t Tex: %p", (void*)&(new_overlay.panel), (void*)(new_overlay.panel.texture));
+        debug_log << "OVERLAY: Created "<< dims.w << "x" << dims.h << " " << ((dims.w*dims.h*4.0)/1024.0) << "KB overlay ... "<< (void*)&(new_overlay.panel) <<"\t Tex: " << (void*)(new_overlay.panel.texture)<< "\n";
         SDL_SetTextureBlendMode(new_overlay.panel.texture, SDL_BLENDMODE_BLEND);
         overlay_list.push_back(std::move(new_overlay));
         return (&(overlay_list.back().panel));
@@ -501,7 +516,7 @@ bool map_overlay::overlay_check(enum mod_name owner) {
 ScreenFrame* map_overlay::next_overlay() {
     if (index < overlay_list.size()) {
         index++;
-//        SDL_Log("Returning Next panel: %i",overlay_list[index-1].owner);
+        debug_log << "OVERLAY: Returning Next panel: " << overlay_list[index-1].owner << "\n";
         return (&(overlay_list[index-1].panel));
     } else {
         index=0;
@@ -516,6 +531,7 @@ void map_overlay::reset_index() {
 void map_overlay::remove_overlay(enum mod_name owner) {
     for (auto it = overlay_list.begin(); it != overlay_list.end(); ++it) {
         if (it->owner == owner) {
+            debug_log << "OVERLAY: Removing overlay for " << owner << "\n";
             it->panel.Reset();
             overlay_list.erase(it);
             return;
@@ -533,6 +549,7 @@ map_icons::~map_icons() {
     clear_icons();
 }
 void map_icons::clear_icons() {
+    debug_log << "ICONS: Clearing all icon textures\n";
     for (SDL_Texture*& tex : icons) {
         if (tex) {
             SDL_DestroyTexture(tex);
@@ -544,15 +561,30 @@ void map_icons::clear_icons() {
 void map_icons::set_dynamic(SDL_Renderer* renderer, SDL_Surface* source, enum icon_names id) {
     if (renderer && source) {
         if (icons[id]) {
+            debug_log << "ICONS: destroying icon texture" << id << "\n";
             SDL_DestroyTexture(icons[id]);
             icons[id]=nullptr;
         }
+        debug_log << "ICONS: Creating icon texture" << id << "\n";
         icons[id] = SDL_CreateTextureFromSurface(renderer, source);
         if (!icons[id]) {
             SDL_Log ("Unable to create dynamic icon");
+            debug_log << "ICONS: Unable to create dynamic icon\n";
+        } else {
+            int w = source->w;
+            int h = source->h;
+            int bpp = 4;
+            double surf_size_kb = (source->pitch * source->h) / 1024.0;
+            double tex_size_kb = (w * h * 4.0) / 1024.0; // assuming RGBA8888
+            debug_log << "ICONS: Created icon texture[" << id << "] "
+              << w << "x" << h << " "
+              << bpp * 8 << "-bit surface ≈ " << surf_size_kb << " KB "
+              << "=> GPU texture ≈ " << tex_size_kb << " KB "
+              << "at " << static_cast<void*>(icons[id]) << "\n";
         }
     } else {
-        SDL_Log ("Missing Renderer ot Source for Dynamic Icon");
+        SDL_Log ("Missing Renderer or Source for Dynamic Icon");
+        debug_log << "ICONS: Missing Renderer or Source for Dynamic Icon\n";
     }
     return;
 }
@@ -563,18 +595,37 @@ void map_icons::load_texture (SDL_Renderer* renderer, const std::string& path, c
 //      SDL_Surface* loadsurface = SDL_LoadBMP(path.c_str());
         SDL_Surface* loadsurface = IMG_Load(path.c_str());
         if (loadsurface) {
+            if (icons[index]) {
+                debug_log << "ICONS: destroying icon texture" << index << "\n";
+                SDL_DestroyTexture(icons[index]);
+                icons[index]=nullptr;
+            }
+            debug_log << "ICONS: Creating icon texture" << index << "\n";
             icons[index] = SDL_CreateTextureFromSurface(renderer, loadsurface);
             if (!icons[index]) {
-                SDL_Log("Unable to generate Icon Texture from %s", path.c_str());
+                SDL_Log("ICONS: Unable to generate Icon Texture from %s", path.c_str());
                 return;
+            } else {
+                int w = loadsurface->w;
+                int h = loadsurface->h;
+                int bpp = 4;
+                double surf_size_kb = (loadsurface->pitch * loadsurface->h) / 1024.0;
+                double tex_size_kb = (w * h * 4.0) / 1024.0; // assuming RGBA8888
+                debug_log << "ICONS: Created icon texture[" << index << "] "
+                        << w << "x" << h << " "
+                        << bpp * 8 << "-bit surface ≈ " << surf_size_kb << " KB "
+                        << "=> GPU texture ≈ " << tex_size_kb << " KB "
+                        << "at " << static_cast<void*>(icons[index]) << "\n";
             }
         } else {
             SDL_Log("Unable to load icon texture: %s", path.c_str());
+            debug_log << "ICONS: Unable to load icon texture: " << path.c_str() << "\n";
             return;
         }
 
     } else {
         SDL_Log("No Icon load renderer provided!");
+        debug_log << "ICONS: No Icon load renderer provided!\n";
         return;
     }
     return;

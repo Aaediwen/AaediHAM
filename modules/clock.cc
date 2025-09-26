@@ -3,7 +3,6 @@
 
 int draw_clock(ScreenFrame& panel, TTF_Font* font) {
 
-//    SDL_Log("Drawing Clock");
     SDL_Color fontcolor;
     fontcolor.r=128;
     fontcolor.g=128;
@@ -15,7 +14,7 @@ int draw_clock(ScreenFrame& panel, TTF_Font* font) {
     float oldsize = TTF_GetFontSize(font);
     TTF_SetFontSize(font,72);
     if (!font) {
-        printf("No font defined\n");
+        debug_log << "CLOCK: No font defined\n";
         return 1;
     }
 
@@ -50,9 +49,9 @@ int draw_clock(ScreenFrame& panel, TTF_Font* font) {
     panel.render_text(TextRect, font, fontcolor, timestr);
     TextRect.x=((panel.dims.w/5)*3)-4;;
 #ifndef _WIN32
-    
+
     strftime(timestr, sizeof(timestr), "%H:%M:%S %Z", clocktime);
-    
+
 
 #else
     std::string wintime;
@@ -71,9 +70,6 @@ int draw_clock(ScreenFrame& panel, TTF_Font* font) {
     sprintf(timestr, "%s", wintime.c_str());
 #endif
     panel.render_text(TextRect, font, fontcolor, timestr);
-//    SDL_SetRenderTarget(surface, NULL);
-//    SDL_RenderTexture(surface, panel.texture, NULL, &(panel.dims));
     TTF_SetFontSize(font,oldsize);
-//    SDL_Log("Done Drawing Clock");
     return 0;
 }

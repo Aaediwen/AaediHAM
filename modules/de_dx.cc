@@ -4,15 +4,14 @@
 
 void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int de_dx) {
 
-//    if (!panel.renderer) {
-//        SDL_Log("Missing Renderer!");
-//        return ;
-//    }
-//    if (!panel.texture) {
-//        SDL_Log("Missing PANEL!");
-//        return ;
-//    }
-//    SDL_Log("Drawing DE_DX");
+    if (!panel.GetRenderer()) {
+        debug_log << "DE/DX: Missing Renderer!\n";
+        return ;
+    }
+    if (!panel.texture) {
+        debug_log << "DE/DX: Missing PANEL!\n";
+        return ;
+    }
     char tempstr[64];
     SDL_FRect TextRect;
     SDL_Color fontcolor;
@@ -33,7 +32,6 @@ void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int 
     }
     float oldsize = TTF_GetFontSize(font);
     TTF_SetFontSize(font,72);
-//    SDL_Log("Set Font");
 
     // blank the box
     panel.Clear();
@@ -138,9 +136,6 @@ void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int 
     strftime(tempstr, 12, "S%H:%M", test_time);
     panel.render_text(TextRect, font, fontcolor, tempstr);
 
-
     // clean up
     TTF_SetFontSize(font,oldsize);
-
-//    SDL_Log("Done drawing DE/DX");
 }

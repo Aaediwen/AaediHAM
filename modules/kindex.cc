@@ -54,7 +54,7 @@ void write_wind_cache(std::ostringstream& cache_stream, time_t max_timestamp) {
              std::string index_string;
              try {
                   index_string = (*wind_index)[0].get<std::string>();
-//                  SDL_Log ("Time String: %s", index_string.c_str());
+                  debug_log << "KINDEX: Time String: " <<  index_string.c_str() << "\n";
                   new_node.timestamp = parse_time_tag(index_string);
                   current_timestamp = new_node.timestamp;
                   new_node.day_mark = false;
@@ -66,17 +66,17 @@ void write_wind_cache(std::ostringstream& cache_stream, time_t max_timestamp) {
                        }
                   }
                   index_string = (*wind_index)[1].get<std::string>();
-//                  SDL_Log ("Density String: %s", index_string.c_str());
+                  debug_log << "KINDES: Density String: " << index_string.c_str() << "\n";
                   new_node.density = std::stof(index_string);
                   index_string = (*wind_index)[2].get<std::string>();
-//                  SDL_Log ("Speed String: %s", index_string.c_str());
+                  debug_log << "KINDEX: Speed String: " << index_string.c_str() << "\n";
                   new_node.speed = std::stof(index_string);
                   index_string = (*wind_index)[3].get<std::string>();
-//                  SDL_Log ("Temp String: %s", index_string.c_str());
+                  debug_log << "KINDEX: Temp String: " << index_string.c_str()<< "\n";
                   new_node.temperature = std::stoi(index_string);
                   raw_points.push_back(new_node);
              } catch (const std::exception& e) {
-//                  SDL_Log("Skipped Wind: %s", e.what());
+                  debug_log << "KINDEX: Skipped Wind: " << e.what() << "\n";
              }
 
              wind_index++;
@@ -102,7 +102,7 @@ std::string merge_json (const char* k_index_list, const char* solar_wind_list) {
           k_list = json::parse(k_index_list);
           solar_index = json::parse(solar_wind_list);
      } catch (const std::exception& e) {
-          SDL_Log("JSON Parse error reading Solar Data");
+          debug_log << "KINDEX: JSON Parse error reading Solar Data\n";
           return "";
      }
 
@@ -129,7 +129,7 @@ std::string merge_json (const char* k_index_list, const char* solar_wind_list) {
                }
                raw_points.push_back(new_node);
           } catch (const std::exception& e) {
-               SDL_Log("Skipped Kindex: %s", e.what());
+               debug_log << "KINDEX: Skipped Kindex: " << e.what() << "\n";
           }
      }
 
@@ -157,7 +157,7 @@ void k_index_chart (ScreenFrame& panel) {
     time_t cache_time;
     bool reload_flag = false;
     std::string combined;
-//    SDL_Log ("Kindex checking cache");
+    debug_log << "KINDEX: Kindex checking cache\n";
     data_size = cache_loader(MOD_KINDEX, (void**)&k_index_list, &cache_time);
     if (!data_size) {
         reload_flag=true;
@@ -168,7 +168,7 @@ void k_index_chart (ScreenFrame& panel) {
           k_index_list = 0;
         }
     } else {
-//        SDL_Log("Cache size: %i", data_size);
+        debug_log << "KINDEX: Cache size: " << data_size << "\n";
         merged.assign(k_index_list, data_size);
         if (k_index_list) {
           free (k_index_list);
@@ -177,10 +177,10 @@ void k_index_chart (ScreenFrame& panel) {
     }
 
     if (reload_flag) {
-//        SDL_Log("Kindex cache Miss");
+        debug_log << "KINDEX: Kindex cache Miss fetching data from NOAA\n";
         data_size = http_loader("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json", (void**)&k_index_list);   // live
         data_size += http_loader("https://services.swpc.noaa.gov/products/solar-wind/plasma-7-day.json", (void**)&solar_wind_list);
-//        SDL_Log("Fetched Sources");
+        debug_log << "KINDEX: Fetched Sources\n";
         if (data_size) {
             merged = merge_json(k_index_list, solar_wind_list);
             add_data_cache(MOD_KINDEX, merged.length(), (void*)merged.data());
@@ -195,14 +195,14 @@ void k_index_chart (ScreenFrame& panel) {
         }
     }
     data.clear();
-//    SDL_Log("Cache Data size! %zu", merged.size());
+    debug_log << "KINDEX: Cache Data size! " <<  merged.size() << "\n";
     data.str(merged);
 
     // clear the box
     panel.Clear();
     SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
     SDL_FRect bar_box;
-//    SDL_Log ("Rendering K index graph");
+    debug_log << "KINDEX: Rendering K index graph\n";
     std::vector<float>speed_prime;
     std::vector<float>density_prime;
     std::deque<float>speed_queue;
@@ -214,12 +214,12 @@ void k_index_chart (ScreenFrame& panel) {
     uint8_t type;
     size_t kindex_count;
     if (merged.length() < 5) {
-      SDL_Log ("Missing Solar Data!");
+      debug_log << "KINDEX: Missing Solar Data!\n";
       return;
     }
 
     data.read(reinterpret_cast<char*>(&kindex_count), sizeof(kindex_count));
-//    SDL_Log("Drawing chart size %zu", kindex_count);
+    debug_log << "KINDEX: Drawing chart size " << kindex_count << "\n";
     bar_box.x=1;
     bar_box.w = (panel.dims.w-2)/kindex_count;
     for (int ki = 0 ; ki < kindex_count ; ki++) {	// read each K Index value
@@ -229,7 +229,7 @@ void k_index_chart (ScreenFrame& panel) {
       // read the kindex
       data.read(reinterpret_cast<char*>(&type), sizeof(type));
       if (type != 1) {
-        SDL_Log ("Kindex read error! Type not 1 on Kindex read, got %i", type);
+        debug_log << "KINDEX: Kindex read error! Type not 1 on Kindex read, got " <<  type << "\n";
         break;
       }
       struct KIndexPoint kindex;
@@ -273,7 +273,7 @@ void k_index_chart (ScreenFrame& panel) {
       for (int wi = 0 ; wi < wind_count ; wi++) {	// read each solar_wind value
         data.read(reinterpret_cast<char*>(&type), sizeof(type));
         if (type != 2) {
-          SDL_Log ("Solar Wind read error! Type not 2 on Solar Wind read");
+          debug_log << "KINDEX: Solar Wind read error! Type not 2 on Solar Wind read\n";
           break;
         }
         struct SolarWindPoint  wind_data;
@@ -346,16 +346,13 @@ void k_index_chart (ScreenFrame& panel) {
 
 //=================================================================================
 
-            SDL_Color tempcolor={128,128,128,0};
-            bar_box.x= 2;
-            bar_box.y=(panel.dims.h/4)+ 2;
-            bar_box.w=(panel.dims.w/4)*3;
-            bar_box.h=panel.dims.h/16;
-            char tempfloat[255];
-            sprintf (tempfloat, "K Index: %.1f S': %.1f D': %.1f", klast, speed_prime.back(), density_prime.back());
-            panel.render_text(bar_box, Sans, tempcolor, tempfloat);
-
+    SDL_Color tempcolor={128,128,128,0};
+    bar_box.x= 2;
+    bar_box.y=(panel.dims.h/4)+ 2;
+    bar_box.w=(panel.dims.w/4)*3;
+    bar_box.h=panel.dims.h/16;
+    char tempfloat[255];
+    sprintf (tempfloat, "K Index: %.1f S': %.1f D': %.1f", klast, speed_prime.back(), density_prime.back());
+    panel.render_text(bar_box, Sans, tempcolor, tempfloat);
     return;
-
-
 }

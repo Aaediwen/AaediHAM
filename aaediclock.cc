@@ -2,6 +2,7 @@
 #include <fstream>
 #include <SDL3/SDL_main.h>
 #include <SDL3/SDL.h>
+#include <SDL3_image/SDL_image.h>
 #include "aaediclock.h"
 #include "utils.h"
 #include "modules.h"
@@ -34,15 +35,7 @@ Uint8 interrupt_counter = 0;
 struct regen_mask_args* night_mask_args = nullptr;
 map_overlay overlays;
 map_icons icon_bin;
-#ifdef CLOCK_DEBUG
 std::fstream debug_log;
-#else
-struct DummyLog {
-    template<typename T>
-    DummyLog& operator<<(const T&) { return *this; }
-    DummyLog& operator<<(std::ostream& (*)(std::ostream&)) { return *this; } // handle std::endl
-} debug_log;
-#endif
 
 std::string render_engine;
 
@@ -70,12 +63,12 @@ struct {
 SDL_TimerID flag_timer = 0;
 
 Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interval) {
+//    debug_log << "FLAG TIMER: In Master flag timer\n";
     (void) userdata;
     interrupt_counter++;
     if (interrupt_counter > 200) {
         interrupt_counter = 0;
     }
-//    SDL_Log ("In master flag timer");
     if (timerID) {
         SDL_LockMutex(master_clock_mutex);
         if ((interrupt_counter % 1200)==0) {	// 120 seconds
@@ -84,7 +77,7 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
             master_flags.wspr.draw_flag = true;
         }
         if ((interrupt_counter % 6000) == 0) {	// 60 seconds
-//            SDL_Log("MOD PAGER FIRED!");
+            debug_log << "FLAG_TIMER: MOD PAGER FIRED!\n";
             master_flags.map.panel	=	&(winboxes[PANEL_MAP].panel);
             master_flags.sat_tracker.panel	=	&(winboxes[PANEL_NULL].panel);
             master_flags.dx_spots.panel	=	&(winboxes[PANEL_NULL].panel);
@@ -170,6 +163,7 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
         if ((interrupt_counter % 20)==0) {	// 2 seconds
             master_flags.dx_spots.draw_flag = true;
         }
+//        debug_log << "FLAG_TIMER: Master flag timer done.\n";
         SDL_UnlockMutex(master_clock_mutex);
         return (interval);
     } else {
@@ -181,7 +175,7 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
 void resize_panels(std::array<pager_node, 12>& panels) {
         int win_x;
         int win_y;
-
+        debug_log << "RESIZE: Beginning Window resize\n";
         // lock and disable the rest of the program
         SDL_LockMutex(night_mask_mutex);
         if (flag_timer) {
@@ -233,12 +227,14 @@ void resize_panels(std::array<pager_node, 12>& panels) {
         }
         if (!surface) {
             SDL_Log("Failed to create renderer: %s", SDL_GetError());
+            debug_log << "RESIZE: Failed to create renderer: " << SDL_GetError();
             exit(1);
         } else {
 //            SDL_Log("created new renderer: %p", (void*)surface);
         }
         SDL_GetCurrentRenderOutputSize(surface, &win_x, &win_y);
         printf ("Resizing Window to %i X %i\n", win_x, win_y);
+        debug_log << "RESIZE: Resizing Window to " << win_x << " X " << win_y << "\n";
         SDL_SetRenderDrawColor(surface, 0,0,0,0);
         SDL_RenderClear(surface);
         SDL_RenderPresent(surface);
@@ -347,7 +343,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
         }
 
         // recreate the map textures as well so they don't get lost
-        load_maps(surface);
+        load_maps(surface, panels[PANEL_MAP].panel.dims);
         icon_bin.reload_icons(surface);
         // re-enable the rest of the program
         master_flags.callsign.draw_flag		= true;
@@ -362,6 +358,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
         master_flags.solar.draw_flag		= true;
         master_flags.wspr.draw_flag 		= true;
         flag_timer = SDL_AddTimer(100, master_clock, &master_flags);
+        debug_log << "RESIZE: Window resize complete\n";
         SDL_UnlockMutex(night_mask_mutex);
         return;
 }
@@ -495,12 +492,14 @@ int window_init(int x, int y) {
         window = SDL_CreateWindow("Aaediwen Ham Clock", x, y, 0);
         if (!window) {
             SDL_Log("Failed to create window: %s", SDL_GetError());
+            debug_log << "INIT: Failed to Create Window: " << SDL_GetError() << "\n";
             return(1);
         }
         SDL_SetWindowResizable(window, 1);
         resize_panels(winboxes);
         if (!window || !surface) {
             printf("Window Renderer error\n");
+            debug_log << "INIT: Window Renderer error\n";
             return(1);
         }
         // load assets
@@ -511,6 +510,7 @@ int window_init(int x, int y) {
 #endif
         if (!Sans) {
             printf("Error opening font: %s\n", SDL_GetError());
+            debug_log << "INIT: Error opening font: "<< SDL_GetError() << "\n";
             return(1);
         }
         TTF_SetFontHinting(Sans, TTF_HINTING_LIGHT_SUBPIXEL);
@@ -537,6 +537,7 @@ int window_init(int x, int y) {
 
 
 int window_destroy() {
+    debug_log << "EXIT: Exiting Normally.\n\n";
     SDL_DestroyWindow(window);
     SDL_Quit();
     return 0;
@@ -550,6 +551,12 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     y=480;
 #ifdef CLOCK_DEBUG
     debug_log.open("clock_debug.log", std::fstream::out);
+#else
+#ifdef _WIN32
+    debug_log.open ("NUL", std::fstream::out);
+#else
+    debug_log.open ("/dev/null", std::fstream::out);
+#endif
 #endif
     debug_log << "------------------------ NEW RUN ------------\n";
     bool fs_start = false;
@@ -559,7 +566,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         std::string arg = argv[i];
         if (arg == "--headless") {
             printf("Running Headless\n");
-            debug_log << "Running Headless\n";
+            debug_log << "INIT: Running Headless\n";
 #ifdef _WIN32
             _putenv_s("SDL_VIDEO_DRIVER", "dummy");
 #else
@@ -625,20 +632,20 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
             std::string password;
             password = arg.substr(11);
             clockconfig.set_qrz_pass(password);
-            printf("Done.\n");
-
-
+            printf("QRZ password set.\n");
             return (SDL_APP_FAILURE);
         }
     }
 
     if (!(SDL_InitSubSystem(SDL_INIT_VIDEO))) {
         SDL_Log("Unable to initialize SDL: %s", SDL_GetError());
+        debug_log << "INIT: Unable to initialize SDL:" << SDL_GetError() << "\n";
         return (SDL_APP_FAILURE);
     }
 
     if(!TTF_Init()) {
         printf("TTF_Init Error: %s\n", SDL_GetError());
+        debug_log << "INIT: TTF Init Error:" << SDL_GetError() << "\n";
         return(SDL_APP_FAILURE);
     }
 
@@ -669,7 +676,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     winboxes[PANEL_FLEXBOX4].sequence.push_back(MOD_KINDEX);
     winboxes[PANEL_FLEXBOX5].sequence.push_back(MOD_SOLAR);
     winboxes[PANEL_FLEXBOX5].sequence.push_back(MOD_WSPR);
-
+    debug_log << "INIT: Globals Initialized\n";
 
 
     DayMap.Reset();
@@ -678,6 +685,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     night_mask_mutex = SDL_CreateMutex();
     night_mask_args = (struct regen_mask_args*)malloc(sizeof(struct regen_mask_args));
     map_timer = 0;
+    debug_log << "INIT: Map Variables Initialized\n";
     // create the main window
     if (window_init(x, y)) {
         return (SDL_APP_FAILURE);
@@ -700,52 +708,65 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         currenttime=time(NULL);
         SDL_LockMutex(master_clock_mutex);
         if (master_flags.clock.draw_flag) {
+            debug_log << "ITTERATE: Calling Clock with panel " << &(winboxes[PANEL_CLOCK].panel) << "\n";
             draw_clock(winboxes[PANEL_CLOCK].panel, Sans);
             master_flags.clock.draw_flag = false;
         }
         if (master_flags.callsign.draw_flag) {
+            debug_log << "ITTERATE: Calling Callsign with panel " << master_flags.callsign.panel << "\n";
             draw_callsign(*(master_flags.callsign.panel), Sans, clockconfig.CallSign().c_str());
             master_flags.callsign.draw_flag = false;
         }
         if (master_flags.map.draw_flag) {
+            debug_log << "ITTERATE: Calling Map with panel " << master_flags.map.panel << "\n";
             draw_map(*(master_flags.map.panel));
             winboxes[PANEL_MAP].panel.draw_border();
             master_flags.map.draw_flag = false;
         }
         if (master_flags.de.draw_flag) {
+            debug_log << "ITTERATE: Calling DE with panel " << master_flags.de.panel << "\n";
             draw_de_dx(*(master_flags.de.panel), Sans, clockconfig.DE().latitude, clockconfig.DE().longitude, 1);
             master_flags.de.draw_flag = false;
         }
         if (master_flags.dx.draw_flag) {
+            debug_log << "ITTERATE: Calling DX with panel " << master_flags.dx.panel << "\n";
             draw_de_dx(*(master_flags.dx.panel), Sans, clockconfig.DX().latitude, clockconfig.DX().longitude, 0);
             master_flags.dx.draw_flag = false;
         }
         if (master_flags.pota.draw_flag) {
+            debug_log << "ITTERATE: Calling POTA with panel " << master_flags.pota.panel << "\n";
             pota_spots(*(master_flags.pota.panel), Sans);
+            debug_log << "ITTERATE: Calling Kindex with panel " << master_flags.solar.panel << "\n";
             lunar_module(*(master_flags.solar.panel));
             master_flags.pota.draw_flag = false;
         }
         if (master_flags.kindex.draw_flag) {
+            debug_log << "ITTERATE: Calling Kindex with panel " << master_flags.kindex.panel << "\n";
             k_index_chart (*(master_flags.kindex.panel));
             master_flags.kindex.draw_flag = false;
         }
         if (master_flags.sat_tracker.draw_flag) {
+            debug_log << "ITTERATE: Calling Sat Tracker with panel " << master_flags.sat_tracker.panel << "\n";
             sat_tracker (*(master_flags.sat_tracker.panel), Sans, winboxes[PANEL_MAP].panel);
             master_flags.sat_tracker.draw_flag = false;
         }
         if (master_flags.dx_spots.draw_flag) {
+            debug_log << "ITTERATE: Calling DX Spots with panel " << master_flags.dx_spots.panel << "\n";
             dx_cluster(*(master_flags.dx_spots.panel));
             master_flags.dx_spots.draw_flag = false;
         }
         if (master_flags.ncdxf.draw_flag) {
+            debug_log << "ITTERATE: Calling NCDXF with panel " << master_flags.ncdxf.panel << "\n";
             ncdxf_module(*(master_flags.ncdxf.panel));
             master_flags.ncdxf.draw_flag = false;
         }
         if (master_flags.solar.draw_flag) {
+            debug_log << "ITTERATE: Calling SDO with panel " << master_flags.solar.panel << "\n";
             sdo_image(*(master_flags.solar.panel));
             master_flags.solar.draw_flag = false;
         }
         if (master_flags.wspr.draw_flag) {
+            debug_log << "ITTERATE: Calling WSPR Tracker with panel " << master_flags.wspr.panel << "\n";
             wspr_tracker (*(master_flags.wspr.panel), Sans, winboxes[PANEL_MAP].panel);
             master_flags.wspr.draw_flag = false;
         }
@@ -759,16 +780,17 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         winboxes[PANEL_FLEXBOX3].panel.present();
         winboxes[PANEL_FLEXBOX4].panel.present();
         winboxes[PANEL_FLEXBOX5].panel.present();
-            SDL_UnlockMutex(master_clock_mutex);
-            SDL_RenderPresent(surface);
-            if (headless && (!outfile.empty())) {
-                // dump surface to image file here
-                int width, height;
-                SDL_GetCurrentRenderOutputSize(surface, &width, &height);
-                SDL_Surface* savesurface = SDL_RenderReadPixels(surface, NULL);
-                SDL_SaveBMP(savesurface, outfile.c_str());  // output_file_path from --output
-                SDL_DestroySurface(savesurface);
-            }
+        SDL_UnlockMutex(master_clock_mutex);
+        SDL_RenderPresent(surface);
+        if (headless && (!outfile.empty())) {
+            // dump surface to image file here
+            int width, height;
+            SDL_GetCurrentRenderOutputSize(surface, &width, &height);
+            SDL_Surface* savesurface = SDL_RenderReadPixels(surface, NULL);
+            IMG_SaveJPG(savesurface, outfile.c_str(), 75);
+//            SDL_SaveBMP(savesurface, outfile.c_str());  // output_file_path from --output
+            SDL_DestroySurface(savesurface);
+        }
     }
     return(SDL_APP_CONTINUE);
 }
@@ -776,13 +798,13 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 
     /* This function runs once at shutdown. */
 void SDL_AppQuit(void *appstate, SDL_AppResult result) {
-     (void)appstate;
+    (void)appstate;
     (void)result;
     free (night_mask_args);
     night_mask_args=nullptr;
-     SDL_RemoveTimer(map_timer);
-        map_timer = 0;
-        SDL_DestroyMutex(night_mask_mutex);
+    SDL_RemoveTimer(map_timer);
+    map_timer = 0;
+    SDL_DestroyMutex(night_mask_mutex);
     night_mask_mutex = nullptr;
     /* SDL will clean up the window/renderer for us. */
 }
@@ -797,20 +819,24 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
     if ((event->type==SDL_EVENT_WINDOW_RESIZED)||(event->type==SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED)) {
         if (!resizing) {
             resizing=1;
+            debug_log << "EVENT: Resize event triggered!\n";
             resize_panels(winboxes);
+            debug_log << "EVENT: Resize event complete!\n";
             resizing=0;
         }
     }
     if (event->type==SDL_EVENT_MOUSE_BUTTON_UP) {
         if (event->button.button ==1 && event->button.clicks ==1) {
-            SDL_Log ("Got single left click at %f, %f", event->button.x, event->button.y);
+//            SDL_Log ("Got single left click at %f, %f", event->button.x, event->button.y);
+            debug_log << "EVENT: Got single left click at " << event->button.x << ", " << event->button.y << "\n";
             for (auto& pager : winboxes) {
                 if ((event->button.x > pager.panel.dims.x) && (event->button.x < (pager.panel.dims.x+pager.panel.dims.w)) &&
                     (event->button.y > pager.panel.dims.y) && (event->button.y < (pager.panel.dims.y+pager.panel.dims.h))) {
                         float modx, mody;
                         modx = event->button.x - pager.panel.dims.x;
                         mody = event->button.y - pager.panel.dims.y;
-                        SDL_Log ("Panel event coords: %f, %f", modx, mody);
+//                        SDL_Log ("Panel event coords: %f, %f", modx, mody);
+                        debug_log << "EVENT: Panel event coords: " << modx << ", " << mody << "\n";
                         pager.clickpoint={modx, mody};
                         pager.clickcount = event->button.clicks;
                     }
@@ -832,7 +858,6 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                 }
                 break;
             case SDLK_F11:
-
                 if (winstate & SDL_WINDOW_FULLSCREEN) {
                     SDL_SetWindowFullscreen(window, 0);
                 } else {

@@ -158,7 +158,7 @@ void TrackedSatellite::draw_pass(const time_t pass_start, const time_t pass_end,
             pass_samples++;
         }
     }
-//  SDL_Log("Rendering %i samples for pass path of %s", pass_samples, this->name.c_str());
+    debug_log << "SAT TRACKER: Rendering "<< pass_samples << " samples for pass path of " << this->name.c_str() << "\n";
     float max_radius = size->w/2;
     if (size->h < size->w) {
         max_radius = size->h/2;
@@ -171,7 +171,7 @@ void TrackedSatellite::draw_pass(const time_t pass_start, const time_t pass_end,
             float radius = max_radius * (1-point.elevation/90.0f);
             new_point.x = center.x + radius * sinf(point.azimuth*(M_PI/180.0));
             new_point.y = center.y - radius * cosf(point.azimuth*(M_PI/180.0));
-//          SDL_Log("AZ: %.2f°, EL: %.2f° → Radius %.1f", point.azimuth, point.elevation, radius);
+            debug_log << "SAT_TRACKER: AZ: " << point.azimuth << ", EL: " << point.elevation << " Radius " << radius << "\n";
             pass_pts->push_back(new_point);
         }
     }
@@ -210,11 +210,9 @@ bool TrackedSatellite::gen_telemetry(const int resolution, libsgp4::Observer& ob
     double mean_motion =  this->sat_tle->MeanMotion();
     double period = (1440*60)/mean_motion; // period in seconds
     i = floor(period/resolution);
-//    i = (period/10)/resolution;
     for (int offset = 0 ; offset < (i*resolution) ; offset +=resolution) {
         try {
            libsgp4::DateTime dt = libsgp4::DateTime::Now().AddSeconds(offset);
-        //    libsgp4::DateTime dt = this->sat_tle.Epoch().AddSeconds(offset);
             libsgp4::Eci eci = this->sgp4->FindPosition(dt);
             libsgp4::CoordGeodetic geo = eci.ToGeodetic();
             libsgp4::CoordTopocentric topo = obs.GetLookAngle(eci);
@@ -246,7 +244,7 @@ time_t TrackedSatellite::telemetry_age() {
 void TrackedSatellite::draw_telemetry(ScreenFrame& map) {
     // draw the satellite's telemetry track on the map
     if (this->telemetry.empty()) { return; }
-//    SDL_Log("Draw telemetry on texture: %p", (void*)map.texture);
+    debug_log << "SAT TRACKER: Draw telemetry on texture: " << (void*)map.texture << "\n";
     SDL_SetRenderTarget(map.GetRenderer(), map.texture);
     SDL_SetRenderDrawColor(map.GetRenderer(), this->color.r, this->color.g, this->color.b, this->color.a);
     SDL_FPoint* SDLPoints = (SDL_FPoint*)malloc(sizeof(SDL_FPoint)*this->telemetry.size());
@@ -282,9 +280,7 @@ void TrackedSatellite::draw_telemetry(ScreenFrame& map) {
 
     SDL_RenderLines(map.GetRenderer(), SDLPoints, render_size);
     free (SDLPoints);
-     //    map.present();
     SDL_SetRenderTarget(map.GetRenderer(), NULL);
-//    SDL_RenderTexture(map.GetRenderer(), map.texture, NULL, &(map.dims));
     return;
 }
 
@@ -434,7 +430,6 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     time_t cache_time;
 
     SDL_FRect TextRect;
-//    SDL_Log ("In Sat Trracker Module");
     delete_owner_pins(MOD_SAT);
     bool reload_flag = false;
     data_size = cache_loader(MOD_SAT, (void**)&amateur_tle, &cache_time);
@@ -450,14 +445,14 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     }
     if (reload_flag) {	// fetch new
         std::ostringstream cache_stream;
-//        data_size = http_loader("https://aaediwen.theaudioauthority.net/morse/celestrak", &amateur_tle);      // debug
+        SDL_Log ("Fetching Satellite telemetry from Celestrak");
+        debug_log << "SAT TRACKER: Fetching Satellite telemetry from Celestrak\n";
         data_size = http_loader("https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle", (void**)&amateur_tle);   // live
         satlist.clear();
         if (data_size) {
-//            SDL_Log ("Fetched New Sat data");
+            debug_log << "SAT TRACKER: Fetched New Sat data\n";
             std::string blob = sat_json_parser(amateur_tle);
-//            std::string blob = cache_stream.str();
-//            SDL_Log ("caching %li Bytes of Sat Data", blob.length());
+            debug_log << "SAT TRACKER: caching "<< blob.length() << " Bytes of Sat Data\n";
             add_data_cache(MOD_SAT, blob.length(), (void*)blob.data());
             data_size = blob.length();
             tle_raw.clear();
@@ -475,10 +470,9 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
             free(amateur_tle);
             amateur_tle=0;
         }
-//        SDL_Log ("Using %i Bytes of Cached Data!", data_size);
+        debug_log <<"SAT TRACKER: Using "<< data_size << " Bytes of Cached Data!\n";
     }
 
-//    SDL_Log ("Read Sat List");
     // clear the box
     panel.Clear();
     SDL_FRect mapsize ;
@@ -487,8 +481,6 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     bool redraw_flag = false;
     redraw_flag = (!overlays.overlay_check(MOD_SAT));
     ScreenFrame* overlay = overlays.get_overlay(panel.GetRenderer(), MOD_SAT, mapsize);
-//    SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
-//    overlay->Clear(SDL_Color{0,0,0,0});
     // render the header
     TextRect.w=panel.dims.w/2-10;
     TextRect.h=panel.dims.h/11;
@@ -499,9 +491,9 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     TextRect.y += ((panel.dims.h/11)+(panel.dims.h/150));
 
     if (data_size) {
-//        SDL_Log ("We have tracking data: %i Bytes", data_size);
+        debug_log << "SAT TRACKER: We have tracking data: "<< data_size << " Bytes";
     } else {
-        SDL_Log ("Tracking Data Fetch Error!");
+        debug_log <<"Tracking Data Fetch Error!\n";
         TextRect.w=panel.dims.w-10;
         TextRect.h=panel.dims.h/11;
         TextRect.x=5;
@@ -514,7 +506,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
 
     libsgp4::Observer obs(clockconfig.DE().latitude, clockconfig.DE().longitude, 0.27); // need a way to manage altitude here (last arg)
     // read the TLE data from Celestrak
-//    SDL_Log ("Reading Sat lists from Celestrak");
+    debug_log << "SAT_TRACKER: Reading Sat lists from Celestrak\n";
     struct tle_cache temp;
     while (tle_raw.read(reinterpret_cast<char*>(&temp), sizeof(temp))) {
         temp.name[49]=0;
@@ -522,7 +514,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
         temp.line2[69]=0;
         // read the TLE for a sat
         // is it one we want to show?
-//        SDL_Log("Read Sat %s with draw=%d", temp.name, temp.draw);
+        debug_log << "SAT TRACKER: Read Sat " << temp.name << " with draw=" << temp.draw << "\n";
         bool draw_flag=temp.draw;
         // check if the sat exists in satlist
         TrackedSatellite *nextsat = nullptr;
@@ -538,28 +530,29 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
             }
 
             if (nextsat) {
-//                SDL_Log("Found NextSat: %s", temp.name);
+                debug_log << "SAT TRACKER: Found NextSat: " << temp.name << "\n";
                 if (reload_flag) {
                     nextsat->new_tracking(name, line1, line2);
                     nextsat->gen_telemetry(30, obs);
-//                    nextsat->draw_telemetry(*overlay);
                     redraw_flag = true;
                 }
             } else {
-//                SDL_Log("New NextSat: %s", temp.name);
-//                SDL_Log("Creating New Sat entry with:\n%s\n%s\n%s", temp.name, temp.line1, temp.line2);
+                debug_log << "SAT TRACKER:Creating New Sat entry with:\nSAT_TRACKER: "
+                          << temp.name << "\nSAT_TRACKER: "
+                          << temp.line1 << "\nSAT TRACKER: "
+                          << temp.line2 << "\n";
                 try {
                     nextsat = new TrackedSatellite(temp.name, temp.line1, temp.line2);
-    //                SDL_Log("New Sat entry initialized with:\n%s\n%s\n%s", temp.name, temp.line1, temp.line2);
                     nextsat->color=temp.color;
-    //                SDL_Log ("Regenerate track for %s", temp.name);
+                    debug_log << "SAT TRACKER: Regenerate track for " << temp.name << "\n";
                     if (nextsat->gen_telemetry(30, obs)) {
                         satlist.push_back(std::move(*nextsat));
-//                        satlist.back().draw_telemetry(*overlay);
                         redraw_flag= true;
                     }
                 } catch (const std::exception& e){
                     SDL_Log ("Failed to create Satellite tracking entry for %s\n%s", temp.name, e.what());
+                    debug_log << "SAT_TRACKER: Failed to create Satellite tracking entry for " << temp.name
+                              << "\nSAT TRACKER: " << e.what() << "\n";
                 }
             }
         }
@@ -569,7 +562,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
         free(amateur_tle);
         amateur_tle = nullptr;
     }
-//    SDL_Log("Displaying Selected Satellites");
+    debug_log << "SAT_TRACKER: Displaying Selected Satellites\n";
     // display the selected satellites
     if (!satlist.empty()){
         if (pass_pager[0] >= satlist.size()) {
@@ -594,7 +587,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
         for (TrackedSatellite& Sat : satlist) {
             bool draw_flag=true;
             if (redraw_flag) {
-                SDL_Log ("Redrawing track for %s", Sat.get_name().c_str());
+                debug_log << "SAT_TRACKER: Redrawing track for " << Sat.get_name().c_str() << "\n";
                 Sat.draw_telemetry(*overlay);
             }
             // plot the sat's current location
@@ -606,13 +599,13 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
             sat_pin.lat     =               sat_loc.x;
             sat_pin.lon     =               sat_loc.y;
             sat_pin.icon    =               icon_bin.get_icon(map_icons::ICON_SAT);
-//            SDL_Log("Sat Tracker got pin %p", sat_pin.icon);
+            debug_log << "SAT TRACKER: got pin " <<  sat_pin.icon << "\n";
             sat_pin.color   =               Sat.color;;
             sat_pin.tooltip[0]      =               0;
             add_pin(&sat_pin);
         }
 
-//        SDL_Log("Loaded %li SATS", satlist.size());
+        debug_log << "SAT TRACKER: Loaded "<< satlist.size() << " SATS\n";
     }
 
     return;

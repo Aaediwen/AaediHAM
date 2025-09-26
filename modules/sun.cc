@@ -21,13 +21,15 @@ void sdo_image(ScreenFrame& panel) {
         raw_image=0;
         }
     }					// add valid JPEG check
-//    SDL_Log ("READ %i FROM CACHE!!!!", data_size);
+    debug_log << "SOLAR: READ "<< data_size << " FROM CACHE!!!!\n";
     bool goodread;
     goodread = true;
     if (reload_flag) {
+        SDL_Log ("Fetching SDO image from NASA");
+        debug_log << "SOLAR: Fetching SDO image from NASA\n";
          data_size = http_loader("https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg", (void**)&raw_image);                           // live
          if (data_size) {
-//             SDL_Log("Loaded image size: %zu bytes", data_size);
+             debug_log << "SOLAR: Loaded image size: "<< data_size << " bytes\n";
              add_data_cache(MOD_SOLAR, data_size, (void*)raw_image);
          }
     }
@@ -60,19 +62,27 @@ void sdo_image(ScreenFrame& panel) {
                     SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
                     SDL_RenderTexture(panel.GetRenderer(), SDO_Texture, NULL, NULL);
                     if (reload_flag || !icon_bin.get_icon(map_icons::ICON_SUN) ) {
-                        SDL_SetSurfaceColorKey(SDO_Surface, 1, 0);
-                        icon_bin.set_dynamic(panel.GetRenderer(), SDO_Surface, map_icons::ICON_SUN);
+                        SDL_Surface* icon_surface = SDL_CreateSurface(100, 100, SDL_PIXELFORMAT_RGBA32);
+                        if (SDL_BlitSurfaceScaled(SDO_Surface, NULL, icon_surface, NULL, SDL_SCALEMODE_NEAREST)) {
+                            SDL_SetSurfaceColorKey(icon_surface, 1, 0);
+                            icon_bin.set_dynamic(panel.GetRenderer(), icon_surface, map_icons::ICON_SUN);
+                        }
+                        SDL_DestroySurface(icon_surface);
+                        // need to scale this down here
                     }
                     solar_pin.icon = icon_bin.get_icon(map_icons::ICON_SUN);
+                    SDL_DestroyTexture(SDO_Texture);
                } else {
                     SDL_Log ("Unable to load SDO Image Texture");
+                    debug_log << "SOLAR: Unable to load SDO Image Texture\n";
               }
-
+              SDL_DestroySurface(SDO_Surface);
            } else {
-          SDL_Log ("Unable to load SDO Image Surface");
+          debug_log << "SOLAR: Unable to load SDO Image Surface\n";
         }
         } catch (const std::exception& e){
-        SDL_Log ("Error loading SDO Image  %s", e.what());
+            SDL_Log ("Error loading SDO Image  %s", e.what());
+            debug_log << "Error loading SDO Image  " << e.what() << "\n";
         }
         if (raw_image) {
             free (raw_image);
