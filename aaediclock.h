@@ -23,9 +23,8 @@ extern struct regen_mask_args* night_mask_args;
 extern SDL_Mutex* night_mask_mutex;
 extern SDL_TimerID map_timer;
 extern TTF_Font* Sans;
-#ifdef CLOCK_DEBUG
 extern std::fstream debug_log;
-#endif
+
 
 extern ScreenFrame DayMap;
 extern ScreenFrame NightMap;
