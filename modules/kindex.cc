@@ -177,6 +177,7 @@ void k_index_chart (ScreenFrame& panel) {
     }
 
     if (reload_flag) {
+        SDL_Log ("Fetching Solar Weather from NOAA");
         debug_log << "KINDEX: Kindex cache Miss fetching data from NOAA\n";
         data_size = http_loader("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json", (void**)&k_index_list);   // live
         data_size += http_loader("https://services.swpc.noaa.gov/products/solar-wind/plasma-7-day.json", (void**)&solar_wind_list);

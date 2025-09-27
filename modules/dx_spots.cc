@@ -21,7 +21,9 @@
 #include <arpa/inet.h>
 #endif
 
-
+SDL_Mutex* dxspot_mutex = SDL_CreateMutex();
+SDL_TimerID dxspot_timer = 0;
+const int max_age=1800;
 
 dxspot::dxspot() {
     qrz_valid = false;
@@ -205,9 +207,9 @@ void init_fd() {
         debug_log << "DXSPOTS: GetAddrInfo ... ";
         res = getaddrinfo(serverip.c_str(), serverport.c_str(), &hints, &serveraddr);
         if (res == 0) {
-            debug_log << "DXSPOTS: Success" << "\n";
+            debug_log << " Success" << "\n";
         } else {
-            debug_log << "DXSPOTS: Failed " << WSAGetLastError() << "\n";
+            debug_log << " Failed " << WSAGetLastError() << "\n";
             WSACleanup();
             freeaddrinfo(serveraddr);
             return;
@@ -283,22 +285,179 @@ void duplicate_spot(dxspot& needle) {
 //    SDL_Log ("Stored: %i DX Spots", dxspots.size());
 }
 
+void fetch_dxspots() {
+    time_t currenttime = time(NULL);
+    SDL_LockMutex(dxspot_mutex);
+    // check for old entries
+
+    if (!dxspots.empty()) {
+            for (size_t c = dxspots.size() ; c-- > 0 ;) {
+                    if ((currenttime - dxspots[c].timestamp) > max_age) {
+                        debug_log << "DXSPOTS: Erasing entry "<< dxspots[c].dx.c_str() << "\n";
+                            dxspots.erase(dxspots.begin()+c);
+                    }
+            }
+    }
+    if (dxsocket) { // we have a valid? socket to read from
+        std::vector<std::string> dxbuffer;
+        std::string tempstr;
+        int readcount=0;
+        int read_limit=0;
+
+        while (!readcount && read_limit < 5) {
+            read_limit++;
+                    if (dxsocket) {
+                            readcount = read_socket(dxsocket, tempstr);
+                    }
+                    if (readcount < 0) {
+    //			dxsocket = 0;
+                            readcount = 0;
+                    }
+        }
+
+        if (read_limit <5) {
+
+            while (readcount) {
+                if (!tempstr.empty()) {
+                    dxbuffer.push_back(tempstr);
+                    tempstr.clear();;
+                }
+                readcount = read_socket(dxsocket, tempstr);
+            }
+            debug_log << "DXSPOTS: DONE Reading " << dxbuffer.size()<< " lines of input\n";
+
+            for (std::string buffstr : dxbuffer) {
+                // scan variables for line ID
+                float freq;
+                char call[32] = {0};
+                char date[16] = {0};
+                char timez[8] = {0};
+
+
+                // process the input line
+                debug_log << "DXSPOTS: buffstr " << buffstr.c_str() << "\n";
+                if (!buffstr.compare(1,5, "ogin:")) {
+                    send(dxsocket, clockconfig.CallSign().c_str(), clockconfig.CallSign().length(),0);
+                    send(dxsocket, "\n", 1,0);
+                    debug_log << "DXSPOTS: Sent Callsign\n";
+                } else if (!buffstr.compare(0,5, "Hello")) {
+                    send(dxsocket, "SH/DX 15\n", 9,0);
+                    debug_log << "DXSPOTS: Sent SH15\n";
+                } else if (buffstr.rfind("DX de ", 0) == 0) {
+                    debug_log << "DXSPOTS: Got DX entry\nDXSPOTS: %s" <<  buffstr.c_str() << "\n";
+                    dxspot new_spot;
+                    int consumed = 0;
+                    std::string tempstring;
+                    size_t spotter_end = buffstr.find_first_of(':');
+                    new_spot.spotter = buffstr.substr(6, spotter_end-1 );
+                    tempstring=buffstr.substr(spotter_end+1,std::string::npos);
+                    buffstr= tempstring;
+                    debug_log << "DXSPOTS: Extracted Spotter " << new_spot.spotter.c_str() << "\n";
+                    sscanf (buffstr.c_str(), "%lf %13s %n", &(new_spot.frequency), call, &consumed);
+                    debug_log << "DXSPOTS: Extracted Frequency " << new_spot.frequency << "\n";
+                    tempstring=buffstr.substr(consumed,std::string::npos);
+                    buffstr= tempstring;
+                    new_spot.dx=call;
+                    debug_log << "DXSPOTS: Extracted DX " << new_spot.dx.c_str() << "\n";
+                    spotter_end = buffstr.find_last_of('Z', (std::string::npos));
+                    if (spotter_end != std::string::npos) {
+                        tempstring = buffstr.substr(spotter_end-4, spotter_end-1 );
+                        struct tm *new_time;
+                        std::memset(&new_time, 0, sizeof(new_time));
+                        new_time = gmtime(&currenttime);
+                        if (sscanf(tempstring.c_str(), "%2d%2d",
+                            &(new_time->tm_hour), &(new_time->tm_min)) != 2) {
+                            debug_log << "DXSPOTS: Date Parse Error " << new_time->tm_hour << " " << new_time->tm_min << "\n";
+                        }
+                        new_spot.timestamp=0;
+                        new_spot.timestamp = timegm(new_time);
+                        debug_log << "DXSPOTS: Timestamp:" << tempstring.c_str() << " \nDXSPOTS:  Remaining:" << buffstr.c_str() << "\n";
+                        new_spot.note=buffstr.substr(0, spotter_end-4 );
+                    } else {
+                        new_spot.timestamp = time(NULL);
+                        new_spot.note="";
+                    }
+                    new_spot.find_mode();
+                    duplicate_spot(new_spot);
+                } else if (sscanf(buffstr.c_str(), "%f %31s %15s %7s", &freq, call, date, timez)==4) {
+                    if (date[0] =='U') {
+    //              	SDL_Log("Skipping line with unexpected keyword: %s", buffstr.c_str());
+                    } else {
+                        debug_log << "DXSPOTS: Got cached DX entry\n" <<  buffstr.c_str() << "\n";
+                        dxspot new_spot;
+                        int consumed=0;
+                        std::string tempstring;
+                        sscanf (buffstr.c_str(), "%lf %13s %n", &(new_spot.frequency), call, &consumed);
+                        tempstring=buffstr.substr(consumed,std::string::npos);
+                        buffstr= tempstring;
+                        new_spot.dx=call;
+
+                        consumed = buffstr.find('Z');
+                        tempstring=buffstr.substr(0,consumed);
+
+                        struct tm new_time;
+                        std::memset(&new_time, 0, sizeof(new_time));
+                        char month_str[4];
+                        int year;
+                        if (sscanf(tempstring.c_str(), "%d-%3s-%d %2d%2d",
+                            &new_time.tm_mday, month_str, &year, &new_time.tm_hour, &new_time.tm_min) != 5) {
+
+                            debug_log << "DXSPOTS:Date Parse Error"
+                                << "\nDXSPOTS: "<< tempstring.c_str() << "\t"
+                                << new_time.tm_mday << ", "
+                                << month_str << ", "
+                                << year <<" "
+                                <<  new_time.tm_hour << " " << new_time.tm_min <<"\n";
+                        }
+                        new_time.tm_year = year - 1900;
+                        new_time.tm_mon = month_to_int(month_str);
+                        new_spot.timestamp = timegm(&new_time);
+
+                        tempstring=buffstr.substr(consumed,std::string::npos);
+                        buffstr= tempstring;
+                        size_t note_end = buffstr.find_last_of('<', (std::string::npos-1));
+                        size_t spotter_end = buffstr.find_last_of('>', (std::string::npos));
+                        new_spot.spotter = buffstr.substr(note_end+1, spotter_end-1 );
+                        new_spot.note=buffstr.substr(1, note_end-1 );
+                        new_spot.find_mode();
+                        duplicate_spot(new_spot);
+                    }
+
+
+                } else {
+    //          	SDL_Log("Ignoring line");
+                }
+            }
+            dxbuffer.clear();
+        }
+        SDL_UnlockMutex(dxspot_mutex);
+    }
+}
+
+Uint32 SDLCALL fetch_dxspots (void *userdata, SDL_TimerID timerID, Uint32 interval) {
+     if (timerID) {
+          fetch_dxspots();
+          return (interval);
+     } else {
+          return 0;
+     }
+}
+
+
+
 void dx_cluster (ScreenFrame& panel) {
+
     if (!dxsocket) {
         init_fd();
+    }
+    if (!dxspot_timer) {
+        fetch_dxspots();
+        dxspot_timer = SDL_AddTimer(10000, fetch_dxspots, NULL);
     }
     // clear the box
     panel.Clear();
     time_t currenttime = time(NULL);
-    const int max_age=1800;
-	if (!dxspots.empty()) {
-		for (size_t c = dxspots.size() ; c-- > 0 ;) {
-			if ((currenttime - dxspots[c].timestamp) > max_age) {
-			    debug_log << "DXSPOTS: Erasing entry "<< dxspots[c].dx.c_str() << "\n";
-				dxspots.erase(dxspots.begin()+c);
-			}
-		}
-	}
+
     if (!dxsocket) {
         SDL_Log("Error Connecting to DX Spot Telnet Session");
         debug_log << "DXSPOTS: Error Connecting to DX Spot Telnet Session\n";
@@ -312,142 +471,15 @@ void dx_cluster (ScreenFrame& panel) {
         return;
     }
 
-    std::vector<std::string> dxbuffer;
-    std::string tempstr;
-    int readcount=0;
-    int read_limit=0;
-    while (!readcount && read_limit < 5) {
-        read_limit++;
-		if (dxsocket) {
-			readcount = read_socket(dxsocket, tempstr);
-		}
-		if (readcount < 0) {
-//			dxsocket = 0;
-			readcount = 0;
-		}
-    }
-    if (read_limit <5) {
 
-        while (readcount) {
-            if (!tempstr.empty()) {
-                dxbuffer.push_back(tempstr);
-                tempstr.clear();;
-            }
-            readcount = read_socket(dxsocket, tempstr);
-        }
-        debug_log << "DXSPOTS: DONE Reading " << dxbuffer.size()<< " lines of input\n";
-        for (std::string buffstr : dxbuffer) {
-            // scan variables for line ID
-            float freq;
-            char call[32] = {0};
-            char date[16] = {0};
-            char timez[8] = {0};
-
-
-
-        debug_log << "DXSPOTS: buffstr " << buffstr.c_str() << "\n";
-        if (!buffstr.compare(1,5, "ogin:")) {
-               send(dxsocket, clockconfig.CallSign().c_str(), clockconfig.CallSign().length(),0);
-               send(dxsocket, "\n", 1,0);
-               debug_log << "DXSPOTS: Sent Callsign\n";
-        } else if (!buffstr.compare(0,5, "Hello")) {
-               send(dxsocket, "SH/DX 15\n", 9,0);
-               debug_log << "DXSPOTS: Sent SH15\n";
-        } else if (buffstr.rfind("DX de ", 0) == 0) {
-               debug_log << "DXSPOTS: Got DX entry\nDXSPOTS: %s" <<  buffstr.c_str() << "\n";
-               dxspot new_spot;
-               int consumed = 0;
-               std::string tempstring;
-               size_t spotter_end = buffstr.find_first_of(':');
-               new_spot.spotter = buffstr.substr(6, spotter_end-1 );
-               tempstring=buffstr.substr(spotter_end+1,std::string::npos);
-               buffstr= tempstring;
-               debug_log << "DXSPOTS: Extracted Spotter " << new_spot.spotter.c_str() << "\n";
-               sscanf (buffstr.c_str(), "%lf %13s %n", &(new_spot.frequency), call, &consumed);
-               debug_log << "DXSPOTS: Extracted Frequency " << new_spot.frequency << "\n";
-               tempstring=buffstr.substr(consumed,std::string::npos);
-               buffstr= tempstring;
-               new_spot.dx=call;
-               debug_log << "DXSPOTS: Extracted DX " << new_spot.dx.c_str() << "\n";
-              spotter_end = buffstr.find_last_of('Z', (std::string::npos));
-              if (spotter_end != std::string::npos) {
-                  tempstring = buffstr.substr(spotter_end-4, spotter_end-1 );
-                  struct tm *new_time;
-                  std::memset(&new_time, 0, sizeof(new_time));
-                  new_time = gmtime(&currenttime);
-                  if (sscanf(tempstring.c_str(), "%2d%2d",
-                      &(new_time->tm_hour), &(new_time->tm_min)) != 2) {
-                      debug_log << "DXSPOTS: Date Parse Error " << new_time->tm_hour << " " << new_time->tm_min << "\n";
-                  }
-                  new_spot.timestamp=0;
-                  new_spot.timestamp = timegm(new_time);
-                  debug_log << "DXSPOTS: Timestamp:" << tempstring.c_str() << " \nDXSPOTS:  Remaining:" << buffstr.c_str() << "\n";
-                  new_spot.note=buffstr.substr(0, spotter_end-4 );
-              } else {
-                  new_spot.timestamp = time(NULL);
-                  new_spot.note="";
-              }
-              new_spot.find_mode();
-              duplicate_spot(new_spot);
-        } else if (sscanf(buffstr.c_str(), "%f %31s %15s %7s", &freq, call, date, timez)==4) {
-                if (date[0] =='U') {
-//                    SDL_Log("Skipping line with unexpected keyword: %s", buffstr.c_str());
-                } else {
-                    debug_log << "DXSPOTS: Got cached DX entry\n" <<  buffstr.c_str() << "\n";
-                    dxspot new_spot;
-                    int consumed=0;
-                    std::string tempstring;
-                    sscanf (buffstr.c_str(), "%lf %13s %n", &(new_spot.frequency), call, &consumed);
-                    tempstring=buffstr.substr(consumed,std::string::npos);
-                    buffstr= tempstring;
-                    new_spot.dx=call;
-
-                    consumed = buffstr.find('Z');
-                    tempstring=buffstr.substr(0,consumed);
-
-                    struct tm new_time;
-                    std::memset(&new_time, 0, sizeof(new_time));
-                    char month_str[4];
-                    int year;
-                    if (sscanf(tempstring.c_str(), "%d-%3s-%d %2d%2d",
-                        &new_time.tm_mday, month_str, &year, &new_time.tm_hour, &new_time.tm_min) != 5) {
-                        debug_log << "DXSPOTS:Date Parse Error"
-                        << "\nDXSPOTS: "<< tempstring.c_str() << "\t"
-                        << new_time.tm_mday << ", "
-                        << month_str << ", "
-                        << year <<" "
-                        <<  new_time.tm_hour << " " << new_time.tm_min <<"\n";
-                 }
-                 new_time.tm_year = year - 1900;
-                 new_time.tm_mon = month_to_int(month_str);
-                 new_spot.timestamp = timegm(&new_time);
-
-               tempstring=buffstr.substr(consumed,std::string::npos);
-               buffstr= tempstring;
-                size_t note_end = buffstr.find_last_of('<', (std::string::npos-1));
-                size_t spotter_end = buffstr.find_last_of('>', (std::string::npos));
-                new_spot.spotter = buffstr.substr(note_end+1, spotter_end-1 );
-                new_spot.note=buffstr.substr(1, note_end-1 );
-                new_spot.find_mode();
-                duplicate_spot(new_spot);
-            }
-
-
-        } else {
-//            SDL_Log("Ignoring line");
-        }
-    }
-    dxbuffer.clear();
-    }
     int y=2;
+    SDL_LockMutex(dxspot_mutex);
     size_t start = dxspots.size() > 15 ? dxspots.size() - 15 : 0;
     for (size_t n=start ; n < dxspots.size(); n++) {
-    if (y < panel.dims.h) {
-          dxspots[n].display_spot(panel, y, max_age);
-          y+= panel.dims.h/15;
-
-      }
-
+        if (y < panel.dims.h) {
+            dxspots[n].display_spot(panel, y, max_age);
+            y+= panel.dims.h/15;
+        }
     }
     delete_owner_pins(MOD_DXSPOT);
     for (auto& current_spot : dxspots) {
@@ -463,5 +495,6 @@ void dx_cluster (ScreenFrame& panel) {
             add_pin(&dx_pin);
         }
     }
+    SDL_UnlockMutex(dxspot_mutex);
 }
 

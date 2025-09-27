@@ -291,14 +291,15 @@ int draw_map(ScreenFrame& panel) {
     // init the night map alpha mask
     if (!night_mask ||
         (old_renderer != panel.GetRenderer()) ||
-        night_mask->w != panel.dims.w ||
-        night_mask->h != panel.dims.h) {
+        night_mask->w != floor(panel.dims.w) ||
+        night_mask->h != floor(panel.dims.h)) {
         if (night_mask) {
+            debug_log << "MAP: New Night Mask -- Night Mask Dims: "<<night_mask->w<<"x"<<night_mask->h<<"\tPanel: "<<panel.dims.w<<"x"<<panel.dims.h<< "\n";
             SDL_DestroySurface(night_mask);
         }
         night_mask = SDL_CreateSurface(panel.dims.w, panel.dims.h, SDL_PIXELFORMAT_RGBA32);
         if (!night_mask) {
-            debug_log << "Failed to create mask surface: " << SDL_GetError() << "\n";
+            debug_log << "MAP: Failed to create mask surface: " << SDL_GetError() << "\n";
             return 1;
         }
 
@@ -315,8 +316,9 @@ int draw_map(ScreenFrame& panel) {
         night_mask_args->dest = night_mask;
         night_mask_args->panel_dims = panel.dims;
         map_timer = SDL_AddTimer(30000, regen_mask, night_mask_args);
+        debug_log << "MAP: Regen NightMask -- bad renderer\t Old: "<< old_renderer << "\tNew: "<< panel.GetRenderer() <<"\n";
         old_renderer = panel.GetRenderer();
-        debug_log << "MAP: Regen NightMask -- bad renderer\n";
+
         regen_mask_flag = true;
     }
     if (regen_mask_flag) {

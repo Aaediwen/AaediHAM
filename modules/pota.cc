@@ -4,6 +4,7 @@
 #include <sstream>
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
+SDL_TimerID pota_timer = 0;
 
 
 struct pota_spot {
@@ -57,9 +58,40 @@ std::string pota_json_parser(const char* input_string) {
     return (cache_stream.str());
 
 }
+void fetch_pota () {
+     char* json_spots = 0 ;
+     Uint32 data_size;
+     debug_log <<"POTA: Fetching Spots from pota.app via timer\n";
+     SDL_Log("POTA: Fetching Spots from pota.app via timer");
+     data_size = http_loader("https://api.pota.app/spot/activator", (void**)&json_spots);                           // live
+     if (data_size) {
+          std::string blob = pota_json_parser(json_spots);
+          add_data_cache(MOD_POTA, blob.length(), (void*)blob.data());
+          if(json_spots) {
+               free (json_spots);
+               json_spots=0;
+          }
+     }
+     return;
+}
+
+Uint32 SDLCALL fetch_pota (void *userdata, SDL_TimerID timerID, Uint32 interval) {
+     if (timerID) {
+          fetch_pota();
+          return (interval);
+     } else {
+          return 0;
+     }
+}
+
+
 
 int pota_page[2]={0,2};
 void pota_spots(ScreenFrame& panel, TTF_Font* font) {
+     if (!pota_timer) {
+          fetch_pota();
+          pota_timer = SDL_AddTimer(300000, fetch_pota, NULL);
+     }
     char* json_spots = 0 ;
 
     int c, tot;
@@ -84,7 +116,7 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
     data_size = cache_loader(MOD_POTA, (void**)&json_spots, &cache_time);
     if (!data_size) {
         reload_flag=1;
-    } else if ((time(NULL) - cache_time) > 300) {
+    } else if ((time(NULL) - cache_time) > 400) {
         reload_flag=1;
         if(json_spots) {
               free (json_spots);

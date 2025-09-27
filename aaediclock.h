@@ -25,7 +25,6 @@ extern SDL_TimerID map_timer;
 extern TTF_Font* Sans;
 extern std::fstream debug_log;
 
-
 extern ScreenFrame DayMap;
 extern ScreenFrame NightMap;
 extern ScreenFrame CountriesMap;

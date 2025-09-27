@@ -15,6 +15,7 @@
 #endif
 #include <string>
 
+SDL_Mutex* cache_mutex = SDL_CreateMutex();
 
 
 int read_socket(dx_socket_t fd, std::string &result) {
@@ -407,11 +408,11 @@ int delete_owner_pins(enum mod_name owner) {
 
 
 int delete_mod_cache(enum mod_name owner) {
-//    SDL_Log("killing pins %i", owner);
     struct data_blob* current_chunk;
     struct data_blob* next_chunk;
     struct data_blob* last_chunk;
     struct data_blob* old_chunk;
+    SDL_LockMutex(cache_mutex);
     if (data_cache) {
         current_chunk=data_cache;
         last_chunk=0;
@@ -440,6 +441,7 @@ int delete_mod_cache(enum mod_name owner) {
             }
         }
     }
+    SDL_UnlockMutex(cache_mutex);
     return(0);
 
 }
@@ -463,7 +465,7 @@ void dump_cache() {
 
 int add_data_cache(enum mod_name owner, const Uint32 size, const void* data) {
     delete_mod_cache(owner);
-
+    SDL_LockMutex(cache_mutex);
     // add a new data_cache for a module
     struct data_blob* empty_locker;
     struct data_blob* current_chunk;
@@ -480,6 +482,7 @@ int add_data_cache(enum mod_name owner, const Uint32 size, const void* data) {
     }
     if (!empty_locker) {
         SDL_Log("Cache Allocation Error!");
+        SDL_UnlockMutex(cache_mutex);
         return (0);
     }
     empty_locker->next=0;
@@ -492,10 +495,12 @@ int add_data_cache(enum mod_name owner, const Uint32 size, const void* data) {
         memcpy(empty_locker->data, data, size);
         ((char*)empty_locker->data)[size] = '\0';
     } else {
+        SDL_UnlockMutex(cache_mutex);
         return (0);
     }
 //    dump_cache();
 //    printf ("Test stored data\n %s \n -----------\n",(char*)empty_locker->data);
+    SDL_UnlockMutex(cache_mutex);
     return (1);
 
 }
@@ -507,6 +512,7 @@ int fetch_data_cache(enum mod_name owner, time_t *age, Uint32 *size, void* data)
         return 0;
     }
     if (data_cache) {
+        SDL_LockMutex(cache_mutex);
         struct data_blob* current = data_cache;
         while (current) {
             if (current->owner == owner) {
@@ -521,6 +527,7 @@ int fetch_data_cache(enum mod_name owner, time_t *age, Uint32 *size, void* data)
             }	// found a cache hit
             current = current->next;
         }	// itterate through the current cache
+        SDL_UnlockMutex(cache_mutex);
     } // do we have anything at all cached yet?
 //    SDL_Log("Cache miss");
     return (0);
