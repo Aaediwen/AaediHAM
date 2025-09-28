@@ -21,7 +21,7 @@
 #include <arpa/inet.h>
 #endif
 
-SDL_Mutex* dxspot_mutex = SDL_CreateMutex();
+SDL_Mutex* dxspot_mutex = nullptr;
 SDL_TimerID dxspot_timer = 0;
 const int max_age=1800;
 
@@ -287,7 +287,9 @@ void duplicate_spot(dxspot& needle) {
 
 void fetch_dxspots() {
     time_t currenttime = time(NULL);
-    SDL_LockMutex(dxspot_mutex);
+    if (!SDL_TryLockMutex(dxspot_mutex)) {
+        return;
+    }
     // check for old entries
 
     if (!dxspots.empty()) {
@@ -432,6 +434,7 @@ void fetch_dxspots() {
         }
         SDL_UnlockMutex(dxspot_mutex);
     }
+    return;
 }
 
 Uint32 SDLCALL fetch_dxspots (void *userdata, SDL_TimerID timerID, Uint32 interval) {
@@ -449,6 +452,9 @@ void dx_cluster (ScreenFrame& panel) {
 
     if (!dxsocket) {
         init_fd();
+    }
+    if (!dxspot_mutex) {
+        dxspot_mutex = SDL_CreateMutex();
     }
     if (!dxspot_timer) {
         fetch_dxspots();
