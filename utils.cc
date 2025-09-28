@@ -15,7 +15,7 @@
 #endif
 #include <string>
 
-SDL_Mutex* cache_mutex = SDL_CreateMutex();
+SDL_Mutex* cache_mutex = nullptr;
 
 
 int read_socket(dx_socket_t fd, std::string &result) {
@@ -412,6 +412,9 @@ int delete_mod_cache(enum mod_name owner) {
     struct data_blob* next_chunk;
     struct data_blob* last_chunk;
     struct data_blob* old_chunk;
+    if (!cache_mutex) {
+        cache_mutex = SDL_CreateMutex();
+    }
     SDL_LockMutex(cache_mutex);
     if (data_cache) {
         current_chunk=data_cache;
@@ -465,6 +468,9 @@ void dump_cache() {
 
 int add_data_cache(enum mod_name owner, const Uint32 size, const void* data) {
     delete_mod_cache(owner);
+    if (!cache_mutex) {
+        cache_mutex = SDL_CreateMutex();
+    }
     SDL_LockMutex(cache_mutex);
     // add a new data_cache for a module
     struct data_blob* empty_locker;
@@ -512,6 +518,10 @@ int fetch_data_cache(enum mod_name owner, time_t *age, Uint32 *size, void* data)
         return 0;
     }
     if (data_cache) {
+        if (!cache_mutex) {
+            cache_mutex = SDL_CreateMutex();
+        }
+
         SDL_LockMutex(cache_mutex);
         struct data_blob* current = data_cache;
         while (current) {
