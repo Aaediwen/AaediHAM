@@ -88,10 +88,10 @@ Uint32 SDLCALL fetch_pota (void *userdata, SDL_TimerID timerID, Uint32 interval)
 
 int pota_page[2]={0,2};
 void pota_spots(ScreenFrame& panel, TTF_Font* font) {
-     if (!pota_timer) {
-          fetch_pota();
-          pota_timer = SDL_AddTimer(300000, fetch_pota, NULL);
-     }
+//     if (!pota_timer) {
+//          fetch_pota();
+//          pota_timer = SDL_AddTimer(300000, fetch_pota, NULL);
+//     }
     char* json_spots = 0 ;
 
     int c, tot;
