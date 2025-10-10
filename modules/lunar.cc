@@ -337,12 +337,8 @@ struct GeoCoord sublunar(const time_t time) {
 
 SDL_Surface* moon_image = nullptr;
 SDL_Texture* moon_texture = nullptr;
-void lunar_module(ScreenFrame& panel, time_t timestamp) {
-    float unitx=panel.dims.w/20;
-    float unity=panel.dims.h/20;
-    if (timestamp == 0) {
-        timestamp = time(NULL);
-    } else {
+
+void kill_moon_surface () {
         if (moon_image) {
             SDL_Log ("Killing old Moon Image!");
             SDL_DestroySurface(moon_image);
@@ -353,7 +349,19 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
             SDL_DestroyTexture(moon_texture);
             moon_texture = nullptr;
         }
+}
+void lunar_module(ScreenFrame& panel, time_t timestamp) {
+    float unitx=panel.dims.w/20;
+    float unity=panel.dims.h/20;
+    if (timestamp == 0) {
+        timestamp = time(NULL);
+        if (!(time % 300)) {
+            kill_moon_surface();
+        }
+    } else {
+        kill_moon_surface();
     }
+
     struct GeoCoord sublunar_point = sublunar(timestamp);
     if (!moon_image) {
         SDL_Surface* image_surface = IMG_Load("images/PIA14011.jpg");
@@ -389,7 +397,9 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
         }
         if (image_surface) { SDL_DestroySurface(image_surface); }
     }
-    moon_texture = SDL_CreateTextureFromSurface(panel.GetRenderer(), moon_image);
+    if (!moon_texture) {
+        moon_texture = SDL_CreateTextureFromSurface(panel.GetRenderer(), moon_image);
+    }
     panel.Clear();
     SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
     SDL_RenderTexture(panel.GetRenderer(), moon_texture, NULL, NULL);
