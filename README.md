@@ -38,6 +38,20 @@ Config File Format:
           "ISS (ZARYA)",
           "COSMOS 2409",
           "NOAA 18"
+     ],
+     "DX_Server": {                  // Telnet server to use for DX Spots
+          "Name": "dxfun.com",
+          "Port": 8000
+     },
+     "WSPR": [                        // Any WSPR nodes for the WSPR module to track/ Needs callsign and band to query on WSPR.Live
+          {
+               "callsign": "KY4EOD",
+               "band": 14
+          },
+          {
+               "callsign": "KQ4SIZ",
+               "band": 28
+          }
      ]
 }
 </CODE>
@@ -66,5 +80,10 @@ Library dependancies:
  <LI>K Index Data          --  https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json
  <LI>Solar Wind Data       --  https://services.swpc.noaa.gov/products/solar-wind/plasma-7-day.json
  <LI>DX Spots              --  Telnet: dxfun.com:8000 </LI> 
+ <LI>WSPR Data             --  http://db1.wspr.live</LI>
  <LI>QRZ API               --  http://xmldata.qrz.com/</LI>  
+ <LI>Astronomical Algorithms -- https://archive.org/details/astronomicalalgorithmsjeanmeeus1991</LI>
+ <LI>NASA Moon image       -- https://science.nasa.gov/photojournal/nearside-spectacular/</LI>
+ <LI>SDO Solar Image       -- https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg</LI>
+   
  </UL>
