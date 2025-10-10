@@ -337,7 +337,7 @@ struct GeoCoord sublunar(const time_t time) {
 
 SDL_Surface* moon_image = nullptr;
 SDL_Texture* moon_texture = nullptr;
-
+time_t moon_surface_age = 0;
 void kill_moon_surface () {
         if (moon_image) {
             SDL_Log ("Killing old Moon Image!");
@@ -355,7 +355,7 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
     float unity=panel.dims.h/20;
     if (timestamp == 0) {
         timestamp = time(NULL);
-        if (!(time % 300)) {
+        if (timestamp - moon_surface_age > 300) {
             kill_moon_surface();
         }
     } else {
@@ -367,6 +367,7 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
         SDL_Surface* image_surface = IMG_Load("images/PIA14011.jpg");
 //        if ((panel.dims.w < (image_surface->w/2)) && (panel.dims.h < (image_surface->h/2))) {
             moon_image = SDL_CreateSurface((image_surface->w), (image_surface->h), SDL_PIXELFORMAT_RGBA32);
+            moon_surface_age=timestamp;
 //        } else {
 //            moon_image = SDL_CreateSurface((panel.dims.w*2), (panel.dims.h*2), SDL_PIXELFORMAT_RGBA32);
 //        }
