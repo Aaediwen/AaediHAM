@@ -163,31 +163,50 @@ void ScreenFrame::draw_border() {
     return;
 }
 
-void ScreenFrame::render_text(const SDL_FRect& text_box, TTF_Font *font, const SDL_Color& color, const char* str) {
+void ScreenFrame::render_text(const SDL_FRect& text_box, TTF_Font *font, const SDL_Color& color, const std::string str) {
     if (texture && renderer) {
-    SDL_Surface* textsurface;
-    SDL_Texture *TextTexture;
+        SDL_Surface* textsurface;
+        SDL_Texture *TextTexture;
 
-    // render a text string
-    textsurface = TTF_RenderText_Shaded(font, str, strlen(str), color, SDL_Color{0,0,0,0});
-//    textsurface = TTF_RenderText_LCD(font, str, strlen(str), color, bg_color);
-    if (textsurface==NULL) {
-//        SDL_Log("Text render error: %s", SDL_GetError());
-        debug_log << "SCREENFRAME: Text render error: " << SDL_GetError() << "\n";
-        return;
+        // render a text string
+        textsurface = TTF_RenderText_Shaded(font, str.c_str(), str.size(), color, SDL_Color{0,0,0,0});
+        if (textsurface==NULL) {
+            debug_log << "SCREENFRAME: Text render error: " << SDL_GetError() << "\n";
+            return;
+        }
+        TextTexture = SDL_CreateTextureFromSurface(renderer, textsurface);
+        SDL_SetRenderTarget(renderer, texture);
+        SDL_RenderTexture(renderer, TextTexture, NULL, &text_box);
+        SDL_SetRenderTarget(renderer, NULL);
+        SDL_DestroyTexture(TextTexture);
+        SDL_DestroySurface(textsurface);
+    } else {
+    //    SDL_Log("Bad renderer or texture on Text Render");
+        debug_log << "SCREENFRAME: Bad renderer or texture on Text Render\n";
     }
-    TextTexture = SDL_CreateTextureFromSurface(renderer, textsurface);
-    SDL_SetRenderTarget(renderer, texture);
-    SDL_RenderTexture(renderer, TextTexture, NULL, &text_box);
-    SDL_SetRenderTarget(renderer, NULL);
-    SDL_DestroyTexture(TextTexture);
-    SDL_DestroySurface(textsurface);
-
-} else {
-//    SDL_Log("Bad renderer or texture on Text Render");
-    debug_log << "SCREENFRAME: Bad renderer or texture on Text Render\n";
 }
 
+
+void ScreenFrame::render_text(const SDL_FRect& text_box, TTF_Font *font, const SDL_Color& color, const char* str) {
+    if (texture && renderer) {
+        SDL_Surface* textsurface;
+        SDL_Texture *TextTexture;
+
+        // render a text string
+        textsurface = TTF_RenderText_Shaded(font, str, strlen(str), color, SDL_Color{0,0,0,0});
+        if (textsurface==NULL) {
+            debug_log << "SCREENFRAME: Text render error: " << SDL_GetError() << "\n";
+            return;
+        }
+        TextTexture = SDL_CreateTextureFromSurface(renderer, textsurface);
+        SDL_SetRenderTarget(renderer, texture);
+        SDL_RenderTexture(renderer, TextTexture, NULL, &text_box);
+        SDL_SetRenderTarget(renderer, NULL);
+        SDL_DestroyTexture(TextTexture);
+        SDL_DestroySurface(textsurface);
+    } else {
+        debug_log << "SCREENFRAME: Bad renderer or texture on Text Render\n";
+    }
 }
 
 

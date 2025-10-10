@@ -50,6 +50,7 @@ class ScreenFrame {
         void Reset();
         void draw_border();
         void Clear(const SDL_Color& color = {0, 0, 0, 255});
+        void render_text(const SDL_FRect& text_box, TTF_Font *font, const SDL_Color& color, std::string str);
         void render_text(const SDL_FRect& text_box, TTF_Font *font, const SDL_Color& color, const char* str);
         void present();
 };

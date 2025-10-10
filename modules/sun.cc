@@ -6,11 +6,14 @@
 #include <SDL3_image/SDL_image.h>
 
 
-void sdo_image(ScreenFrame& panel) {
+void sdo_image(ScreenFrame& panel, time_t timestamp) {
     Uint32 data_size;
     time_t cache_time;
     int reload_flag =0;
     char* raw_image = 0 ;
+    if (timestamp ==0) {
+        timestamp = time(NULL);
+    }
     data_size = cache_loader(MOD_SOLAR, (void**)&raw_image, &cache_time);
     if (!data_size) {
         reload_flag=1;
@@ -44,7 +47,7 @@ void sdo_image(ScreenFrame& panel) {
         SDL_Surface* SDO_Surface = nullptr;
         struct map_pin solar_pin;
         solar_pin.owner=MOD_SOLAR;
-        struct GeoCoord subsolar_point = subsolar(time(NULL));
+        struct GeoCoord subsolar_point = subsolar(timestamp);
         solar_pin.lat=subsolar_point.latitude;
         solar_pin.lon=subsolar_point.longitude;
         solar_pin.icon = 0;

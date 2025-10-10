@@ -36,6 +36,8 @@ struct regen_mask_args* night_mask_args = nullptr;
 map_overlay overlays;
 map_icons icon_bin;
 std::fstream debug_log;
+struct celest_coords g_celestials;
+
 
 std::string render_engine;
 
@@ -57,6 +59,7 @@ struct {
     ModuleControl kindex;
     ModuleControl solar;
     ModuleControl wspr;
+    ModuleControl lunar;
 } static master_flags;
 
 
@@ -75,6 +78,7 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
             master_flags.kindex.draw_flag = true;
             master_flags.solar.draw_flag = true;
             master_flags.wspr.draw_flag = true;
+            master_flags.lunar.draw_flag = true;
         }
         if ((interrupt_counter % 6000) == 0) {	// 60 seconds
             debug_log << "FLAG_TIMER: MOD PAGER FIRED!\n";
@@ -90,6 +94,7 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
             master_flags.kindex.panel	=	&(winboxes[PANEL_NULL].panel);
             master_flags.solar.panel	=	&(winboxes[PANEL_NULL].panel);
             master_flags.wspr.panel	=	&(winboxes[PANEL_NULL].panel);
+            master_flags.lunar.panel	=	&(winboxes[PANEL_NULL].panel);
 
             for (auto& panel : winboxes) {
 
@@ -134,6 +139,9 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
                             break;
                         case MOD_WSPR:
                             master_flags.wspr.panel = &panel.panel;
+                            break;
+                        case MOD_LUNAR:
+                            master_flags.lunar.panel = &panel.panel;
                             break;
 
                     }
@@ -194,6 +202,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
         master_flags.clock.draw_flag		= false;
         master_flags.solar.draw_flag		= false;
         master_flags.wspr.draw_flag		= false;
+        master_flags.lunar.draw_flag		= false;
 
         if (map_timer) {
             SDL_RemoveTimer(map_timer);
@@ -357,6 +366,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
         master_flags.clock.draw_flag		= true;
         master_flags.solar.draw_flag		= true;
         master_flags.wspr.draw_flag 		= true;
+        master_flags.lunar.draw_flag		= true;
         flag_timer = SDL_AddTimer(100, master_clock, &master_flags);
         debug_log << "RESIZE: Window resize complete\n";
         SDL_UnlockMutex(night_mask_mutex);
@@ -530,6 +540,7 @@ int window_init(int x, int y) {
         master_flags.kindex.draw_flag		= true;
         master_flags.solar.draw_flag		= true;
         master_flags.wspr.draw_flag		= true;
+        master_flags.lunar.draw_flag		= true;
         flag_timer = SDL_AddTimer(1000, master_clock, &master_flags);
     }
     return 0;
@@ -634,6 +645,59 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
             clockconfig.set_qrz_pass(password);
             printf("QRZ password set.\n");
             return (SDL_APP_FAILURE);
+        } else if (arg.rfind("--lunartest",0)==0) {
+            // lunar test code
+            outfile = "lunartest.jpg";
+            x=1280;
+            y=720;
+            setenv("SDL_VIDEO_DRIVER", "dummy", 1);
+            SDL_SetHintWithPriority(SDL_HINT_VIDEO_DRIVER, "dummy", SDL_HINT_OVERRIDE);
+            headless=true;
+            if (!(SDL_InitSubSystem(SDL_INIT_VIDEO))) {
+                SDL_Log("Unable to initialize SDL: %s", SDL_GetError());
+                debug_log << "INIT: Unable to initialize SDL:" << SDL_GetError() << "\n";
+                return (SDL_APP_FAILURE);
+            }
+
+            if(!TTF_Init()) {
+                printf("TTF_Init Error: %s\n", SDL_GetError());
+                debug_log << "INIT: TTF Init Error:" << SDL_GetError() << "\n";
+                return(SDL_APP_FAILURE);
+            }
+            winboxes[PANEL_CALLSIGN].panel.Reset();
+            winboxes[PANEL_MAP].panel.Reset();
+            winboxes[PANEL_DX].panel.Reset();
+            winboxes[PANEL_DE].panel.Reset();
+            winboxes[PANEL_CLOCK].panel.Reset();
+            winboxes[PANEL_FLEXBOX1].panel.Reset();
+            winboxes[PANEL_FLEXBOX2].panel.Reset();
+            winboxes[PANEL_FLEXBOX3].panel.Reset();
+            winboxes[PANEL_FLEXBOX4].panel.Reset();
+            winboxes[PANEL_NULL].panel.Reset();
+            winboxes[PANEL_FLEXBOX5].panel.Reset();
+            if (window_init(x, y)) {
+                return (SDL_APP_FAILURE);
+            }
+            time_t lunartime = time(NULL);
+            for (int count = 0; count < 365 ; count++) {
+                sdo_image(*(master_flags.solar.panel), lunartime);
+
+                lunar_module((winboxes[PANEL_MAP].panel), lunartime);
+
+                winboxes[PANEL_MAP].panel.present();
+                SDL_RenderPresent(surface);
+                    // dump surface to image file here
+                    int width, height;
+                    SDL_GetCurrentRenderOutputSize(surface, &width, &height);
+                    SDL_Surface* savesurface = SDL_RenderReadPixels(surface, NULL);
+                    std::string filename = std::to_string(count)+outfile;
+                    SDL_Log("Rendering to %s", filename.c_str());
+                    IMG_SaveJPG(savesurface, filename.c_str(), 75);
+                lunartime += (24*60*60);
+            }
+
+            return (SDL_APP_FAILURE);
+            // end lunar test code
         }
     }
 
@@ -676,6 +740,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     winboxes[PANEL_FLEXBOX4].sequence.push_back(MOD_KINDEX);
     winboxes[PANEL_FLEXBOX5].sequence.push_back(MOD_SOLAR);
     winboxes[PANEL_FLEXBOX5].sequence.push_back(MOD_WSPR);
+    winboxes[PANEL_FLEXBOX5].sequence.push_back(MOD_LUNAR);
     debug_log << "INIT: Globals Initialized\n";
 
 
@@ -693,6 +758,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     if (fs_start) {
         SDL_SetWindowFullscreen(window, 1);
     }
+
     return(SDL_APP_CONTINUE);
 
 }
@@ -736,9 +802,12 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         if (master_flags.pota.draw_flag) {
             debug_log << "ITTERATE: Calling POTA with panel " << master_flags.pota.panel << "\n";
             pota_spots(*(master_flags.pota.panel), Sans);
-            debug_log << "ITTERATE: Calling Kindex with panel " << master_flags.solar.panel << "\n";
-            lunar_module(*(master_flags.solar.panel));
             master_flags.pota.draw_flag = false;
+        }
+        if (master_flags.lunar.draw_flag) {
+            debug_log << "ITTERATE: Calling Lunar with panel " << master_flags.lunar.panel << "\n";
+            lunar_module(*(master_flags.lunar.panel));
+            master_flags.lunar.draw_flag = false;
         }
         if (master_flags.kindex.draw_flag) {
             debug_log << "ITTERATE: Calling Kindex with panel " << master_flags.kindex.panel << "\n";
@@ -866,6 +935,9 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                 SDL_SyncWindow(window);
                 break;
             case SDLK_Q:
+                window_destroy();
+                return SDL_APP_FAILURE;
+                break;
             case SDLK_F4:
                 if  (event->key.mod & (SDL_KMOD_LALT | SDL_KMOD_RALT)) {
                     window_destroy();

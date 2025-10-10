@@ -14,9 +14,10 @@
 #include <curl/curl.h>
 #endif
 #include <string>
+#include <iostream>
 
 SDL_Mutex* cache_mutex = nullptr;
-
+SDL_Mutex* http_mutex  = nullptr;
 
 int read_socket(dx_socket_t fd, std::string &result) {
 
@@ -238,6 +239,12 @@ struct GeoCoord subsolar (const time_t now) {
 
      result.longitude = lon;
      result.latitude = declination;
+
+     g_celestials.sun.timestamp=time(NULL);
+     g_celestials.sun.Lat = result.latitude;
+     g_celestials.sun.Lon = result.longitude;
+     g_celestials.sun.RA  = right_ascension;
+     g_celestials.sun.Dec = declination;
     return (result);
 }
 
@@ -366,26 +373,21 @@ int add_pin(struct map_pin* new_pin) {
 
 int delete_owner_pins(enum mod_name owner) {
     // delete all map pins owned by a module
-//    SDL_Log("killing pins %i", owner);
     struct map_pin* current_pin;
     struct map_pin* next_pin;
     struct map_pin* last_pin;
     struct map_pin* old_pin;
     if (map_pins) {
         current_pin=map_pins;
-//        SDL_Log("Initial map_pins: %p", map_pins);
         last_pin=0;
         while (current_pin) {
-//            SDL_Log("Current pin: %p, owner: %d", current_pin, current_pin->owner);
             if (!current_pin) {
-                SDL_Log("Null current_pin!");
+                debug_log << "MAP PIN: Null current_pin!\n";
                 break;
             }
 
             next_pin = current_pin->next;
-//            SDL_Log("Next pin: %p", next_pin);
             if (current_pin->owner == owner) {
-//                SDL_Log("Removing pin");
                 // delete current pin
                 old_pin = current_pin;
                 if (current_pin == map_pins) {
@@ -397,7 +399,6 @@ int delete_owner_pins(enum mod_name owner) {
                 current_pin = next_pin;
                 free (old_pin);
             } else {
-//                SDL_Log("NOT Removing pin");
                 last_pin = current_pin;
                 current_pin=next_pin;
             }
@@ -421,7 +422,7 @@ int delete_mod_cache(enum mod_name owner) {
         last_chunk=0;
         while (current_chunk) {
             if (!current_chunk) {
-                SDL_Log("Null current chunk!");
+                debug_log << "CACHE: Null current chunk!\n";
                 break;
             }
 
@@ -488,6 +489,7 @@ int add_data_cache(enum mod_name owner, const Uint32 size, const void* data) {
     }
     if (!empty_locker) {
         SDL_Log("Cache Allocation Error!");
+        debug_log << "CACHE: Allocation Error!\n";
         SDL_UnlockMutex(cache_mutex);
         return (0);
     }
@@ -515,6 +517,7 @@ int fetch_data_cache(enum mod_name owner, time_t *age, Uint32 *size, void* data)
     // function to check for and return locally cached web data
     if (!age || !size) {
         SDL_Log("VERY BAD Data Cache call! No return values!");
+        debug_log << "VERY BAD Data Cache call! No return values!\n";
         return 0;
     }
     if (data_cache) {
@@ -531,15 +534,16 @@ int fetch_data_cache(enum mod_name owner, time_t *age, Uint32 *size, void* data)
                 memcpy(size, &(current->size), sizeof(Uint32));
                 if (data != NULL) {
                     memcpy(data, current->data, current->size);
-//                    SDL_Log("Cache returning %i bytes", current->size);
+                    debug_log << "CACHE: returning " << current->size << " bytes\n";
                 }
+                SDL_UnlockMutex(cache_mutex);
                 return (1);
             }	// found a cache hit
             current = current->next;
         }	// itterate through the current cache
         SDL_UnlockMutex(cache_mutex);
     } // do we have anything at all cached yet?
-//    SDL_Log("Cache miss");
+    debug_log << "CACHE: Cache miss\n";
     return (0);
 }
 
@@ -551,10 +555,14 @@ size_t cache_http_callback( char* in, size_t size, size_t nmemb, void* out) {
 }
 
 int http_loader(const char* source_url, void** result) {
+    if (!http_mutex) {
+        http_mutex = SDL_CreateMutex();
+    }
+    SDL_LockMutex(http_mutex);
 #ifndef _WIN32          // *NIX version starts here
     CURLcode curlres;
     std::string httpbuffer;
-//    SDL_Log("Fetching data from %s", source_url);
+//    std::cout << "HTTP: Fetching data from "<< source_url << "\n";
     CURL *curl = curl_easy_init();
     if (curl) {
         curl_easy_setopt(curl, CURLOPT_URL, source_url);
@@ -565,27 +573,33 @@ int http_loader(const char* source_url, void** result) {
         curl_easy_setopt(curl, CURLOPT_USERAGENT, user_agent.c_str());
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, cache_http_callback);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&httpbuffer);
+//            std::cout << "HTTP: Calling CURL fetch \n";
         curlres = curl_easy_perform(curl);
         curl_easy_cleanup(curl);
         if (!curlres) {
-//            SDL_Log("Fetched %lu Bytes", httpbuffer.size());
+//            std::cout << "HTTP: Fetched "<< httpbuffer.size() <<" Bytes\n";
             *result = realloc(*result, httpbuffer.size()+1);
 
             if (*result) {
                 // return our result text in *result
                 memset(*result, 0, httpbuffer.size() + 1);
                 memcpy(*result, httpbuffer.c_str(), httpbuffer.size());
+                SDL_UnlockMutex(http_mutex);
+//                std::cout << "HTTP: Returning "<< httpbuffer.size() << "\n";
                 return(httpbuffer.size());
             } else {
-                SDL_Log ("Curl result MALLOC error");
+//                std::cout << "HTTP: Curl result MALLOC error\n";
+                SDL_UnlockMutex(http_mutex);
                 return 0;
             }
         } else {
             SDL_Log ("Curl Fetch Error: %s", curl_easy_strerror(curlres));
+            SDL_UnlockMutex(http_mutex);
             return 0;
         }
     } else {
         SDL_Log("Failed to init Curl!");
+        SDL_UnlockMutex(http_mutex);
         return 0;
     }
 #else               // WIN32 version starts here
@@ -600,19 +614,25 @@ int http_loader(const char* source_url, void** result) {
     exploded_url.dwExtraInfoLength = (DWORD)-1;
     bool read_result;
     if (source_url == 0) {
+        SDL_UnlockMutex(http_mutex);
         return 0;
     }
     if (source_url[0] == 0) {
+        SDL_UnlockMutex(http_mutex);
         return 0;
     }
     // call once to get the result size
     int len = MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, source_url, -1, NULL, 0);
-    if (len == 0) return 0;
+    if (len == 0) {
+        SDL_UnlockMutex(http_mutex);
+        return 0;
+    }
 
     // actually convert to UTF8
     LPWSTR utf8_url = new wchar_t[len];
     if (MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, source_url, -1, utf8_url, len) == 0) {
         delete[] utf8_url;
+        SDL_UnlockMutex(http_mutex);
         return 0;
     }
     std::string narrow = clockconfig.CallSign() + "-clock-Agent/1.0";
@@ -629,6 +649,7 @@ int http_loader(const char* source_url, void** result) {
         0,
         &exploded_url )) {
         SDL_Log("Error %u trying to Split URL", GetLastError());
+        SDL_UnlockMutex(http_mutex);
         return 0;
 
     }
@@ -643,6 +664,7 @@ int http_loader(const char* source_url, void** result) {
 //        exploded_url.dwExtraInfoLength, exploded_url.lpszExtraInfo, exploded_url.dwExtraInfoLength);
     if (!http) {
         SDL_Log("Unable to Init HTTP");
+        SDL_UnlockMutex(http_mutex);
         return 0;
     }
     else {
@@ -655,6 +677,7 @@ int http_loader(const char* source_url, void** result) {
     if (!http_connection) {
         SDL_Log("Unable to connect to %ls on %u", host.c_str(), exploded_url.nPort);
         WinHttpCloseHandle(http);
+        SDL_UnlockMutex(http_mutex);
         return 0;
     }
     else {
@@ -696,6 +719,7 @@ int http_loader(const char* source_url, void** result) {
         SDL_Log("Unable to request %ls", exploded_url.lpszUrlPath);
         WinHttpCloseHandle(http_connection);
         WinHttpCloseHandle(http);
+        SDL_UnlockMutex(http_mutex);
         return 0;
     }
     else {
@@ -710,6 +734,7 @@ int http_loader(const char* source_url, void** result) {
         WinHttpCloseHandle(http_request);
         WinHttpCloseHandle(http_connection);
         WinHttpCloseHandle(http);
+        SDL_UnlockMutex(http_mutex);
         return 0;
     }
     std::string buffstr;
@@ -754,6 +779,7 @@ int http_loader(const char* source_url, void** result) {
                 WinHttpCloseHandle(http_request);
                 WinHttpCloseHandle(http_connection);
                 WinHttpCloseHandle(http);
+                SDL_UnlockMutex(http_mutex);
                 return((int)buffstr.size());
             }
             else {
@@ -761,6 +787,7 @@ int http_loader(const char* source_url, void** result) {
                 WinHttpCloseHandle(http_request);
                 WinHttpCloseHandle(http_connection);
                 WinHttpCloseHandle(http);
+                SDL_UnlockMutex(http_mutex);
                 return 0;
             }
 
@@ -769,6 +796,7 @@ int http_loader(const char* source_url, void** result) {
     WinHttpCloseHandle(http_request);
     WinHttpCloseHandle(http_connection);
     WinHttpCloseHandle(http);
+    SDL_UnlockMutex(http_mutex);
     return 0;
 #endif
 }
@@ -788,22 +816,26 @@ Uint32 cache_loader(const enum mod_name owner, void** result, time_t *result_tim
             memset(*result, 0, cache_size + 1);
             cache_success = fetch_data_cache(owner, result_time, &cache_size, *result);
             if (cache_success) {
+                SDL_UnlockMutex(http_mutex);
                 return (cache_size);
             } else {
                 SDL_Log("Cache Loader fetch error!");
                 free(*result);
                 *result=nullptr;
+                SDL_UnlockMutex(http_mutex);
                 return 0;
             }
             // cache hit
         } else {
             SDL_Log("Cache loader MALLOC error");
             *result = nullptr;
+            SDL_UnlockMutex(http_mutex);
             return 0;
         }
 //        SDL_Log("Got from Cache %i Bytes", strlen(json_spots));
 
     } else {
+        SDL_UnlockMutex(http_mutex);
         return 0; // cache miss
     }
 }

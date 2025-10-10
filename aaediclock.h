@@ -37,6 +37,19 @@ struct pager_node {
     int clickcount = 0;
 };
 extern std::array<pager_node, 12> winboxes;
+struct Celestial_Coordinates {
+        time_t timestamp= 0;
+        double RA	= 0.0;
+        double Dec	= 0.0;
+        double Lon	= 0.0;
+        double Lat	= 0.0;
+        double Dist	= 0.0;
+};
+struct celest_coords {
+    struct Celestial_Coordinates moon;
+    struct Celestial_Coordinates sun;
+};
+extern struct celest_coords g_celestials;
 
 struct map_pin {
     enum mod_name owner;

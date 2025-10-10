@@ -223,7 +223,7 @@ void init_fd() {
             freeaddrinfo(serveraddr);
             return;
         } else {
-            debug_og << "Got DX socket" << "\n";
+            debug_log << "Got DX socket" << "\n";
         }
         debug_log << "DXSPOTS: Connecting to " << serverip << " " << serverport << "\n";
         if (connect(dxsocket, serveraddr->ai_addr, serveraddr->ai_addrlen) == SOCKET_ERROR) {
