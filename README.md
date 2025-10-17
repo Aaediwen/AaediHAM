@@ -7,7 +7,16 @@ This is my attempt at re-implementing the idea behind HamClock from Clear Sky In
 The program now requires a config file (aaediclock_config.json) in the Current Directory. 
 
 <HR>
+Keyboard commands:
+<UL>
+  <LI>R -- Toggle rezise on every frame, for stress testing resize code</LI>
+  <LI>F11 -- Toggle Fullscreen</LI>
+  <LI>Alt+Enter -- Toggle Fullscreen</LI>
+  <LI>Q -- Quit</LI>
+  <LI>Alt+F4 -- Quit</LI>
+</UL>
 
+<HR>
 Config File Format:
 
 <CODE>
