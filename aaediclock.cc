@@ -17,18 +17,20 @@
 
 
 static SDL_Window		*window = nullptr;
-static SDL_Renderer		*surface = nullptr;
-TTF_Font		*Sans;
-time_t 			currenttime;
-ScreenFrame 	DayMap;
-ScreenFrame 	NightMap;
-ScreenFrame 	CountriesMap;
+static SDL_Renderer		*clock_renderer = nullptr;
+TTF_Font		        *Sans = nullptr;
+time_t 			        currenttime;
+ScreenFrame 	        DayMap;
+ScreenFrame 	        NightMap;
+ScreenFrame 	        CountriesMap;
 std::array<pager_node, 12> winboxes;
-//struct surfaces 	winboxes;
-struct map_pin 		*map_pins;
-struct data_blob	*data_cache;
-config 		clockconfig;
+struct map_pin 		    *map_pins;
+struct data_blob	    *data_cache;
+config 		            clockconfig;
 SDL_Mutex* night_mask_mutex = nullptr;
+SDL_Mutex* resize_mutex = nullptr;
+SDL_Mutex* cache_mutex = nullptr;
+SDL_Mutex* http_mutex = nullptr;
 static SDL_Mutex* master_clock_mutex;
 SDL_TimerID map_timer = 0;
 Uint8 interrupt_counter = 0;
@@ -37,8 +39,8 @@ map_overlay overlays;
 map_icons icon_bin;
 std::fstream debug_log;
 struct celest_coords g_celestials;
-
-
+bool headless = false;
+bool reload_flag = false;
 std::string render_engine;
 
 struct ModuleControl {
@@ -67,6 +69,13 @@ SDL_TimerID flag_timer = 0;
 
 Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interval) {
 //    debug_log << "FLAG TIMER: In Master flag timer\n";
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("Master Clock run during resize!");
+        return (0);
+    }
     (void) userdata;
     interrupt_counter++;
     if (interrupt_counter > 200) {
@@ -82,6 +91,7 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
         }
         if ((interrupt_counter % 6000) == 0) {	// 60 seconds
             debug_log << "FLAG_TIMER: MOD PAGER FIRED!\n";
+            debug_log.flush();
             master_flags.map.panel	=	&(winboxes[PANEL_MAP].panel);
             master_flags.sat_tracker.panel	=	&(winboxes[PANEL_NULL].panel);
             master_flags.dx_spots.panel	=	&(winboxes[PANEL_NULL].panel);
@@ -183,197 +193,297 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
 void resize_panels(std::array<pager_node, 12>& panels) {
         int win_x;
         int win_y;
-        debug_log << "RESIZE: Beginning Window resize\n";
-        // lock and disable the rest of the program
-        SDL_LockMutex(night_mask_mutex);
-        if (flag_timer) {
-            SDL_RemoveTimer(flag_timer);
-            flag_timer = 0;
+#ifdef _WIN32
+#ifdef _DEBUG
+        _ASSERTE(_CrtCheckMemory());
+#endif
+#endif
+        if (SDL_TryLockMutex(resize_mutex)) {
+            if (flag_timer) {
+                SDL_RemoveTimer(flag_timer);
+                flag_timer = 0;
+            }
+            if (map_timer) {
+                SDL_RemoveTimer(map_timer);
+                map_timer = 0;
+            }
+
+            debug_log << "RESIZE: Beginning Window resize\n";
+            debug_log.flush();
+            // lock and disable the rest of the program
+            debug_log << "RESIZE: Disabling renders\n";
+            debug_log.flush();
+            SDL_LockMutex(night_mask_mutex);
+
+
+            master_flags.callsign.draw_flag = false;
+            master_flags.de.draw_flag = false;
+            master_flags.dx.draw_flag = false;
+            master_flags.pota.draw_flag = false;
+            master_flags.sat_tracker.draw_flag = false;
+            master_flags.dx_spots.draw_flag = false;
+            master_flags.map.draw_flag = false;
+            master_flags.ncdxf.draw_flag = false;
+            master_flags.kindex.draw_flag = false;
+            master_flags.clock.draw_flag = false;
+            master_flags.solar.draw_flag = false;
+            master_flags.wspr.draw_flag = false;
+            master_flags.lunar.draw_flag = false;
+
+
+            debug_log << "RESIZE: Destroying old surfaces\n";
+            debug_log.flush();
+            // clean up the old surface
+            if (clock_renderer) {
+
+                debug_log << "RESIZE: Clearing Overlays\n";
+                std::cout.flush();
+                overlays.clear();
+                debug_log << "RESIZE: Resetting Maps\n";
+                debug_log.flush();
+                DayMap.Reset();
+                NightMap.Reset();
+                CountriesMap.Reset();
+                debug_log << "RESIZE: Clearing Screen Panels\n";
+                debug_log.flush();
+                debug_log << "RESIZE: Callsign: " << &(panels[PANEL_CALLSIGN].panel) << "\n";
+                debug_log.flush();
+                panels[PANEL_CALLSIGN].panel.Reset();
+
+                debug_log << "RESIZE: Null: " << &(panels[PANEL_NULL].panel) << "\n";
+                debug_log.flush();
+                panels[PANEL_NULL].panel.Reset();
+                debug_log << "RESIZE: DE: " << &(panels[PANEL_DE].panel) << "\n";
+                debug_log.flush();
+                panels[PANEL_DE].panel.Reset();
+                debug_log << "RESIZE: DX: " << &(panels[PANEL_DX].panel) << "\n";
+                debug_log.flush();
+                panels[PANEL_DX].panel.Reset();
+                debug_log << "RESIZE: Clock: " << &(panels[PANEL_CLOCK].panel) << "\n";
+                debug_log.flush();
+                panels[PANEL_CLOCK].panel.Reset();
+                debug_log << "RESIZE: Flex1: " << &(panels[PANEL_FLEXBOX1].panel) << "\n";
+                debug_log.flush();
+                panels[PANEL_FLEXBOX1].panel.Reset();
+                debug_log << "RESIZE: Flex2: " << &(panels[PANEL_FLEXBOX2].panel) << "\n";
+                debug_log.flush();
+                panels[PANEL_FLEXBOX2].panel.Reset();
+                debug_log << "RESIZE: Flex3: " << &(panels[PANEL_FLEXBOX3].panel) << "\n";
+                debug_log.flush();
+                panels[PANEL_FLEXBOX3].panel.Reset();
+                debug_log << "RESIZE: Flex4: " << &(panels[PANEL_FLEXBOX4].panel) << "\n";
+                debug_log.flush();
+                panels[PANEL_FLEXBOX4].panel.Reset();
+
+                debug_log << "RESIZE: Flex5: " << &(panels[PANEL_FLEXBOX5].panel) << "\n";
+                debug_log.flush();
+                panels[PANEL_FLEXBOX5].panel.Reset();
+                debug_log << "RESIZE: Map: " << &(panels[PANEL_MAP].panel) << "\n";
+                debug_log.flush();
+                panels[PANEL_MAP].panel.Reset();
+                debug_log.flush();
+
+
+                SDL_SetRenderTarget(clock_renderer, nullptr);
+                debug_log << "RESIZE: Flushing and finishing pending renderer ops before destroy\n";
+
+
+//                SDL_DestroyRenderer(clock_renderer);
+            } else {
+
+                // create a new renderer
+                debug_log << "RESIZE: Creating new Renderer\n";
+                debug_log.flush();
+                if (render_engine.empty()) {
+                    clock_renderer = SDL_CreateRenderer(window, NULL);
+                } else {
+                    clock_renderer = SDL_CreateRenderer(window, render_engine.c_str());
+                }
+                if (!clock_renderer) {
+                    SDL_Log("Failed to create renderer: %s", SDL_GetError());
+                    debug_log << "RESIZE: Failed to create renderer: " << SDL_GetError();
+                    exit(1);
+                } else {
+                    debug_log << "RESIZE: created new renderer: " << (void*)clock_renderer << "\n";
+                    debug_log << "RESIZE: Using Driver : " << SDL_GetRendererName(clock_renderer) << " on " << SDL_GetCurrentVideoDriver() << "\n";
+                }
+            }
+            for (auto& p : panels) {
+                p.panel.SetRenderer(clock_renderer);
+            }
+            SDL_GetCurrentRenderOutputSize(clock_renderer, &win_x, &win_y);
+            printf("Resizing Window to %i X %i\n", win_x, win_y);
+            debug_log << "RESIZE: Resizing Window to " << win_x << " X " << win_y << "\n";
+            debug_log.flush();
+            SDL_SetRenderDrawColor(clock_renderer, 0, 0, 0, 0);
+            SDL_RenderClear(clock_renderer);
+            SDL_RenderPresent(clock_renderer);
+
+
+            SDL_FRect panel_dims;
+            debug_log << "RESIZE: Creating New surfaces\n";
+            debug_log.flush();
+            //Rebuilding Callsign panel
+            panel_dims.x = 0;
+            panel_dims.y = 0;
+            panel_dims.w = (win_x / 6.0f) * 2.0f;
+            panel_dims.h = win_y / 8.0f;
+
+            SDL_ClearError();
+            debug_log << "RESIZE Creating Callsign Texture -- ";
+            if (!panels[PANEL_CALLSIGN].panel.Create(clock_renderer, panel_dims)) {
+                printf("Error Creating callsign tex: %s\n", SDL_GetError());
+            }
+            debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
+            //Rebuilding Clock panel
+            panel_dims.x = 0.0f;
+            panel_dims.y = win_y / 8.0f;
+            panel_dims.w = (win_x / 6.0f) * 2.0f;
+            panel_dims.h = win_y / 8.0f;
+            SDL_ClearError();
+            debug_log << "RESIZE Creating Clock Texture -- ";
+            if (!panels[PANEL_CLOCK].panel.Create(clock_renderer, panel_dims)) {
+                printf("Error Creating Clock: %s\n", SDL_GetError());
+            }
+            debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
+            //Rebuilding Map panel
+            panel_dims.x = win_x / 6.0f;
+            panel_dims.y = win_y / 4.0f;
+            panel_dims.w = (win_x / 6.0f) * 5.0f;
+            panel_dims.h = (win_y / 4.0f) * 3.0f;
+            SDL_ClearError();
+            debug_log << "RESIZE Creating Map Texture -- ";
+            if (!panels[PANEL_MAP].panel.Create(clock_renderer, panel_dims)) {
+                printf("Error Creating MAP: %s\n", SDL_GetError());
+            }
+            debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
+            //Rebuilding DE panel
+            panel_dims.x = 0;
+            panel_dims.y = win_y / 4.0f;
+            panel_dims.w = win_x / 6.0f;
+            panel_dims.h = win_y / 4.0f;
+            SDL_ClearError();
+            debug_log << "RESIZE Creating DE Texture -- ";
+            if (!panels[PANEL_DE].panel.Create(clock_renderer, panel_dims)) {
+                printf("Error Creating DE: %s\n", SDL_GetError());
+            }
+            debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
+            //Rebuilding DX panel");
+            panel_dims.x = 0;
+            panel_dims.y = win_y / 2.0f;
+            panel_dims.w = win_x / 6.0f;
+            panel_dims.h = win_y / 4.0f;
+            SDL_ClearError();
+            debug_log << "RESIZE Creating DX Texture -- ";
+            if (!panels[PANEL_DX].panel.Create(clock_renderer, panel_dims)) {
+                printf("Error Creating DX tex: %s\n", SDL_GetError());
+            }
+            debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
+            //Rebuilding col3 panel");
+            panel_dims.x = 0;
+            panel_dims.y = (win_y / 4.0f) * 3.0f;
+            panel_dims.w = win_x / 6.0f;
+            panel_dims.h = win_y / 4.0f;
+            SDL_ClearError();
+            debug_log << "RESIZE Creating Flex5 Texture -- ";
+            if (!panels[PANEL_FLEXBOX5].panel.Create(clock_renderer, panel_dims)) {
+                printf("Error Creating corner tex: %s\n", SDL_GetError());
+            }
+            debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
+
+            //Rebuilding Rowbox1 panel"
+            panel_dims.x = (win_x / 6.0f) * 2.0f;
+            panel_dims.y = 0.0f;
+            panel_dims.w = (win_x / 6.0f);
+            panel_dims.h = win_y / 4.0f;
+            SDL_ClearError();
+            debug_log << "RESIZE Creating Flex1 Texture -- ";
+            if (!panels[PANEL_FLEXBOX1].panel.Create(clock_renderer, panel_dims)) {
+                printf("Error Creating Rowbox1 tex: %s\n", SDL_GetError());
+            }
+            debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
+            //Rebuilding Rowbox2 panel
+            panel_dims.x = (win_x / 6.0f) * 3.0f;
+            panel_dims.y = 0.0f;
+            panel_dims.w = (win_x / 6.0f);
+            panel_dims.h = win_y / 4.0f;
+            SDL_ClearError();
+            debug_log << "RESIZE Creating Flex2 Texture -- ";
+            if (!panels[PANEL_FLEXBOX2].panel.Create(clock_renderer, panel_dims)) {
+                printf("Error Creating Rowbox2 tex: %s\n", SDL_GetError());
+            }
+            debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
+            //Rebuilding Rowbox3 panel
+            panel_dims.x = (win_x / 6.0f) * 4.0f;
+            panel_dims.y = 0;
+            panel_dims.w = (win_x / 6.0f);
+            panel_dims.h = win_y / 4.0f;
+            SDL_ClearError();
+            debug_log << "RESIZE Creating Flex3 Texture -- ";
+            if (!panels[PANEL_FLEXBOX3].panel.Create(clock_renderer, panel_dims)) {
+                printf("Error Creating Rowbox3 tex: %s\n", SDL_GetError());
+            }
+            debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
+            //"Rebuilding Rowbox4 panel
+            panel_dims.x = (win_x / 6.0f) * 5.0f;
+            panel_dims.y = 0.0f;
+            panel_dims.w = (win_x / 6.0f);
+            panel_dims.h = win_y / 4.0f;
+            SDL_ClearError();
+            debug_log << "RESIZE Creating Flex4 Texture -- ";
+            if (!panels[PANEL_FLEXBOX4].panel.Create(clock_renderer, panel_dims)) {
+                printf("Error Creating Rowbox4 tex: %s\n", SDL_GetError());
+            }
+            debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
+            //Rebuilding NULL panel
+            panel_dims.x = 0.0f;
+            panel_dims.y = 0.0f;
+            panel_dims.w = 100.0f;
+            panel_dims.h = 100.0f;
+            SDL_ClearError();
+            debug_log << "RESIZE Creating NULL Texture -- ";
+            if (!panels[PANEL_NULL].panel.Create(clock_renderer, panel_dims)) {
+                printf("Error Creating nullframe tex: %s\n", SDL_GetError());
+            }
+            debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
+            debug_log << "RESIZE: Reloading Maps and Icon assets\n";
+            debug_log.flush();
+            // recreate the map textures as well so they don't get lost
+            load_maps(clock_renderer, panels[PANEL_MAP].panel.dims);
+            icon_bin.reload_icons(clock_renderer);
+            debug_log << "RESIZE: Re-enabling program loops\n";
+            debug_log.flush();
+            // re-enable the rest of the program
+            master_flags.callsign.draw_flag = true;
+            master_flags.de.draw_flag = true;
+            master_flags.dx.draw_flag = true;
+            master_flags.pota.draw_flag = true;
+            master_flags.sat_tracker.draw_flag = true;
+            master_flags.dx_spots.draw_flag = true;
+            master_flags.ncdxf.draw_flag = true;
+            master_flags.map.draw_flag = true;
+            master_flags.clock.draw_flag = true;
+            master_flags.solar.draw_flag = true;
+            master_flags.wspr.draw_flag = true;
+            master_flags.lunar.draw_flag = true;
+            flag_timer = SDL_AddTimer(100, master_clock, &master_flags);
+            debug_log << "RESIZE: Window resize complete\n";
+            debug_log.flush();
+            SDL_UnlockMutex(night_mask_mutex);
+            SDL_UnlockMutex(resize_mutex);
         }
-        master_flags.callsign.draw_flag = false;
-        master_flags.de.draw_flag 		= false;
-        master_flags.dx.draw_flag 		= false;
-        master_flags.pota.draw_flag 		= false;
-        master_flags.sat_tracker.draw_flag 	= false;
-        master_flags.dx_spots.draw_flag 	= false;
-        master_flags.map.draw_flag		= false;
-        master_flags.ncdxf.draw_flag		= false;
-        master_flags.kindex.draw_flag		= false;
-        master_flags.clock.draw_flag		= false;
-        master_flags.solar.draw_flag		= false;
-        master_flags.wspr.draw_flag		= false;
-        master_flags.lunar.draw_flag		= false;
-
-        if (map_timer) {
-            SDL_RemoveTimer(map_timer);
-            map_timer = 0;
+ else {
+     SDL_Log("DUPLICATE RESIZE CALL ERROR!");
         }
-        // clean up the old surface
-        if (surface) {
-            overlays.clear();
-            DayMap.Reset();
-            NightMap.Reset();
-            CountriesMap.Reset();
-            panels[PANEL_CALLSIGN].panel.Reset();
-            panels[PANEL_MAP].panel.Reset();
-            panels[PANEL_DE].panel.Reset();
-            panels[PANEL_DX].panel.Reset();
-            panels[PANEL_CLOCK].panel.Reset();
-            panels[PANEL_FLEXBOX1].panel.Reset();
-            panels[PANEL_FLEXBOX2].panel.Reset();
-            panels[PANEL_FLEXBOX3].panel.Reset();
-            panels[PANEL_FLEXBOX4].panel.Reset();
-            panels[PANEL_NULL].panel.Reset();
-            panels[PANEL_FLEXBOX5].panel.Reset();
-            SDL_DestroyRenderer(surface);
-        }
-
-        // create a new renderer
-        if (render_engine.empty()) {
-            surface					=	SDL_CreateRenderer(window, NULL);
-        } else {
-            surface					=	SDL_CreateRenderer(window, render_engine.c_str());
-        }
-        if (!surface) {
-            SDL_Log("Failed to create renderer: %s", SDL_GetError());
-            debug_log << "RESIZE: Failed to create renderer: " << SDL_GetError();
-            exit(1);
-        } else {
-//            SDL_Log("created new renderer: %p", (void*)surface);
-        }
-        SDL_GetCurrentRenderOutputSize(surface, &win_x, &win_y);
-        printf ("Resizing Window to %i X %i\n", win_x, win_y);
-        debug_log << "RESIZE: Resizing Window to " << win_x << " X " << win_y << "\n";
-        SDL_SetRenderDrawColor(surface, 0,0,0,0);
-        SDL_RenderClear(surface);
-        SDL_RenderPresent(surface);
-
-
-        SDL_FRect panel_dims;
-
-        //Rebuilding Callsign panel
-        panel_dims.x			=	0;
-        panel_dims.y			=	0;
-        panel_dims.w			=	( win_x / 6.0f ) * 2.0f;
-        panel_dims.h			=	  win_y / 8.0f;
-        if (!panels[PANEL_CALLSIGN].panel.Create(surface, panel_dims)) {
-            printf("Error Creating callsign tex: %s\n", SDL_GetError());
-        }
-
-        //Rebuilding Clock panel
-        panel_dims.x			=	0.0f;
-        panel_dims.y			=	  win_y / 8.0f;
-        panel_dims.w			=	( win_x / 6.0f) * 2.0f;
-        panel_dims.h			=	  win_y / 8.0f;
-        if (!panels[PANEL_CLOCK].panel.Create(surface, panel_dims)) {
-            printf("Error Creating Clock: %s\n", SDL_GetError());
-        }
-
-        //Rebuilding Map panel
-        panel_dims.x			=	  win_x / 6.0f;
-        panel_dims.y			=	  win_y / 4.0f;
-        panel_dims.w			= 	( win_x / 6.0f) * 5.0f;
-        panel_dims.h			=	( win_y / 4.0f) * 3.0f;
-        if (!panels[PANEL_MAP].panel.Create(surface, panel_dims)) {
-            printf("Error Creating MAP: %s\n", SDL_GetError());
-        }
-
-        //Rebuilding DE panel
-        panel_dims.x			=	0;
-        panel_dims.y			=	win_y / 4.0f;
-        panel_dims.w			=	win_x / 6.0f;
-        panel_dims.h			=	win_y / 4.0f;
-        if (!panels[PANEL_DE].panel.Create(surface, panel_dims)) {
-            printf("Error Creating DE: %s\n", SDL_GetError());
-        }
-
-        //Rebuilding DX panel");
-        panel_dims.x			=	0;
-        panel_dims.y			=	win_y / 2.0f;
-        panel_dims.w			=	win_x / 6.0f;
-        panel_dims.h			=	win_y / 4.0f;
-        if (!panels[PANEL_DX].panel.Create(surface, panel_dims)) {
-            printf("Error Creating DX tex: %s\n", SDL_GetError());
-        }
-
-        //Rebuilding col3 panel");
-        panel_dims.x			=	0;
-        panel_dims.y			=	(win_y / 4.0f)*3.0f;
-        panel_dims.w			=	win_x / 6.0f;
-        panel_dims.h			=	win_y / 4.0f;
-        if (!panels[PANEL_FLEXBOX5].panel.Create(surface, panel_dims)) {
-            printf("Error Creating corner tex: %s\n", SDL_GetError());
-        }
-
-
-        //Rebuilding Rowbox1 panel"
-        panel_dims.x			=	( win_x / 6.0f) * 2.0f;
-        panel_dims.y			=	0.0f;
-        panel_dims.w			=	( win_x / 6.0f);
-        panel_dims.h			=	  win_y / 4.0f;
-        if (!panels[PANEL_FLEXBOX1].panel.Create(surface, panel_dims)) {
-            printf("Error Creating Rowbox1 tex: %s\n", SDL_GetError());
-        }
-
-        //Rebuilding Rowbox2 panel
-        panel_dims.x			=	( win_x / 6.0f) * 3.0f;
-        panel_dims.y			=	0.0f;
-        panel_dims.w			=	( win_x / 6.0f);
-        panel_dims.h			= 	win_y / 4.0f;
-        if (!panels[PANEL_FLEXBOX2].panel.Create(surface, panel_dims)) {
-            printf("Error Creating Rowbox2 tex: %s\n", SDL_GetError());
-        }
-
-        //Rebuilding Rowbox3 panel
-        panel_dims.x			=	( win_x / 6.0f) * 4.0f;
-        panel_dims.y			= 	0;
-        panel_dims.w			=	( win_x / 6.0f);
-        panel_dims.h			=	  win_y / 4.0f;
-        if (!panels[PANEL_FLEXBOX3].panel.Create(surface, panel_dims)) {
-            printf("Error Creating Rowbox3 tex: %s\n", SDL_GetError());
-        }
-
-        //"Rebuilding Rowbox4 panel
-        panel_dims.x			=	( win_x / 6.0f) * 5.0f;
-        panel_dims.y			=	0.0f;
-        panel_dims.w			=	( win_x / 6.0f);
-        panel_dims.h			=	  win_y / 4.0f;
-        if (!panels[PANEL_FLEXBOX4].panel.Create(surface, panel_dims)) {
-            printf("Error Creating Rowbox4 tex: %s\n", SDL_GetError());
-        }
-
-        //Rebuilding NULL panel
-        panel_dims.x			=	0.0f;
-        panel_dims.y			=	0.0f;
-        panel_dims.w			=	100.0f;
-        panel_dims.h			=	100.0f;
-        if (!panels[PANEL_NULL].panel.Create(surface, panel_dims)) {
-            printf("Error Creating nullframe tex: %s\n", SDL_GetError());
-        }
-
-        // recreate the map textures as well so they don't get lost
-        load_maps(surface, panels[PANEL_MAP].panel.dims);
-        icon_bin.reload_icons(surface);
-        // re-enable the rest of the program
-        master_flags.callsign.draw_flag		= true;
-        master_flags.de.draw_flag		= true;
-        master_flags.dx.draw_flag		= true;
-        master_flags.pota.draw_flag		= true;
-        master_flags.sat_tracker.draw_flag 	= true;
-        master_flags.dx_spots.draw_flag		= true;
-        master_flags.ncdxf.draw_flag		= true;
-        master_flags.map.draw_flag		= true;
-        master_flags.clock.draw_flag		= true;
-        master_flags.solar.draw_flag		= true;
-        master_flags.wspr.draw_flag 		= true;
-        master_flags.lunar.draw_flag		= true;
-        flag_timer = SDL_AddTimer(100, master_clock, &master_flags);
-        debug_log << "RESIZE: Window resize complete\n";
-        SDL_UnlockMutex(night_mask_mutex);
+#ifdef _WIN32
+#ifdef _DEBUG
+        _ASSERTE(_CrtCheckMemory());
+#endif
+#endif
         return;
 }
 
-bool headless=false;
+
 
 #ifdef _WIN32
 extern "C" int CALLBACK WinFontCallback(const LOGFONT * lpelfe, const TEXTMETRIC * lpntme, DWORD FontType, LPARAM lParam) {
@@ -507,7 +617,7 @@ int window_init(int x, int y) {
         }
         SDL_SetWindowResizable(window, 1);
         resize_panels(winboxes);
-        if (!window || !surface) {
+        if (!window || !clock_renderer) {
             printf("Window Renderer error\n");
             debug_log << "INIT: Window Renderer error\n";
             return(1);
@@ -527,7 +637,7 @@ int window_init(int x, int y) {
 
 
 
-        SDL_RenderPresent(surface);
+        SDL_RenderPresent(clock_renderer);
 
         master_flags.callsign.draw_flag		= true;
         master_flags.de.draw_flag		= true;
@@ -541,7 +651,9 @@ int window_init(int x, int y) {
         master_flags.solar.draw_flag		= true;
         master_flags.wspr.draw_flag		= true;
         master_flags.lunar.draw_flag		= true;
-        flag_timer = SDL_AddTimer(1000, master_clock, &master_flags);
+        if (!flag_timer) {
+            flag_timer = SDL_AddTimer(1000, master_clock, &master_flags);
+        }
     }
     return 0;
 }
@@ -561,6 +673,16 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     x=800;
     y=480;
 #ifdef CLOCK_DEBUG
+#ifdef _WIN32
+ //   _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF | _CRTDBG_DELAY_FREE_MEM_DF );
+    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
+    HANDLE hLogFile;
+    hLogFile = CreateFile("CRTlog.txt", GENERIC_WRITE,
+        FILE_SHARE_WRITE, NULL, CREATE_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL, NULL);
+    _CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
+    _CrtSetReportFile(_CRT_ERROR, hLogFile);
+#endif
     debug_log.open("clock_debug.log", std::fstream::out);
 #else
 #ifdef _WIN32
@@ -594,7 +716,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
                      for (int c = 0; c < maxcount ; c++) {
                          printf("Driver %i: %s\n", c, SDL_GetRenderDriver(c));
                      }
-                     return (SDL_APP_FAILURE);
+                     return (SDL_APP_SUCCESS);
                  }
                  printf("Attempting to use SDL Rendering Engine: %s\n", render_engine.c_str());
              } else {
@@ -638,19 +760,23 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
             printf("\t--output\tOutput file path for --headless\n");
             printf("\t--QRZ_Pass\tSet the password to use for QRZ.com (uses the Callsign for UserName\n");
             printf("\t--help\t\tThis help text\n");
-            return (SDL_APP_FAILURE);
+            return (SDL_APP_SUCCESS);
         } else if (arg.rfind("--QRZ_Pass",0)==0) {
             std::string password;
             password = arg.substr(11);
             clockconfig.set_qrz_pass(password);
             printf("QRZ password set.\n");
-            return (SDL_APP_FAILURE);
+            return (SDL_APP_SUCCESS);
         } else if (arg.rfind("--lunartest",0)==0) {
             // lunar test code
             outfile = "lunartest.jpg";
             x=1280;
             y=720;
+#ifdef _WIN32
+            _putenv_s("SDL_VIDEO_DRIVER", "dummy");
+#else
             setenv("SDL_VIDEO_DRIVER", "dummy", 1);
+#endif
             SDL_SetHintWithPriority(SDL_HINT_VIDEO_DRIVER, "dummy", SDL_HINT_OVERRIDE);
             headless=true;
             if (!(SDL_InitSubSystem(SDL_INIT_VIDEO))) {
@@ -685,18 +811,20 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
                 lunar_module((winboxes[PANEL_MAP].panel), lunartime);
 
                 winboxes[PANEL_MAP].panel.present();
-                SDL_RenderPresent(surface);
+                SDL_RenderPresent(clock_renderer);
                     // dump surface to image file here
                     int width, height;
-                    SDL_GetCurrentRenderOutputSize(surface, &width, &height);
-                    SDL_Surface* savesurface = SDL_RenderReadPixels(surface, NULL);
+                    SDL_GetCurrentRenderOutputSize(clock_renderer, &width, &height);
+                    SDL_Surface* savesurface = SDL_RenderReadPixels(clock_renderer, NULL);
                     std::string filename = std::to_string(count)+outfile;
                     SDL_Log("Rendering to %s", filename.c_str());
                     IMG_SaveJPG(savesurface, filename.c_str(), 75);
+                    SDL_DestroySurface(savesurface);
+                    savesurface = nullptr;
                 lunartime += (24*60*60);
             }
 
-            return (SDL_APP_FAILURE);
+            return (SDL_APP_SUCCESS);
             // end lunar test code
         }
     }
@@ -748,6 +876,9 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     NightMap.Reset();
     CountriesMap.Reset();
     night_mask_mutex = SDL_CreateMutex();
+    resize_mutex = SDL_CreateMutex();
+    cache_mutex = SDL_CreateMutex();
+    http_mutex = SDL_CreateMutex();
     night_mask_args = (struct regen_mask_args*)malloc(sizeof(struct regen_mask_args));
     map_timer = 0;
     debug_log << "INIT: Map Variables Initialized\n";
@@ -770,7 +901,30 @@ int resizing 			= 	0;
 SDL_AppResult SDL_AppIterate(void *appstate) {
     (void)appstate;
     SDL_Delay(10);			// slow down the program
+#ifdef _WIN32
+#ifdef _DEBUG
+    _ASSERTE(_CrtCheckMemory());
+#endif
+#endif
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("Itterate during resize event!");
+        return (SDL_APP_CONTINUE);
+    }
+
     if (!resizing) {
+        if (reload_flag) {
+            SDL_WindowFlags winstate = SDL_GetWindowFlags(window);
+            if (winstate & SDL_WINDOW_FULLSCREEN) {
+                SDL_SetWindowFullscreen(window, 0);
+            }
+            else {
+                SDL_SetWindowFullscreen(window, 1);
+            }
+            SDL_SyncWindow(window);
+        }
         currenttime=time(NULL);
         SDL_LockMutex(master_clock_mutex);
         if (master_flags.clock.draw_flag) {
@@ -850,12 +1004,12 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         winboxes[PANEL_FLEXBOX4].panel.present();
         winboxes[PANEL_FLEXBOX5].panel.present();
         SDL_UnlockMutex(master_clock_mutex);
-        SDL_RenderPresent(surface);
+        SDL_RenderPresent(clock_renderer);
         if (headless && (!outfile.empty())) {
             // dump surface to image file here
             int width, height;
-            SDL_GetCurrentRenderOutputSize(surface, &width, &height);
-            SDL_Surface* savesurface = SDL_RenderReadPixels(surface, NULL);
+            SDL_GetCurrentRenderOutputSize(clock_renderer, &width, &height);
+            SDL_Surface* savesurface = SDL_RenderReadPixels(clock_renderer, NULL);
             IMG_SaveJPG(savesurface, outfile.c_str(), 75);
 //            SDL_SaveBMP(savesurface, outfile.c_str());  // output_file_path from --output
             SDL_DestroySurface(savesurface);
@@ -891,6 +1045,11 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
             debug_log << "EVENT: Resize event triggered!\n";
             resize_panels(winboxes);
             debug_log << "EVENT: Resize event complete!\n";
+            SDL_Event pending;
+            while (SDL_PeepEvents(&pending, 1, SDL_GETEVENT, SDL_EVENT_WINDOW_FIRST, SDL_EVENT_WINDOW_LAST) > 0) {
+                debug_log << "EVENT: Purge event buffer\n";
+                // discard spurious window events (resize, expose, etc.)
+            }
             resizing=0;
         }
     }
@@ -923,7 +1082,6 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                         SDL_SetWindowFullscreen(window, 1);
                     }
                     SDL_SyncWindow(window);
-
                 }
                 break;
             case SDLK_F11:
@@ -937,6 +1095,9 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
             case SDLK_Q:
                 window_destroy();
                 return SDL_APP_FAILURE;
+                break;
+            case SDLK_R:
+                reload_flag = !reload_flag;
                 break;
             case SDLK_F4:
                 if  (event->key.mod & (SDL_KMOD_LALT | SDL_KMOD_RALT)) {

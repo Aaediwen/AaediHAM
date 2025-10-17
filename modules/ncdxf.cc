@@ -29,7 +29,13 @@ const double beacon_freqs[5] = {14.100, 18.110, 21.150, 24.930, 28.200};
 
 void ncdxf_module(ScreenFrame& panel) {
     time_t time_now=time(NULL);
-
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("NCDXF call during resize event!");
+        return;
+    }
     panel.Clear();
     SDL_FRect TextBox;
     TextBox.x = panel.dims.w/20;

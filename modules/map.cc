@@ -123,12 +123,13 @@ void load_maps(SDL_Renderer* surface, SDL_FRect size) {
                 exit(1);
         }  else {
             double surf_size_kb = (CountriesMap.surface->pitch * CountriesMap.surface->h) / 1024.0;
-            double tex_size_kb = (x * y * 4.0) / 1024.0; // assuming RGBA8888
+            double tex_size_kb = (CountriesMap.surface->w * CountriesMap.surface->h * 4.0) / 1024.0; // assuming RGBA8888
             debug_log << "MAP: Created CountriesMap texture "
               << x << "x" << y << " "
               << bpp * 8 << "-bit surface ≈ " << surf_size_kb << " KB "
               << "=> GPU texture ≈ " << tex_size_kb << " KB "
               << "at " << static_cast<void*>(CountriesMap.texture) << "\n";
+            debug_log.flush();
         }
     } else {
         SDL_Log("MAP: Unable to load Country Surface: %s\n", SDL_GetError());
@@ -152,6 +153,9 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
         }
         // render the icon
         SDL_SetRenderTarget(panel->GetRenderer(), icon_tex);
+        // clear the icon
+        SDL_SetRenderDrawColor(panel->GetRenderer(), 0, 0, 0, 0);
+        SDL_RenderClear(panel->GetRenderer());
         SDL_RenderTexture(panel->GetRenderer(), current_pin->icon, NULL, NULL);
         target_rect.h=unit_scale*2;
         target_rect.w=unit_scale*2;
@@ -163,6 +167,10 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
         }
     // render the icon
          SDL_SetRenderTarget(panel->GetRenderer(), icon_tex);
+         // clear the icon
+         SDL_SetRenderDrawColor(panel->GetRenderer(), 0, 0, 0, 0);
+         SDL_RenderClear(panel->GetRenderer());
+
          SDL_FRect pin_rect = {4.0f, 4.0f, 8.0f, 8.0f};
          SDL_SetRenderDrawColor(panel->GetRenderer(), 16, 16, 16, 128);
          SDL_RenderFillRect(panel->GetRenderer(), NULL);
@@ -196,6 +204,13 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
 void regen_mask (SDL_Surface* source, SDL_Surface* dest, const SDL_FRect& panel_dims) {
     time_t nowtime = time(nullptr);
     struct tm utc;
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("Regen Map Mask during resize event!");
+        return;
+    }
 //    tm utcroot; // check these on Linux
 #ifdef _WIN32
     gmtime_s(&utc, &nowtime);
@@ -269,7 +284,13 @@ Uint32 SDLCALL regen_mask (void *userdata, SDL_TimerID timerID, Uint32 interval)
 SDL_Surface* night_mask = nullptr;
 SDL_Renderer* old_renderer = nullptr;
 int draw_map(ScreenFrame& panel) {
-
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("MAP DRaw during resize event!");
+        return (0);
+    }
     bool regen_mask_flag = false;
 //    SDL_Log("Drawing Map ");
     if (!panel.GetRenderer()) {
@@ -283,7 +304,10 @@ int draw_map(ScreenFrame& panel) {
 
     // blank the box
     panel.Clear();
-
+    if ((!NightMap.surface) || (!DayMap.surface) || (!CountriesMap.surface)) {
+        debug_log << "Missing Map Textures!\n";
+        exit(1);
+    }
     // start with the day map
     SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
     SDL_RenderTexture(panel.GetRenderer(), DayMap.texture, NULL, NULL);

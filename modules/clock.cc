@@ -2,7 +2,13 @@
 #include "../aaediclock.h"
 
 int draw_clock(ScreenFrame& panel, TTF_Font* font) {
-
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("Clock Module during resize event!");
+        return (0);
+    }
     SDL_Color fontcolor;
     fontcolor.r=128;
     fontcolor.g=128;

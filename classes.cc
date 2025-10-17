@@ -1,5 +1,6 @@
 #include "aaediclock.h"
 #include "utils.h"
+
 #include "modules.h"
 #include <SDL3_image/SDL_image.h>
 
@@ -106,21 +107,32 @@ bool ScreenFrame::Create (SDL_Renderer* parent, SDL_FRect size) {
     dims=size;
     int h = static_cast<int>(size.h);
     int w = static_cast<int>(size.w);
+    SDL_SetRenderTarget(parent, nullptr);
     if (texture) {
+        SDL_Renderer* texture_renderer = SDL_GetRendererFromTexture(this->texture);
         debug_log << "SCREENFRAME: Destroying " << ((dims.w*dims.h*4.0)/1024.0) << "KB 32 bit Texture " << dims.w << "x" << dims.h << "At " << (void*)texture << "\n";
-        SDL_DestroyTexture(texture);
+        if (texture_renderer == parent) {
+            SDL_DestroyTexture(texture);
+        }
+        renderer = nullptr;
+    }
+    if (w * h <= 0) {
+        debug_log << "SCREENFRAME: Invalid Created Texture size! Returning NULL\n";
+        Reset();
+        return false;
     }
     texture = SDL_CreateTexture (parent, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET,
                                        w, h );
     if (!this->texture) {
         SDL_Log("Error Creating Texture!");
         debug_log << "SCREENFRAME: Error Creating Texture!\n";
+        Reset();
         return false;
     }
     debug_log << "SCREENFRAME: Created " << ((w*h*4.0)/1024.0) << "KB 32 bit Texture " << w << "x" << h << "At " << (void*)texture << "\n";
+    debug_log << "Texture Renderer" << (void*)SDL_GetRendererFromTexture(texture) << "\n";
     renderer=parent;
     Clear();
-
     return true;
 }
 
@@ -128,14 +140,45 @@ SDL_Renderer* ScreenFrame::GetRenderer() {
     return renderer;
 }
 
+void ScreenFrame::SetRenderer(SDL_Renderer* r) {
+    this->renderer = r;
+}
+
 void ScreenFrame::Reset() {
-    if (this->texture) {
-        debug_log << "SCREENFRAME: Destroying " << ((dims.w*dims.h*4.0)/1024.0) << "KB 32 bit Texture " << dims.w << "x" << dims.h << "At " << (void*)texture << "\n";
-        SDL_DestroyTexture(this->texture);
+    try {
+        if (renderer) {
+            SDL_SetRenderTarget(renderer, nullptr);
+            if (this->texture) {
+                SDL_Renderer* texture_renderer = SDL_GetRendererFromTexture(this->texture);
+                debug_log << "SCREENFRAME: Destroying " << ((dims.w * dims.h * 4.0) / 1024.0) << "KB 32 bit Texture " << dims.w << "x" << dims.h << "At " << (void*)texture << "\n";
+//                std::cout << "SCREENFRAME: Destroying " << ((dims.w * dims.h * 4.0) / 1024.0) << "KB 32 bit Texture " << dims.w << "x" << dims.h << "At " << (void*)texture << "\n";
+                debug_log << "SCREENFRAME: Panel Address: " << (void*)this << "\n";
+//                std::cout << "SCREENFRAME: Panel Address: " << (void*)this << "\n";
+                debug_log << "SCREENFRAME: Texture Renderer: " << (void*)texture_renderer;
+//                std::cout << "SCREENFRAME: Texture Renderer: " << (void*)texture_renderer;
+                debug_log << " SCREENFRAME: ScreenFrame Renderer: " << (void*)(this->renderer) << "\n";
+//                std::cout << " SCREENFRAME: ScreenFrame Renderer: " << (void*)(this->renderer) << "\n";
+                debug_log.flush();
+                if (texture_renderer != renderer) {
+//                    std::cout << "Texture Renderer mismatch on reset!\n";
+                    debug_log << "Texture Renderer mismatch on reset!\n";
+                } else {
+                    SDL_DestroyTexture(this->texture);
+                }
+            }
+        }
+    } catch (std::exception e) {
+            debug_log << "Invalid Panel Texture\n";
     }
-    if (this->surface) {
-        SDL_DestroySurface(this->surface);
+    try {
+        if (this->surface) {
+            debug_log << "SCREENFRAME: Destroying Surface " << dims.w << "x" << dims.h << "At " << (void*)this->surface << "\n";
+            SDL_DestroySurface(this->surface);
+        }
+    } catch (std::exception e) {
+            debug_log << "Invalid Panel Surface\n";
     }
+    debug_log << "SCREENFRAME: Clearing ScreenFrame values\n";
     this->texture=nullptr;
     this->surface=nullptr;
     this->renderer = nullptr;
@@ -144,6 +187,13 @@ void ScreenFrame::Reset() {
 }
 
 void ScreenFrame::draw_border() {
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("Draw Border during resize event!");
+        return;
+    }
     if (texture && renderer) {
         SDL_SetRenderDrawColor(renderer, 128, 128, 128, 255);
         SDL_FRect border;
@@ -164,6 +214,13 @@ void ScreenFrame::draw_border() {
 }
 
 void ScreenFrame::render_text(const SDL_FRect& text_box, TTF_Font *font, const SDL_Color& color, const std::string str) {
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("Text Draw during resize event!");
+        return;
+    }
     if (texture && renderer) {
         SDL_Surface* textsurface;
         SDL_Texture *TextTexture;
@@ -188,6 +245,13 @@ void ScreenFrame::render_text(const SDL_FRect& text_box, TTF_Font *font, const S
 
 
 void ScreenFrame::render_text(const SDL_FRect& text_box, TTF_Font *font, const SDL_Color& color, const char* str) {
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("Text Draw during resize event!");
+        return;
+    }
     if (texture && renderer) {
         SDL_Surface* textsurface;
         SDL_Texture *TextTexture;
@@ -211,13 +275,16 @@ void ScreenFrame::render_text(const SDL_FRect& text_box, TTF_Font *font, const S
 
 
 void ScreenFrame::present() {
-    SDL_SetRenderTarget(renderer, NULL);
-    SDL_RenderTexture(renderer, texture, NULL, &(dims));
+    if (renderer && texture) {
+        SDL_SetRenderTarget(renderer, NULL);
+        SDL_RenderTexture(renderer, texture, NULL, &(dims));
+    }
     return;
 }
 
 void ScreenFrame::Clear(const SDL_Color& color) {
     // clear the box
+    SDL_ClearError();
     if (renderer && texture) {
         SDL_SetRenderTarget(renderer, texture);
         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);  // Clear solid
@@ -225,6 +292,9 @@ void ScreenFrame::Clear(const SDL_Color& color) {
         SDL_RenderClear(renderer);  // Fills the entire target with the draw color
         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);  // Clear solid
         SDL_SetRenderTarget(renderer, NULL);
+    //    SDL_Log("SCREENFRAME: Clear Result %s", SDL_GetError());
+        debug_log << "SCREENFRAME: Clear Result " << SDL_GetError()  << "\n";
+        SDL_ClearError();
     }
     else {
         SDL_Log("Bad Renderer or Texture on Clear");
@@ -497,7 +567,13 @@ void map_overlay::clear() {
     return;
 }
 ScreenFrame* map_overlay::get_overlay(SDL_Renderer* renderer, enum mod_name owner, SDL_FRect dims) {
-
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("Overlay Fetch during resize event!");
+        return (nullptr);
+    }
     debug_log << "OVERLAY: Fetching Overlay : Current renderer pointer: " << (void*)renderer << "\n";
     for (auto& overlay : overlay_list) {
         if (overlay.owner == owner) {
@@ -533,6 +609,13 @@ bool map_overlay::overlay_check(enum mod_name owner) {
 }
 
 ScreenFrame* map_overlay::next_overlay() {
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("Overlay call during resize event!");
+        return (nullptr);
+    }
     if (index < overlay_list.size()) {
         index++;
         debug_log << "OVERLAY: Returning Next panel: " << overlay_list[index-1].owner << "\n";
@@ -578,6 +661,13 @@ void map_icons::clear_icons() {
 }
 
 void map_icons::set_dynamic(SDL_Renderer* renderer, SDL_Surface* source, enum icon_names id) {
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("Dynamic ICON set during resize event!");
+        return;
+    }
     if (renderer && source) {
         if (icons[id]) {
             debug_log << "ICONS: destroying icon texture" << id << "\n";

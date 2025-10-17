@@ -7,12 +7,21 @@
 
 
 void sdo_image(ScreenFrame& panel, time_t timestamp) {
-    Uint32 data_size;
+    debug_log << "SOLAR: In SOLAR module\n";
+    debug_log.flush();
+    Uint32 data_size = 0;
     time_t cache_time;
     int reload_flag =0;
     char* raw_image = 0 ;
     if (timestamp ==0) {
         timestamp = time(NULL);
+    }
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("SDO Module during resize event!");
+        return ;
     }
     data_size = cache_loader(MOD_SOLAR, (void**)&raw_image, &cache_time);
     if (!data_size) {
@@ -24,7 +33,8 @@ void sdo_image(ScreenFrame& panel, time_t timestamp) {
         raw_image=0;
         }
     }					// add valid JPEG check
-    debug_log << "SOLAR: READ "<< data_size << " FROM CACHE!!!!\n";
+    debug_log << "SOLAR: READ " << data_size << " FROM CACHE!!!!\n";
+    debug_log.flush();
     bool goodread;
     goodread = true;
     if (reload_flag) {
@@ -32,7 +42,7 @@ void sdo_image(ScreenFrame& panel, time_t timestamp) {
         debug_log << "SOLAR: Fetching SDO image from NASA\n";
          data_size = http_loader("https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg", (void**)&raw_image);                           // live
          if (data_size) {
-             debug_log << "SOLAR: Loaded image size: "<< data_size << " bytes\n";
+             debug_log << "SOLAR: Loaded image size: " << data_size << " bytes\n";
              add_data_cache(MOD_SOLAR, data_size, (void*)raw_image);
          }
     }
@@ -48,13 +58,13 @@ void sdo_image(ScreenFrame& panel, time_t timestamp) {
         struct map_pin solar_pin;
         solar_pin.owner=MOD_SOLAR;
         struct GeoCoord subsolar_point = subsolar(timestamp);
-        solar_pin.lat=subsolar_point.latitude;
+        solar_pin.lat = subsolar_point.latitude;
         solar_pin.lon=subsolar_point.longitude;
         solar_pin.icon = 0;
         solar_pin.color=SDL_Color{255,255,0,255};
         solar_pin.tooltip[0]=0;
         delete_owner_pins(MOD_SOLAR);
-//        SDL_Log ("Read %zu bytes of data", data_size);
+        debug_log << "SOLAR: Read " << data_size << " bytes of data\n";
         try {
            SDL_IOStream *imgdata = SDL_IOFromConstMem((void*)raw_image, data_size);
            SDO_Surface = IMG_Load_IO(imgdata, true);
@@ -85,7 +95,7 @@ void sdo_image(ScreenFrame& panel, time_t timestamp) {
         }
         } catch (const std::exception& e){
             SDL_Log ("Error loading SDO Image  %s", e.what());
-            debug_log << "Error loading SDO Image  " << e.what() << "\n";
+            debug_log << "SOLAR: Error loading SDO Image  " << e.what() << "\n";
         }
         if (raw_image) {
             free (raw_image);
@@ -96,5 +106,7 @@ void sdo_image(ScreenFrame& panel, time_t timestamp) {
     } else {// good read
         panel.render_text(SDL_FRect{2,2,panel.dims.w,(panel.dims.h/10)}, Sans, SDL_Color{255,0,0,0}, "NO SDO DATA");
     }
+    debug_log << "SOLAR: Exiting Solar module\n";
+    debug_log.flush();
     return;
 }

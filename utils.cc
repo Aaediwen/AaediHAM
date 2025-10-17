@@ -16,8 +16,7 @@
 #include <string>
 #include <iostream>
 
-SDL_Mutex* cache_mutex = nullptr;
-SDL_Mutex* http_mutex  = nullptr;
+
 
 int read_socket(dx_socket_t fd, std::string &result) {
 
@@ -816,26 +815,22 @@ Uint32 cache_loader(const enum mod_name owner, void** result, time_t *result_tim
             memset(*result, 0, cache_size + 1);
             cache_success = fetch_data_cache(owner, result_time, &cache_size, *result);
             if (cache_success) {
-                SDL_UnlockMutex(http_mutex);
                 return (cache_size);
             } else {
                 SDL_Log("Cache Loader fetch error!");
                 free(*result);
                 *result=nullptr;
-                SDL_UnlockMutex(http_mutex);
                 return 0;
             }
             // cache hit
         } else {
             SDL_Log("Cache loader MALLOC error");
             *result = nullptr;
-            SDL_UnlockMutex(http_mutex);
             return 0;
         }
 //        SDL_Log("Got from Cache %i Bytes", strlen(json_spots));
 
     } else {
-        SDL_UnlockMutex(http_mutex);
         return 0; // cache miss
     }
 }
@@ -858,4 +853,29 @@ std::string url_encode(const std::string& input) {
     }
 //    SDL_Log ("DEBUG URL_Encoded string: %s", result.c_str());
     return result;
+}
+
+SDL_Texture* SDLCLOCK_CreateTexture(SDL_Renderer* renderer, SDL_PixelFormat format, SDL_TextureAccess access, int w, int h, const char* owner = "unknown", const char* where = "") {
+    SDL_Texture* t = SDL_CreateTexture(renderer, format, access, w, h);
+    if (!t) {
+        SDL_Log("CreateTexture failed (%s): %s", owner, SDL_GetError());
+        debug_log << "CREATE FAILED : tex=" << (void*)t
+            << " w=" << w << " h=" << h
+            << " owner=" << owner << " " << where << "\n";
+        return nullptr;
+    }
+    else {
+        debug_log << "CREATE: tex=" << (void*)t
+            << " w=" << w << " h=" << h
+            << " owner=" << owner << " " << where << "\n";
+        return t;
+    }
+}
+
+void SDLCLOCK_DestroyTexture(SDL_Texture* t, const char* where = "") {
+    if (!t) return;
+    debug_log << "DESTROY: tex=" << (void*)t 
+        << " at " << where << "\n";
+    SDL_DestroyTexture(t);
+    return;
 }

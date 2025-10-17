@@ -61,7 +61,6 @@ void fetch_pota () {
      char* json_spots = 0 ;
      Uint32 data_size = 0;
      debug_log <<"POTA: Fetching Spots from pota.app via timer\n";
-     SDL_Log("POTA: Fetching Spots from pota.app via timer");
      data_size = http_loader("https://api.pota.app/spot/activator", (void**)&json_spots);                           // live
      if (data_size) {
           std::string blob = pota_json_parser(json_spots);
@@ -90,6 +89,14 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
      if (!pota_timer) {
           fetch_pota();
           pota_timer = SDL_AddTimer(300000, fetch_pota, NULL);
+     }
+
+     if (SDL_TryLockMutex(resize_mutex)) {
+         SDL_UnlockMutex(resize_mutex);
+     }
+     else {
+         SDL_Log("POTA DRAW during resize event!");
+         return;
      }
     char* json_spots = 0 ;
 

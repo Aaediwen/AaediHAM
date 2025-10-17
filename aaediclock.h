@@ -12,6 +12,11 @@
 #include <vector>
 #include <array>
 #include "classes.h"
+#ifdef _WIN32
+#define _CRTDBG_MAP_ALLOC
+#include <crtdbg.h>
+
+#endif
 
 struct regen_mask_args {
     SDL_Surface* source;
@@ -21,6 +26,9 @@ struct regen_mask_args {
 
 extern struct regen_mask_args* night_mask_args;
 extern SDL_Mutex* night_mask_mutex;
+extern SDL_Mutex* resize_mutex;
+extern SDL_Mutex* cache_mutex;
+extern SDL_Mutex* http_mutex;
 extern SDL_TimerID map_timer;
 extern TTF_Font* Sans;
 extern std::fstream debug_log;

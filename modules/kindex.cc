@@ -149,7 +149,13 @@ std::string merge_json (const char* k_index_list, const char* solar_wind_list) {
 void k_index_chart (ScreenFrame& panel) {
     std::string merged;
     std::istringstream data;
-
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("Kindex call during resize event!");
+        return;
+    }
     char* k_index_list = 0 ;
     char* solar_wind_list = 0;
     json source_json;

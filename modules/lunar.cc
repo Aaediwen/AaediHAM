@@ -24,6 +24,13 @@ double moon_phase_angle(const time_t& t) {
 }
 
 SDL_Surface* gen_moon_phase_mask(SDL_Renderer* renderer, SDL_FRect size) {
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("Gen Moon Phase Mask during resize event!");
+        return (nullptr);
+    }
     SDL_Surface* result = nullptr;
     if (moon_illumination.timestamp) {
 //        moon_illumination.angle=M_PI;
@@ -280,14 +287,14 @@ struct GeoCoord sublunar(const time_t time) {
     // Meeus 46.1 p 315
     moon_illumination.timestamp=time;
     moon_illumination.fraction = (1.0 + cos(i_rad))/2.0;
-    SDL_Log ("Moon arguments:\nL0\t%f",L0 );
-    SDL_Log ("D\t%f\tD_rad:\t%f", D, D_rad);
-    SDL_Log ("M\t%f\tM_rad:\t%f", M, M_rad);
-    SDL_Log ("M0\t%f\tM)_rad:\t%f", M0, M0_rad);
-    SDL_Log ("F\t%f\tF_rad:\t%f", F, F_rad);
-    SDL_Log ("i\t%f\ti_rad:\t%f", i, i_rad);
-    SDL_Log ("illumination: %f", moon_illumination.fraction);
-    SDL_Log ("Time: %zu", time);
+    debug_log << "LUNAR: Moon arguments : \nL0\t" << L0 << "\n";
+    debug_log << "LUNAR: D\t " << D << "\tD_rad:\t " << D_rad << "\n";
+    debug_log << "LUNAR: M\t" << M << "\tM_rad:\t" << M_rad << "\n";
+    debug_log << "LUNAR: M0\t" << M0 << "\tM0_rad:\t" << M0_rad << "\n";
+    debug_log << "LUNAR: F\t" << F << "\tF_rad:\t" << F_rad << "\n";
+    debug_log << "LUNAR: i\t" << i << "\ti_rad:\t" << i_rad << "\n";
+    debug_log << "illumination: "<< moon_illumination.fraction << "\n";
+    debug_log << "Time: "<< time;
 
     //Meeus 46.5 P 316
     double RA_Delta = g_celestials.sun.RA - RA;
@@ -338,21 +345,35 @@ struct GeoCoord sublunar(const time_t time) {
 SDL_Surface* moon_image = nullptr;
 SDL_Texture* moon_texture = nullptr;
 time_t moon_surface_age = 0;
+SDL_Renderer* old_moon_renderer = nullptr;
 void kill_moon_surface () {
         if (moon_image) {
-            SDL_Log ("Killing old Moon Image!");
+            debug_log <<  "LUNAR: Killing old Moon Image!\n";
             SDL_DestroySurface(moon_image);
             moon_image = nullptr;
         }
         if (moon_texture) {
-            SDL_Log ("Killing old Moon Texture!");
+            debug_log << "LUNAR: Killing old Moon Texture!";
             SDL_DestroyTexture(moon_texture);
             moon_texture = nullptr;
         }
 }
 void lunar_module(ScreenFrame& panel, time_t timestamp) {
+    // init
+    debug_log << "LUNAR: In Lunar Module\n";
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("Lunar Call during resize event!");
+        return ;
+    }
     float unitx=panel.dims.w/20;
     float unity=panel.dims.h/20;
+    if (old_moon_renderer != panel.GetRenderer()) {
+        kill_moon_surface();
+        old_moon_renderer = panel.GetRenderer();
+    }
     if (timestamp == 0) {
         timestamp = time(NULL);
         if (timestamp - moon_surface_age > 300) {
@@ -361,55 +382,89 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
     } else {
         kill_moon_surface();
     }
-
     struct GeoCoord sublunar_point = sublunar(timestamp);
+    // reload moon image if needed
     if (!moon_image) {
         SDL_Surface* image_surface = IMG_Load("images/PIA14011.jpg");
-//        if ((panel.dims.w < (image_surface->w/2)) && (panel.dims.h < (image_surface->h/2))) {
+        if (image_surface) {
+            float x, y;
+            x = image_surface->w;
+            y = image_surface->h;
+            int bpp = 4;
+            double surf_size_kb = (image_surface->pitch * image_surface->h) / 1024.0;
+            double tex_size_kb = (x * y * 4.0) / 1024.0; // assuming RGBA8888
+            debug_log << "LUNAR: Loaded Moon surface "
+                << x << "x" << y << " "
+                << bpp * 8 << "-bit surface ≈ " << surf_size_kb << " KB "
+                << "=> GPU texture ≈ " << tex_size_kb << " KB "
+                << "at " << static_cast<void*>(image_surface) << "\n";
+
             moon_image = SDL_CreateSurface((image_surface->w), (image_surface->h), SDL_PIXELFORMAT_RGBA32);
-            moon_surface_age=timestamp;
-//        } else {
-//            moon_image = SDL_CreateSurface((panel.dims.w*2), (panel.dims.h*2), SDL_PIXELFORMAT_RGBA32);
-//        }
-//          if (moon_image) {
+            if (moon_image) {
+                SDL_ClearSurface(moon_image, 0, 0, 0, 0);
+                moon_surface_age = timestamp;
+                float x, y;
+                x = moon_image->w;
+                y = moon_image->h;
+                int bpp = 4;
+                double surf_size_kb = (moon_image->pitch * moon_image->h) / 1024.0;
+                double tex_size_kb = (x * y * 4.0) / 1024.0; // assuming RGBA8888
+                debug_log << "LUNAR: created moon_image surface "
+                    << x << "x" << y << " "
+                    << bpp * 8 << "-bit surface ≈ " << surf_size_kb << " KB "
+                    << "=> GPU texture ≈ " << tex_size_kb << " KB "
+                    << "at " << static_cast<void*>(image_surface) << "\n";
+            }
+        }
         if (moon_image && image_surface) {
             if (SDL_BlitSurfaceScaled(image_surface, NULL, moon_image, NULL, SDL_SCALEMODE_LINEAR)) {
                 SDL_FRect iconsize;
                 iconsize.w = moon_image->w;
                 iconsize.h = moon_image->h;
+                debug_log << "LUNAR: Generating moon mask ... ";
                 SDL_Surface* moon_mask =  gen_moon_phase_mask(panel.GetRenderer(), iconsize);
                 if (moon_mask) {
+                    debug_log << "Success\n";
                     SDL_BlitSurface(moon_mask, nullptr, moon_image, nullptr);
                     SDL_DestroySurface(moon_mask);
                 } else {
+                    debug_log << "We have no MOON MASK in the parent!\n";
                     SDL_Log ("We have no MOON MASK in the parent!");
                 }
                 SDL_SetSurfaceColorKey(moon_image, 1, 0);
                 icon_bin.set_dynamic(panel.GetRenderer(), moon_image, map_icons::ICON_MOON);
             }
+            if (!moon_texture) {
+                moon_texture = SDL_CreateTextureFromSurface(panel.GetRenderer(), moon_image);
+            }
         } else {
-            SDL_Log ("Missing Moon image pr image surface");
+
+            debug_log << "LUNAR Missing Moon image or image surface\n";
             if (image_surface) {
-                SDL_Log("Loaded image from BMP");
+                debug_log << "LUNAR: Loaded image from BMP\n";
             }
             if (moon_image) {
-                SDL_Log("Loaded moon image");
+                debug_log << "LUNAR: Loaded Moon Image\n";
+                SDL_DestroySurface(moon_image);
+                moon_image = nullptr;
             }
         }
-        if (image_surface) { SDL_DestroySurface(image_surface); }
+        if (image_surface) {
+            debug_log << "LUNAR: Cleaning up image_surface\n";
+            SDL_DestroySurface(image_surface);
+        }
     }
-    if (!moon_texture) {
-        moon_texture = SDL_CreateTextureFromSurface(panel.GetRenderer(), moon_image);
-    }
+
     panel.Clear();
+    SDL_Color lunar_text_color = SDL_Color{ 255,200,200,0 };
     SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
     SDL_RenderTexture(panel.GetRenderer(), moon_texture, NULL, NULL);
     char boxtext[64];
     sprintf (boxtext, "Ill: %2.2f\%", (moon_illumination.fraction*100));
-    panel.render_text(SDL_FRect{unitx,unity,unitx*8,unity}, Sans, SDL_Color{255,128,128,0}, boxtext);
-    SDL_Log (boxtext);
-    sprintf (boxtext, "Ang: %3.3f\%", (moon_illumination.angle));
-    panel.render_text(SDL_FRect{unitx,unity+unity,unitx*8,unity}, Sans, SDL_Color{255,128,128,0}, boxtext);
+    panel.render_text(SDL_FRect{unitx,unity,unitx*8,unity}, Sans, lunar_text_color, boxtext);
+    debug_log << "LUNAR: " << boxtext << "\n";
+//    sprintf (boxtext, "Ang: %3.3f\%", (moon_illumination.angle));
+//    panel.render_text(SDL_FRect{unitx,unity+unity,unitx*8,unity}, Sans, SDL_Color{255,128,128,0}, boxtext);
     SDL_Log (boxtext);
     if (moon_illumination.fraction > 0.98) {
         sprintf (boxtext, "FULL");
@@ -430,19 +485,19 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
             sprintf (boxtext, "WANING GIBBOUS");
         }
     }
-    panel.render_text(SDL_FRect{unitx*10,unity,unitx*8,unity}, Sans, SDL_Color{255,128,128,0}, boxtext);
-    sprintf (boxtext, "T: %lld", static_cast<long long>(timestamp));
-    panel.render_text(SDL_FRect{unitx,unity*19,unitx*8,unity}, Sans, SDL_Color{255,128,128,0}, boxtext);
+    panel.render_text(SDL_FRect{unitx*10,unity,unitx*8,unity}, Sans, lunar_text_color, boxtext);
+//    sprintf (boxtext, "T: %lld", static_cast<long long>(timestamp));
+//    panel.render_text(SDL_FRect{unitx,unity*19,unitx*8,unity}, Sans, SDL_Color{255,128,128,0}, boxtext);
     struct tm* clocktime = gmtime(&timestamp);
     strftime(boxtext, sizeof(boxtext), "%Y-%m-%d", clocktime);
-    panel.render_text(SDL_FRect{unitx*10,unity*19,unitx*8,unity}, Sans, SDL_Color{255,128,128,0}, boxtext);
-    SDL_Log (boxtext);
+    panel.render_text(SDL_FRect{unitx*10,unity*19,unitx*8,unity}, Sans, lunar_text_color, boxtext);
+//    SDL_Log (boxtext);
     SDL_Log: Debug:
     struct map_pin moon_pin;
     moon_pin.owner=MOD_LUNAR;
     moon_pin.lat=sublunar_point.latitude;
     moon_pin.lon=sublunar_point.longitude;
-    moon_pin.color=SDL_Color{255,255,0,255};
+    moon_pin.color=lunar_text_color;
     moon_pin.tooltip[0]=0;
     delete_owner_pins(MOD_LUNAR);
     moon_pin.icon = icon_bin.get_icon(map_icons::ICON_MOON);
@@ -452,6 +507,6 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
     }
     add_pin(&moon_pin);
 
-
+    debug_log << "LUNAR: Done with Lunar Module\n";
     return;
 }

@@ -290,6 +290,13 @@ time_t TrackedWSPR::telemetry_age() {
 
 void TrackedWSPR::draw_telemetry(ScreenFrame& map) {
     // draw the satellite's telemetry track on the map
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("WSPR Draw during resize event!");
+        return;
+    }
     if (this->m_telemetry.empty()) { return; }
     debug_log << "WSPR: Draw telemetry on texture: " << (void*)map.texture << "\n";
     SDL_SetRenderTarget(map.GetRenderer(), map.texture);
@@ -366,7 +373,13 @@ void wspr_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
 
     SDL_FRect TextRect;
     delete_owner_pins(MOD_WSPR);
-
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("WSPR Tracker during resize event!");
+        return;
+    }
     // clear the box
     panel.Clear();
     SDL_FRect mapsize ;
@@ -378,11 +391,12 @@ void wspr_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     bool redraw_flag = false;
     redraw_flag = (!overlays.overlay_check(MOD_WSPR));
     debug_log << "WSPR: Drawing overlay\n";
+    float height_unit = panel.dims.h / 20;
+    float width_unit = panel.dims.w / 20;
     if (!wsprlist.empty()) {
         SDL_FRect TextBox ;
         char timestr[64];
-        float height_unit = panel.dims.h/20;
-        float width_unit = panel.dims.w/20;
+
         TextBox.x=width_unit;
         TextBox.y = height_unit;
         TextBox.h = height_unit*2;
@@ -402,6 +416,9 @@ void wspr_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
                 TextBox.y += height_unit*2;
             }
         }
+    } else {
+        panel.render_text(SDL_FRect{ width_unit, height_unit, width_unit * 18, height_unit*2 }, Sans, SDL_Color{ 255,200, 200 }, "NO WSPR STATIONS");
+        panel.render_text(SDL_FRect{ width_unit, height_unit*5, width_unit * 18, height_unit*2 }, Sans, SDL_Color{ 255,200, 200 }, "CONFIGURED");
     }
 
     return;

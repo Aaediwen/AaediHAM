@@ -26,7 +26,11 @@ set(SOURCES
 
 if(MSVC)
  #   add_compile_options(/W4 /WX)
-
+	add_compile_options (-DCMAKE_BUILD_PARALLEL_LEVEL=16 -DCLOCK_DEBUG)
+	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Zi")
+	set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} /DEBUG")
+	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Od /RTC1 /MDd")
+	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Ob0")
 else()
 #    add_compile_options(-Wall -Wextra -Werror -Os)
      add_compile_options (-pg)

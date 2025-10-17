@@ -3,7 +3,13 @@
 #include "../utils.h"
 
 void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int de_dx) {
-
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("DE/DX Drawduring resize event!");
+        return ;
+    }
     if (!panel.GetRenderer()) {
         debug_log << "DE/DX: Missing Renderer!\n";
         return ;

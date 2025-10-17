@@ -2,6 +2,13 @@
 #include "../aaediclock.h"
 
 void draw_callsign(ScreenFrame& panel, TTF_Font* font, const char* callsign) {
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("Callsign Render call during resize event!");
+        return;
+    }
     if (!panel.GetRenderer()) {
         debug_log << "CALLSIGN: Missing Renderer!\n";
         return ;

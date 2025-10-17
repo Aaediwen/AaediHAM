@@ -242,6 +242,13 @@ time_t TrackedSatellite::telemetry_age() {
 
 
 void TrackedSatellite::draw_telemetry(ScreenFrame& map) {
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("Satellite Draw during resize event!");
+        return;
+    }
     // draw the satellite's telemetry track on the map
     if (this->telemetry.empty()) { return; }
     debug_log << "SAT TRACKER: Draw telemetry on texture: " << (void*)map.texture << "\n";
@@ -302,6 +309,13 @@ void circle_helper(std::vector<SDL_FPoint> *circle_points, int radius, SDL_FPoin
 
 void pass_tracker(ScreenFrame& panel, TrackedSatellite& sat) {
     // clear the box
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("Sat tracker during resize event!");
+        return;
+    }
     panel.Clear();
 
     char tempstr[30];
@@ -428,7 +442,13 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     char* amateur_tle = 0 ;
     Uint32 data_size;
     time_t cache_time;
-
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("Sat Module during resize event!");
+        return;
+    }
     SDL_FRect TextRect;
     delete_owner_pins(MOD_SAT);
     bool reload_flag = false;

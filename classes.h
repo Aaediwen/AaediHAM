@@ -47,9 +47,10 @@ class ScreenFrame {
         ScreenFrame& operator=(const ScreenFrame& source);
         bool Create (SDL_Renderer* parent, SDL_FRect size);
         SDL_Renderer* GetRenderer();
+        void SetRenderer(SDL_Renderer* r);
         void Reset();
         void draw_border();
-        void Clear(const SDL_Color& color = {0, 0, 0, 255});
+        void Clear(const SDL_Color& color = {0, 0, 0, SDL_ALPHA_OPAQUE});
         void render_text(const SDL_FRect& text_box, TTF_Font *font, const SDL_Color& color, std::string str);
         void render_text(const SDL_FRect& text_box, TTF_Font *font, const SDL_Color& color, const char* str);
         void present();
@@ -129,7 +130,7 @@ extern map_overlay overlays;
 class map_icons {
 
     public:
-        enum icon_names {
+        enum icon_names : int {
             ICON_SAT,
             ICON_SUN,
             ICON_MOON

@@ -449,7 +449,13 @@ Uint32 SDLCALL fetch_dxspots (void *userdata, SDL_TimerID timerID, Uint32 interv
 
 
 void dx_cluster (ScreenFrame& panel) {
-
+    if (SDL_TryLockMutex(resize_mutex)) {
+        SDL_UnlockMutex(resize_mutex);
+    }
+    else {
+        SDL_Log("DX Cluster Display Call during resize event!");
+        return;
+    }
     if (!dxsocket) {
         init_fd();
     }
