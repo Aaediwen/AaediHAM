@@ -96,3 +96,36 @@ Library dependancies:
  <LI>SDO Solar Image       -- https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg</LI>
    
  </UL>
+ <HR>
+ Build Instructions:
+
+ Linux:
+ <CODE>
+      cd <source tree>
+      mkdir build
+      cd build 
+      cmake .. 
+      make
+      cp -r ../images . 
+      cp -r ../aaediclock_config.json . 
+      ./clock
+</CODE>
+  I actually recommend creating another directory where you place 
+  clock, aaediclock_config.json, and a copy of the image assets. However, 
+  it's not a big deal if you choose to do that in the source tree and run from there.
+  That's what I do a lot during development
+      
+
+ Windows:
+      Built using MSVC22
+      <CODE>
+      Open the Source tree where CMakeFile.txt lives
+      Select X64-Debug or X64-Release
+      Project --> Rescan Solution
+      Build --> Build All
+      Then you'll need to manually collect the binary and SDL DLL files from the contents of out/build
+      You will need to copy the images directory and aaediclock_config.json into the directory where you collect clock.exe and the SDL dll files
+      </CODE>
+      
+  In either case, the directory with the Clock binary also needs aaediclock_config.json and an images subdirectory containing the maps, moon, and satellite icon images
+              
