@@ -24,8 +24,8 @@ double moon_phase_angle(const time_t& t) {
 }
 
 SDL_Surface* gen_moon_phase_mask(SDL_Renderer* renderer, SDL_FRect size) {
-    if (SDL_TryLockMutex(resize_mutex)) {
-        SDL_UnlockMutex(resize_mutex);
+    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
+        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
     else {
         SDL_Log("Gen Moon Phase Mask during resize event!");
@@ -361,8 +361,8 @@ void kill_moon_surface () {
 void lunar_module(ScreenFrame& panel, time_t timestamp) {
     // init
     debug_log << "LUNAR: In Lunar Module\n";
-    if (SDL_TryLockMutex(resize_mutex)) {
-        SDL_UnlockMutex(resize_mutex);
+    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
+        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
     else {
         SDL_Log("Lunar Call during resize event!");

@@ -2,8 +2,8 @@
 #include "../aaediclock.h"
 
 void draw_callsign(ScreenFrame& panel, TTF_Font* font, const char* callsign) {
-    if (SDL_TryLockMutex(resize_mutex)) {
-        SDL_UnlockMutex(resize_mutex);
+    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
+        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
     else {
         SDL_Log("Callsign Render call during resize event!");

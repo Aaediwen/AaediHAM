@@ -28,4 +28,7 @@ int fetch_data_cache(enum mod_name owner, time_t *age, Uint32 *size, void* data)
 int http_loader(const char* source_url, void** result);
 Uint32 cache_loader(const enum mod_name owner, void** result, time_t *result_time);
 std::string url_encode(const std::string& input);
+SDL_Texture* SDLCLOCK_CreateTexture(SDL_Renderer* renderer, SDL_PixelFormat format, SDL_TextureAccess access, int w, int h, const char* owner, const char* where);
+void SDLCLOCK_DestroyTexture(SDL_Texture* t, const char* where);
+void mutex_checker();
 #endif

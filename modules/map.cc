@@ -204,8 +204,8 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
 void regen_mask (SDL_Surface* source, SDL_Surface* dest, const SDL_FRect& panel_dims) {
     time_t nowtime = time(nullptr);
     struct tm utc;
-    if (SDL_TryLockMutex(resize_mutex)) {
-        SDL_UnlockMutex(resize_mutex);
+    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
+        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
     else {
         SDL_Log("Regen Map Mask during resize event!");
@@ -224,7 +224,7 @@ void regen_mask (SDL_Surface* source, SDL_Surface* dest, const SDL_FRect& panel_
             << (void*)source << ", dest: " << (void*)dest
             <<", dims: " << panel_dims.w << "x" << panel_dims.h << "\n";
 
-    SDL_LockMutex(night_mask_mutex);    /// MUTEX LOCK
+    SDL_LockMutex(mutexes[MUTEX_NIGHT_MASK]);    /// MUTEX LOCK
 
     Uint8* alpha_pixels = (Uint8*)dest->pixels;
     Uint8* source_pixels = (Uint8*)source->pixels;
@@ -264,7 +264,7 @@ void regen_mask (SDL_Surface* source, SDL_Surface* dest, const SDL_FRect& panel_
             }
         }
 
-    SDL_UnlockMutex(night_mask_mutex);  /// MUTEX UNLOCK
+    SDL_UnlockMutex(mutexes[MUTEX_NIGHT_MASK]);  /// MUTEX UNLOCK
     return;
 }
 
@@ -284,8 +284,8 @@ Uint32 SDLCALL regen_mask (void *userdata, SDL_TimerID timerID, Uint32 interval)
 SDL_Surface* night_mask = nullptr;
 SDL_Renderer* old_renderer = nullptr;
 int draw_map(ScreenFrame& panel) {
-    if (SDL_TryLockMutex(resize_mutex)) {
-        SDL_UnlockMutex(resize_mutex);
+    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
+        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
     else {
         SDL_Log("MAP DRaw during resize event!");
@@ -352,9 +352,9 @@ int draw_map(ScreenFrame& panel) {
     }
     // render the masked NightMap to the panel
 //    SDL_Log("render the masked NightMap to the panel");
-    SDL_LockMutex(night_mask_mutex);    /// MUTEX LOCK
+    SDL_LockMutex(mutexes[MUTEX_NIGHT_MASK]);    /// MUTEX LOCK
     SDL_Texture* mask_tex = SDL_CreateTextureFromSurface(panel.GetRenderer(), night_mask);
-    SDL_UnlockMutex(night_mask_mutex);  /// MUTEX UNLOCK
+    SDL_UnlockMutex(mutexes[MUTEX_NIGHT_MASK]);  /// MUTEX UNLOCK
     if (!mask_tex) {
         debug_log << "Failed to create mask texture: " << SDL_GetError() << "\n";
         return 1;

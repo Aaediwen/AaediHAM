@@ -290,8 +290,8 @@ time_t TrackedWSPR::telemetry_age() {
 
 void TrackedWSPR::draw_telemetry(ScreenFrame& map) {
     // draw the satellite's telemetry track on the map
-    if (SDL_TryLockMutex(resize_mutex)) {
-        SDL_UnlockMutex(resize_mutex);
+    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
+        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
     else {
         SDL_Log("WSPR Draw during resize event!");
@@ -373,8 +373,8 @@ void wspr_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
 
     SDL_FRect TextRect;
     delete_owner_pins(MOD_WSPR);
-    if (SDL_TryLockMutex(resize_mutex)) {
-        SDL_UnlockMutex(resize_mutex);
+    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
+        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
     else {
         SDL_Log("WSPR Tracker during resize event!");

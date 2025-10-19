@@ -187,8 +187,8 @@ void ScreenFrame::Reset() {
 }
 
 void ScreenFrame::draw_border() {
-    if (SDL_TryLockMutex(resize_mutex)) {
-        SDL_UnlockMutex(resize_mutex);
+    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
+        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
     else {
         SDL_Log("Draw Border during resize event!");
@@ -214,8 +214,8 @@ void ScreenFrame::draw_border() {
 }
 
 void ScreenFrame::render_text(const SDL_FRect& text_box, TTF_Font *font, const SDL_Color& color, const std::string str) {
-    if (SDL_TryLockMutex(resize_mutex)) {
-        SDL_UnlockMutex(resize_mutex);
+    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
+        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
     else {
         SDL_Log("Text Draw during resize event!");
@@ -245,8 +245,8 @@ void ScreenFrame::render_text(const SDL_FRect& text_box, TTF_Font *font, const S
 
 
 void ScreenFrame::render_text(const SDL_FRect& text_box, TTF_Font *font, const SDL_Color& color, const char* str) {
-    if (SDL_TryLockMutex(resize_mutex)) {
-        SDL_UnlockMutex(resize_mutex);
+    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
+        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
     else {
         SDL_Log("Text Draw during resize event!");
@@ -567,8 +567,8 @@ void map_overlay::clear() {
     return;
 }
 ScreenFrame* map_overlay::get_overlay(SDL_Renderer* renderer, enum mod_name owner, SDL_FRect dims) {
-    if (SDL_TryLockMutex(resize_mutex)) {
-        SDL_UnlockMutex(resize_mutex);
+    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
+        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
     else {
         SDL_Log("Overlay Fetch during resize event!");
@@ -609,8 +609,8 @@ bool map_overlay::overlay_check(enum mod_name owner) {
 }
 
 ScreenFrame* map_overlay::next_overlay() {
-    if (SDL_TryLockMutex(resize_mutex)) {
-        SDL_UnlockMutex(resize_mutex);
+    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
+        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
     else {
         SDL_Log("Overlay call during resize event!");
@@ -661,8 +661,8 @@ void map_icons::clear_icons() {
 }
 
 void map_icons::set_dynamic(SDL_Renderer* renderer, SDL_Surface* source, enum icon_names id) {
-    if (SDL_TryLockMutex(resize_mutex)) {
-        SDL_UnlockMutex(resize_mutex);
+    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
+        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
     else {
         SDL_Log("Dynamic ICON set during resize event!");

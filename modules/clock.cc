@@ -2,8 +2,8 @@
 #include "../aaediclock.h"
 
 int draw_clock(ScreenFrame& panel, TTF_Font* font) {
-    if (SDL_TryLockMutex(resize_mutex)) {
-        SDL_UnlockMutex(resize_mutex);
+    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
+        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
     else {
         SDL_Log("Clock Module during resize event!");

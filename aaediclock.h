@@ -13,9 +13,10 @@
 #include <array>
 #include "classes.h"
 #ifdef _WIN32
+#ifdef _DEBUG
 #define _CRTDBG_MAP_ALLOC
 #include <crtdbg.h>
-
+#endif
 #endif
 
 struct regen_mask_args {
@@ -25,6 +26,15 @@ struct regen_mask_args {
 };
 
 extern struct regen_mask_args* night_mask_args;
+
+enum mutex_name {
+    MUTEX_NIGHT_MASK	,
+    MUTEX_RESIZE	,
+    MUTEX_CACHE		,
+    MUTEX_HTTP		,
+    MUTEX_MASTER_CLOCK
+};
+extern std::array<SDL_Mutex*, 10> mutexes;
 extern SDL_Mutex* night_mask_mutex;
 extern SDL_Mutex* resize_mutex;
 extern SDL_Mutex* cache_mutex;

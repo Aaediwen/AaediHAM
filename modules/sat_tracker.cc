@@ -242,8 +242,8 @@ time_t TrackedSatellite::telemetry_age() {
 
 
 void TrackedSatellite::draw_telemetry(ScreenFrame& map) {
-    if (SDL_TryLockMutex(resize_mutex)) {
-        SDL_UnlockMutex(resize_mutex);
+    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
+        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
     else {
         SDL_Log("Satellite Draw during resize event!");
@@ -309,8 +309,8 @@ void circle_helper(std::vector<SDL_FPoint> *circle_points, int radius, SDL_FPoin
 
 void pass_tracker(ScreenFrame& panel, TrackedSatellite& sat) {
     // clear the box
-    if (SDL_TryLockMutex(resize_mutex)) {
-        SDL_UnlockMutex(resize_mutex);
+    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
+        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
     else {
         SDL_Log("Sat tracker during resize event!");
@@ -442,8 +442,8 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     char* amateur_tle = 0 ;
     Uint32 data_size;
     time_t cache_time;
-    if (SDL_TryLockMutex(resize_mutex)) {
-        SDL_UnlockMutex(resize_mutex);
+    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
+        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
     else {
         SDL_Log("Sat Module during resize event!");

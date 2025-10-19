@@ -412,10 +412,10 @@ int delete_mod_cache(enum mod_name owner) {
     struct data_blob* next_chunk;
     struct data_blob* last_chunk;
     struct data_blob* old_chunk;
-    if (!cache_mutex) {
-        cache_mutex = SDL_CreateMutex();
+    if (!mutexes[MUTEX_CACHE]) {
+        mutexes[MUTEX_CACHE] = SDL_CreateMutex();
     }
-    SDL_LockMutex(cache_mutex);
+    SDL_LockMutex(mutexes[MUTEX_CACHE]);
     if (data_cache) {
         current_chunk=data_cache;
         last_chunk=0;
@@ -444,7 +444,7 @@ int delete_mod_cache(enum mod_name owner) {
             }
         }
     }
-    SDL_UnlockMutex(cache_mutex);
+    SDL_UnlockMutex(mutexes[MUTEX_CACHE]);
     return(0);
 
 }
@@ -468,10 +468,10 @@ void dump_cache() {
 
 int add_data_cache(enum mod_name owner, const Uint32 size, const void* data) {
     delete_mod_cache(owner);
-    if (!cache_mutex) {
-        cache_mutex = SDL_CreateMutex();
+    if (!mutexes[MUTEX_CACHE]) {
+        mutexes[MUTEX_CACHE] = SDL_CreateMutex();
     }
-    SDL_LockMutex(cache_mutex);
+    SDL_LockMutex(mutexes[MUTEX_CACHE]);
     // add a new data_cache for a module
     struct data_blob* empty_locker;
     struct data_blob* current_chunk;
@@ -489,7 +489,7 @@ int add_data_cache(enum mod_name owner, const Uint32 size, const void* data) {
     if (!empty_locker) {
         SDL_Log("Cache Allocation Error!");
         debug_log << "CACHE: Allocation Error!\n";
-        SDL_UnlockMutex(cache_mutex);
+        SDL_UnlockMutex(mutexes[MUTEX_CACHE]);
         return (0);
     }
     empty_locker->next=0;
@@ -502,12 +502,12 @@ int add_data_cache(enum mod_name owner, const Uint32 size, const void* data) {
         memcpy(empty_locker->data, data, size);
         ((char*)empty_locker->data)[size] = '\0';
     } else {
-        SDL_UnlockMutex(cache_mutex);
+        SDL_UnlockMutex(mutexes[MUTEX_CACHE]);
         return (0);
     }
 //    dump_cache();
 //    printf ("Test stored data\n %s \n -----------\n",(char*)empty_locker->data);
-    SDL_UnlockMutex(cache_mutex);
+    SDL_UnlockMutex(mutexes[MUTEX_CACHE]);
     return (1);
 
 }
@@ -520,11 +520,11 @@ int fetch_data_cache(enum mod_name owner, time_t *age, Uint32 *size, void* data)
         return 0;
     }
     if (data_cache) {
-        if (!cache_mutex) {
-            cache_mutex = SDL_CreateMutex();
+        if (!mutexes[MUTEX_CACHE]) {
+            mutexes[MUTEX_CACHE] = SDL_CreateMutex();
         }
 
-        SDL_LockMutex(cache_mutex);
+        SDL_LockMutex(mutexes[MUTEX_CACHE]);
         struct data_blob* current = data_cache;
         while (current) {
             if (current->owner == owner) {
@@ -535,12 +535,12 @@ int fetch_data_cache(enum mod_name owner, time_t *age, Uint32 *size, void* data)
                     memcpy(data, current->data, current->size);
                     debug_log << "CACHE: returning " << current->size << " bytes\n";
                 }
-                SDL_UnlockMutex(cache_mutex);
+                SDL_UnlockMutex(mutexes[MUTEX_CACHE]);
                 return (1);
             }	// found a cache hit
             current = current->next;
         }	// itterate through the current cache
-        SDL_UnlockMutex(cache_mutex);
+        SDL_UnlockMutex(mutexes[MUTEX_CACHE]);
     } // do we have anything at all cached yet?
     debug_log << "CACHE: Cache miss\n";
     return (0);
@@ -554,10 +554,10 @@ size_t cache_http_callback( char* in, size_t size, size_t nmemb, void* out) {
 }
 
 int http_loader(const char* source_url, void** result) {
-    if (!http_mutex) {
-        http_mutex = SDL_CreateMutex();
+    if (!mutexes[MUTEX_HTTP]) {
+        mutexes[MUTEX_HTTP] = SDL_CreateMutex();
     }
-    SDL_LockMutex(http_mutex);
+    SDL_LockMutex(mutexes[MUTEX_HTTP]);
 #ifndef _WIN32          // *NIX version starts here
     CURLcode curlres;
     std::string httpbuffer;
@@ -583,22 +583,22 @@ int http_loader(const char* source_url, void** result) {
                 // return our result text in *result
                 memset(*result, 0, httpbuffer.size() + 1);
                 memcpy(*result, httpbuffer.c_str(), httpbuffer.size());
-                SDL_UnlockMutex(http_mutex);
+                SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
 //                std::cout << "HTTP: Returning "<< httpbuffer.size() << "\n";
                 return(httpbuffer.size());
             } else {
 //                std::cout << "HTTP: Curl result MALLOC error\n";
-                SDL_UnlockMutex(http_mutex);
+                SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
                 return 0;
             }
         } else {
             SDL_Log ("Curl Fetch Error: %s", curl_easy_strerror(curlres));
-            SDL_UnlockMutex(http_mutex);
+            SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
             return 0;
         }
     } else {
         SDL_Log("Failed to init Curl!");
-        SDL_UnlockMutex(http_mutex);
+        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
     }
 #else               // WIN32 version starts here
@@ -613,17 +613,17 @@ int http_loader(const char* source_url, void** result) {
     exploded_url.dwExtraInfoLength = (DWORD)-1;
     bool read_result;
     if (source_url == 0) {
-        SDL_UnlockMutex(http_mutex);
+        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
     }
     if (source_url[0] == 0) {
-        SDL_UnlockMutex(http_mutex);
+        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
     }
     // call once to get the result size
     int len = MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, source_url, -1, NULL, 0);
     if (len == 0) {
-        SDL_UnlockMutex(http_mutex);
+        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
     }
 
@@ -631,7 +631,7 @@ int http_loader(const char* source_url, void** result) {
     LPWSTR utf8_url = new wchar_t[len];
     if (MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, source_url, -1, utf8_url, len) == 0) {
         delete[] utf8_url;
-        SDL_UnlockMutex(http_mutex);
+        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
     }
     std::string narrow = clockconfig.CallSign() + "-clock-Agent/1.0";
@@ -648,7 +648,7 @@ int http_loader(const char* source_url, void** result) {
         0,
         &exploded_url )) {
         SDL_Log("Error %u trying to Split URL", GetLastError());
-        SDL_UnlockMutex(http_mutex);
+        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
 
     }
@@ -663,7 +663,7 @@ int http_loader(const char* source_url, void** result) {
 //        exploded_url.dwExtraInfoLength, exploded_url.lpszExtraInfo, exploded_url.dwExtraInfoLength);
     if (!http) {
         SDL_Log("Unable to Init HTTP");
-        SDL_UnlockMutex(http_mutex);
+        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
     }
     else {
@@ -676,7 +676,7 @@ int http_loader(const char* source_url, void** result) {
     if (!http_connection) {
         SDL_Log("Unable to connect to %ls on %u", host.c_str(), exploded_url.nPort);
         WinHttpCloseHandle(http);
-        SDL_UnlockMutex(http_mutex);
+        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
     }
     else {
@@ -718,7 +718,7 @@ int http_loader(const char* source_url, void** result) {
         SDL_Log("Unable to request %ls", exploded_url.lpszUrlPath);
         WinHttpCloseHandle(http_connection);
         WinHttpCloseHandle(http);
-        SDL_UnlockMutex(http_mutex);
+        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
     }
     else {
@@ -733,7 +733,7 @@ int http_loader(const char* source_url, void** result) {
         WinHttpCloseHandle(http_request);
         WinHttpCloseHandle(http_connection);
         WinHttpCloseHandle(http);
-        SDL_UnlockMutex(http_mutex);
+        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
     }
     std::string buffstr;
@@ -778,7 +778,7 @@ int http_loader(const char* source_url, void** result) {
                 WinHttpCloseHandle(http_request);
                 WinHttpCloseHandle(http_connection);
                 WinHttpCloseHandle(http);
-                SDL_UnlockMutex(http_mutex);
+                SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
                 return((int)buffstr.size());
             }
             else {
@@ -786,7 +786,7 @@ int http_loader(const char* source_url, void** result) {
                 WinHttpCloseHandle(http_request);
                 WinHttpCloseHandle(http_connection);
                 WinHttpCloseHandle(http);
-                SDL_UnlockMutex(http_mutex);
+                SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
                 return 0;
             }
 
@@ -795,7 +795,7 @@ int http_loader(const char* source_url, void** result) {
     WinHttpCloseHandle(http_request);
     WinHttpCloseHandle(http_connection);
     WinHttpCloseHandle(http);
-    SDL_UnlockMutex(http_mutex);
+    SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
     return 0;
 #endif
 }
@@ -874,8 +874,25 @@ SDL_Texture* SDLCLOCK_CreateTexture(SDL_Renderer* renderer, SDL_PixelFormat form
 
 void SDLCLOCK_DestroyTexture(SDL_Texture* t, const char* where = "") {
     if (!t) return;
-    debug_log << "DESTROY: tex=" << (void*)t 
+    debug_log << "DESTROY: tex=" << (void*)t
         << " at " << where << "\n";
     SDL_DestroyTexture(t);
     return;
+}
+
+void mutex_checker() {
+    int index = 0;
+    for (auto* mtx : mutexes) {
+        if (!mtx) {
+            SDL_Log("Mutex[%d]: nullptr", index);
+        } else {
+            if (SDL_TryLockMutex(mtx)) {
+                SDL_Log("Mutex[%d]: UNLOCKED", index);
+                SDL_UnlockMutex(mtx);
+            } else {
+                SDL_Log("Mutex[%d]: LOCKED", index);
+            }
+        }
+        index++;
+    }
 }

@@ -3,8 +3,8 @@
 #include "../utils.h"
 
 void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int de_dx) {
-    if (SDL_TryLockMutex(resize_mutex)) {
-        SDL_UnlockMutex(resize_mutex);
+    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
+        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
     else {
         SDL_Log("DE/DX Drawduring resize event!");

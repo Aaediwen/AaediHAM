@@ -24,14 +24,16 @@ ScreenFrame 	        DayMap;
 ScreenFrame 	        NightMap;
 ScreenFrame 	        CountriesMap;
 std::array<pager_node, 12> winboxes;
+std::array<SDL_Mutex*, 10> mutexes = { nullptr };
+
 struct map_pin 		    *map_pins;
 struct data_blob	    *data_cache;
 config 		            clockconfig;
-SDL_Mutex* night_mask_mutex = nullptr;
+/*SDL_Mutex* night_mask_mutex = nullptr;
 SDL_Mutex* resize_mutex = nullptr;
 SDL_Mutex* cache_mutex = nullptr;
 SDL_Mutex* http_mutex = nullptr;
-static SDL_Mutex* master_clock_mutex;
+static SDL_Mutex* master_clock_mutex; */
 SDL_TimerID map_timer = 0;
 Uint8 interrupt_counter = 0;
 struct regen_mask_args* night_mask_args = nullptr;
@@ -69,8 +71,8 @@ SDL_TimerID flag_timer = 0;
 
 Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interval) {
 //    debug_log << "FLAG TIMER: In Master flag timer\n";
-    if (SDL_TryLockMutex(resize_mutex)) {
-        SDL_UnlockMutex(resize_mutex);
+    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
+        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
     else {
         SDL_Log("Master Clock run during resize!");
@@ -82,7 +84,7 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
         interrupt_counter = 0;
     }
     if (timerID) {
-        SDL_LockMutex(master_clock_mutex);
+        SDL_LockMutex(mutexes[MUTEX_MASTER_CLOCK]);
         if ((interrupt_counter % 1200)==0) {	// 120 seconds
             master_flags.kindex.draw_flag = true;
             master_flags.solar.draw_flag = true;
@@ -182,7 +184,7 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
             master_flags.dx_spots.draw_flag = true;
         }
 //        debug_log << "FLAG_TIMER: Master flag timer done.\n";
-        SDL_UnlockMutex(master_clock_mutex);
+        SDL_UnlockMutex(mutexes[MUTEX_MASTER_CLOCK]);
         return (interval);
     } else {
         return 0;
@@ -198,7 +200,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
         _ASSERTE(_CrtCheckMemory());
 #endif
 #endif
-        if (SDL_TryLockMutex(resize_mutex)) {
+        if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
             if (flag_timer) {
                 SDL_RemoveTimer(flag_timer);
                 flag_timer = 0;
@@ -213,7 +215,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
             // lock and disable the rest of the program
             debug_log << "RESIZE: Disabling renders\n";
             debug_log.flush();
-            SDL_LockMutex(night_mask_mutex);
+            SDL_LockMutex(mutexes[MUTEX_NIGHT_MASK]);
 
 
             master_flags.callsign.draw_flag = false;
@@ -469,8 +471,8 @@ void resize_panels(std::array<pager_node, 12>& panels) {
             flag_timer = SDL_AddTimer(100, master_clock, &master_flags);
             debug_log << "RESIZE: Window resize complete\n";
             debug_log.flush();
-            SDL_UnlockMutex(night_mask_mutex);
-            SDL_UnlockMutex(resize_mutex);
+            SDL_UnlockMutex(mutexes[MUTEX_NIGHT_MASK]);
+            SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
         }
  else {
      SDL_Log("DUPLICATE RESIZE CALL ERROR!");
@@ -674,6 +676,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     y=480;
 #ifdef CLOCK_DEBUG
 #ifdef _WIN32
+#ifdef _DEBUG
  //   _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF | _CRTDBG_DELAY_FREE_MEM_DF );
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
     HANDLE hLogFile;
@@ -682,6 +685,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         FILE_ATTRIBUTE_NORMAL, NULL);
     _CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
     _CrtSetReportFile(_CRT_ERROR, hLogFile);
+#endif
 #endif
     debug_log.open("clock_debug.log", std::fstream::out);
 #else
@@ -875,10 +879,14 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     DayMap.Reset();
     NightMap.Reset();
     CountriesMap.Reset();
-    night_mask_mutex = SDL_CreateMutex();
+    mutexes[MUTEX_NIGHT_MASK] 	= SDL_CreateMutex();
+    mutexes[MUTEX_RESIZE]	= SDL_CreateMutex();
+    mutexes[MUTEX_CACHE]	= SDL_CreateMutex();
+    mutexes[MUTEX_HTTP]		= SDL_CreateMutex();
+/*    night_mask_mutex = SDL_CreateMutex();
     resize_mutex = SDL_CreateMutex();
     cache_mutex = SDL_CreateMutex();
-    http_mutex = SDL_CreateMutex();
+    http_mutex = SDL_CreateMutex(); */
     night_mask_args = (struct regen_mask_args*)malloc(sizeof(struct regen_mask_args));
     map_timer = 0;
     debug_log << "INIT: Map Variables Initialized\n";
@@ -906,8 +914,9 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     _ASSERTE(_CrtCheckMemory());
 #endif
 #endif
-    if (SDL_TryLockMutex(resize_mutex)) {
-        SDL_UnlockMutex(resize_mutex);
+mutex_checker();
+    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
+        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
     else {
         SDL_Log("Itterate during resize event!");
@@ -926,7 +935,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             SDL_SyncWindow(window);
         }
         currenttime=time(NULL);
-        SDL_LockMutex(master_clock_mutex);
+        SDL_LockMutex(mutexes[MUTEX_MASTER_CLOCK]);
         if (master_flags.clock.draw_flag) {
             debug_log << "ITTERATE: Calling Clock with panel " << &(winboxes[PANEL_CLOCK].panel) << "\n";
             draw_clock(winboxes[PANEL_CLOCK].panel, Sans);
@@ -1003,7 +1012,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         winboxes[PANEL_FLEXBOX3].panel.present();
         winboxes[PANEL_FLEXBOX4].panel.present();
         winboxes[PANEL_FLEXBOX5].panel.present();
-        SDL_UnlockMutex(master_clock_mutex);
+        SDL_UnlockMutex(mutexes[MUTEX_MASTER_CLOCK]);
         SDL_RenderPresent(clock_renderer);
         if (headless && (!outfile.empty())) {
             // dump surface to image file here
@@ -1027,8 +1036,8 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     night_mask_args=nullptr;
     SDL_RemoveTimer(map_timer);
     map_timer = 0;
-    SDL_DestroyMutex(night_mask_mutex);
-    night_mask_mutex = nullptr;
+    SDL_DestroyMutex(mutexes[MUTEX_NIGHT_MASK]);
+//    night_mask_mutex = nullptr;
     /* SDL will clean up the window/renderer for us. */
 }
 
