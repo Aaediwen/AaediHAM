@@ -914,7 +914,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     _ASSERTE(_CrtCheckMemory());
 #endif
 #endif
-mutex_checker();
+//mutex_checker();
     if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
         SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
