@@ -76,7 +76,7 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
     }
     else {
         SDL_Log("Master Clock run during resize!");
-        return (0);
+        return (interval);
     }
     (void) userdata;
     interrupt_counter++;
