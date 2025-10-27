@@ -131,7 +131,7 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
     }
     debug_log << "POTA: READ "<< data_size << " FROM CACHE!!!!\n";
     if (reload_flag) {
-         debug_log <<"POTA: Fetching Spots from pota.app\n";
+  /*       debug_log <<"POTA: Fetching Spots from pota.app\n";
          SDL_Log("POTA: Fetching Spots from pota.app");
          data_size = http_loader("https://api.pota.app/spot/activator", (void**)&json_spots);                           // live
          if (data_size) {
@@ -144,7 +144,7 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
               free (json_spots);
               json_spots=0;
              }
-         }
+         }*/
     } else {
         spots_raw.clear();
         std::string sanitized(json_spots, data_size);

@@ -100,33 +100,7 @@ SDL_Surface* gen_moon_phase_mask(SDL_Renderer* renderer, SDL_FRect size) {
                         red = 0;
                         alpha = 255; // outside of the lunar disc
                     }
-// old one =======================
-/*
-            double theta = -1*moon_illumination.angle;
-            theta +=45.0;
-                    if (value < (r*r)) {
-                        // inside the lunar disc
-                        double px_pct = value / (r*r);
-                        // rotate coords
-//                        dx *=-1;
-                        double xr =  dx * cos(theta) + dy * sin(theta);
-                        double yr =  -dx * sin(theta) + dy * cos(theta);
-                        double cut = ((2.0*moon_illumination.fraction)-1.0) * sqrt((r*r) - (yr*yr));
-                        if (xr <= cut) {
-                            //illuminated
-                            alpha = 255;
-                        } else {
-                            // shadowd
-                            alpha = 32;
-                            // alpha=96;
-                        }
 
-
-                    } else {
-                        alpha=0;
-                    }
-*/
-// end old one
                     int dest_pixel_index =   ( result->w * dest_bpp * y ) + ( dest_bpp * x );
                     Uint32 dst_pixel_val = SDL_MapRGBA(dest_details, NULL, red, 0, 0, (alpha));
                     memcpy((alpha_pixels + dest_pixel_index), &dst_pixel_val, dest_bpp);
@@ -271,8 +245,8 @@ struct GeoCoord sublunar(const time_t time) {
     double y = sin(lon) * cos(lat) * cos(eps) - sin(lat) * sin(eps);
     double z = sin(lon) * cos(lat) * sin(eps) + sin(lat) * cos(eps);
 
-    double RA  = atan2(y, x);       // radians
-    double Dec = asin(z);
+    double RA_rad  = atan2(y, x);       // radians
+    double Dec_rad = asin(z);
 
     // illuminated fraction of the moon
     // Meeus 46.4 p 316
@@ -297,19 +271,19 @@ struct GeoCoord sublunar(const time_t time) {
     debug_log << "Time: "<< time;
 
     //Meeus 46.5 P 316
-    double RA_Delta = g_celestials.sun.RA - RA;
+    double RA_Delta = g_celestials.sun.RA - RA_rad;
     double numerator = cos(g_celestials.sun.Dec) * sin (RA_Delta);
-    double denominator = (sin(g_celestials.sun.Dec) * cos(Dec))
-                        - cos(g_celestials.sun.Dec) * sin(Dec)
+    double denominator = (sin(g_celestials.sun.Dec) * cos(Dec_rad))
+                        - cos(g_celestials.sun.Dec) * sin(Dec_rad)
                         * cos(RA_Delta);
     moon_illumination.angle = atan2(numerator, denominator);
     // ------ Need to replace this with something better later ------------
     // for now, let's just clamp it to the horizontal
     // until I can figure out proper math, at least this works
     if (i >0) {
-        moon_illumination.angle = 2*M_PI;
-    } else {
         moon_illumination.angle = M_PI;
+    } else {
+        moon_illumination.angle = 2*M_PI;
     }
     moon_illumination.i=i;
     //--------------------------------------------------------------------
@@ -320,21 +294,24 @@ struct GeoCoord sublunar(const time_t time) {
     double GMST = fmod(280.46061837 + 360.98564736629 * d, 360.0);
     if (GMST < 0) GMST += 360.0;
 
-    double lon_sublunar = (GMST*M_PI/180.0) - RA;  // Earth-fixed longitude
+    double lon_sublunar = (GMST*M_PI/180.0) - RA_rad;  // Earth-fixed longitude
     if (lon_sublunar >  M_PI) lon_sublunar -= 2*M_PI;
     if (lon_sublunar < -M_PI) lon_sublunar += 2*M_PI;
 
-    double lat_sublunar = Dec;
+    double lat_sublunar = Dec_rad;
 
-
+    // convert result to degrees
     result.latitude = lat_sublunar*180.0/M_PI;
     result.longitude = lon_sublunar*180.0/M_PI;
+    result.longitude *=-1;
      g_celestials.moon.timestamp=time;
      g_celestials.moon.Lat = result.latitude;
      g_celestials.moon.Lon = result.longitude;
-     g_celestials.moon.RA  = RA;
-     g_celestials.moon.Dec = Dec;
+     g_celestials.moon.RA  = RA_rad;
+     g_celestials.moon.Dec = Dec_rad;
     //        L0  D   DR  M   MR  M0 M0R  F   FR  i   iR  %   T   RAd  num dem ang
+//    SDL_Log ("CSV, %f, %f, %f, %f, %f, %f, %f, %zu",
+//             g_celestials.moon.Lat, g_celestials.moon.Lon, g_celestials.moon.RA, g_celestials.moon.Dec, d, jd, GMST, time);
 //    SDL_Log ("CSV, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %zu, %f, %f, %f, %f",
 //             L0, D, D_rad, M, M_rad, M0, M0_rad, F, F_rad, i, i_rad,
 //             moon_illumination.fraction, time, RA_Delta, numerator, denominator, moon_illumination.angle);
@@ -363,8 +340,7 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
     debug_log << "LUNAR: In Lunar Module\n";
     if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
         SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
-    }
-    else {
+    } else {
         SDL_Log("Lunar Call during resize event!");
         return ;
     }
@@ -376,7 +352,7 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
     }
     if (timestamp == 0) {
         timestamp = time(NULL);
-        if (timestamp - moon_surface_age > 300) {
+        if (timestamp - moon_surface_age > 1200) {
             kill_moon_surface();
         }
     } else {
@@ -438,7 +414,6 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
                 moon_texture = SDL_CreateTextureFromSurface(panel.GetRenderer(), moon_image);
             }
         } else {
-
             debug_log << "LUNAR Missing Moon image or image surface\n";
             if (image_surface) {
                 debug_log << "LUNAR: Loaded image from BMP\n";
@@ -465,7 +440,7 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
     debug_log << "LUNAR: " << boxtext << "\n";
 //    sprintf (boxtext, "Ang: %3.3f\%", (moon_illumination.angle));
 //    panel.render_text(SDL_FRect{unitx,unity+unity,unitx*8,unity}, Sans, SDL_Color{255,128,128,0}, boxtext);
-    SDL_Log (boxtext);
+//    SDL_Log (boxtext);
     if (moon_illumination.fraction > 0.98) {
         sprintf (boxtext, "FULL");
     } else if (moon_illumination.fraction < 0.01) {

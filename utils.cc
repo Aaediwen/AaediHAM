@@ -216,14 +216,14 @@ struct GeoCoord subsolar (const time_t now) {
      double obliquity_rad = obliquity * M_PI / 180.0;
      // solar latitude (MEESUS P153)
      // meesus 24.6 + see note after 24.8
-     double right_ascension = atan2(cos(obliquity_rad) * sin(apparent_longitude_rad), cos(apparent_longitude_rad));
+     double right_ascension_rad = atan2(cos(obliquity_rad) * sin(apparent_longitude_rad), cos(apparent_longitude_rad));
 //     double right_ascension = cot((cos(obliquity_rad) * sin(corrected_mean_solar_lon_rad))
 //                              / cos(corrected_mean_solar_lon_rad));
-     right_ascension *= (180.0/M_PI);
+     double right_ascension = right_ascension_rad * (180.0/M_PI);
      if(right_ascension < 0) right_ascension += 360.0;  // normalize to [0,360)
      // meesus 24.7
-     double declination = asin(sin(obliquity_rad) * sin(apparent_longitude_rad));
-     declination *= (180.0/M_PI);
+     double declination_rad = asin(sin(obliquity_rad) * sin(apparent_longitude_rad));
+     double declination = declination_rad * (180.0/M_PI);
 
      // adjust coordinate system from Celestial to geographical relative to Greenwich
 //      Meesus P89
@@ -242,59 +242,11 @@ struct GeoCoord subsolar (const time_t now) {
      g_celestials.sun.timestamp=time(NULL);
      g_celestials.sun.Lat = result.latitude;
      g_celestials.sun.Lon = result.longitude;
-     g_celestials.sun.RA  = right_ascension;
-     g_celestials.sun.Dec = declination;
+     g_celestials.sun.RA  = right_ascension_rad;
+     g_celestials.sun.Dec = declination_rad;
     return (result);
 }
 
-/*
-// AI Generated
-struct GeoCoord subsolar (const time_t now) {
-    struct GeoCoord result;
-     // Convert to Julian Date
-    double jd = (now / 86400.0) + 2440587.5;
-    double T = (jd - 2451545.0) / 36525.0;
-
-    // Sun mean longitude (deg)
-    double L0 = fmod(280.46645 + 36000.76983*T + 0.0003032*T*T, 360.0);
-
-    // Sun mean anomaly (deg)
-    double M = fmod(357.52911 + 35999.05029*T - 0.0001537*T*T, 360.0);
-
-    // Equation of center (deg)
-    double C = (1.914602 - 0.004817*T - 0.000014*T*T)*sin(M*M_PI/180.0)
-             + (0.019993 - 0.000101*T)*sin(2*M*M_PI/180.0)
-             + 0.000289*sin(3*M*M_PI/180.0);
-
-    // True longitude (deg)
-    double true_long = L0 + C;
-
-    // Apparent longitude (deg) – corrected for nutation
-    double omega = 125.04 - 1934.136 * T;
-    double lambda = true_long - 0.00569 - 0.00478*sin(omega*M_PI/180.0);
-
-    // Obliquity of the ecliptic (deg)
-    double eps = 23.439291 - 0.0130042*T;
-
-    // Right ascension and declination
-    double alpha = atan2(cos(eps*M_PI/180.0)*sin(lambda*M_PI/180.0),
-                         cos(lambda*M_PI/180.0)) * 180.0/M_PI;
-    double delta = asin(sin(eps*M_PI/180.0)*sin(lambda*M_PI/180.0)) * 180.0/M_PI;
-
-    // Greenwich Mean Sidereal Time (deg)
-    double d = jd - 2451545.0;
-    double GMST = fmod(280.46061837 + 360.98564736629*d, 360.0);
-
-    // Subsolar longitude
-    double lon = fmod(alpha - GMST, 360.0);
-    if (lon < -180) lon += 360;
-    if (lon > 180) lon -= 360;
-
-    result.latitude = delta;
-    result.longitude = lon;
-    return (result);
-}
-*/
 void sun_times(double lat, double lon, time_t* sunrise, time_t* sunset, double *solar_alt, time_t now) {
     // fet sunrise and sunset times
     tm* utc = gmtime(&now);
