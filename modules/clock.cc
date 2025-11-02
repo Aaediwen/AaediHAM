@@ -34,6 +34,7 @@ int draw_clock(ScreenFrame& panel, TTF_Font* font) {
     TextRect.h=(panel.dims.h/5)*2;
     TextRect.w=((panel.dims.w/5)*2)-4;
     time_t currenttime = time(NULL);
+    debug_log << "\t\t\t\t\tCLOCK: "<< currenttime;
     struct tm* clocktime = gmtime(&currenttime);
     strftime(timestr, sizeof(timestr), "%Y-%m-%d", clocktime);
     panel.render_text(TextRect, font, fontcolor, timestr);
@@ -45,7 +46,7 @@ int draw_clock(ScreenFrame& panel, TTF_Font* font) {
     strftime(timestr, sizeof(timestr), "%H:%M:%S UTC", clocktime);
 #endif
     panel.render_text(TextRect, font, fontcolor, timestr);
-
+    debug_log << timestr << "\n";
 
      // local
     TextRect.x=2;

@@ -55,7 +55,7 @@ void write_wind_cache(std::ostringstream& cache_stream, time_t max_timestamp) {
              std::string index_string;
              try {
                   index_string = (*wind_index)[0].get<std::string>();
-                  debug_log << "KINDEX: Time String: " <<  index_string.c_str() << "\n";
+//                  debug_log << "KINDEX: Time String: " <<  index_string.c_str() << "\n";
                   new_node.timestamp = parse_time_tag(index_string);
                   current_timestamp = new_node.timestamp;
                   new_node.day_mark = false;
@@ -67,13 +67,13 @@ void write_wind_cache(std::ostringstream& cache_stream, time_t max_timestamp) {
                        }
                   }
                   index_string = (*wind_index)[1].get<std::string>();
-                  debug_log << "KINDES: Density String: " << index_string.c_str() << "\n";
+//                  debug_log << "KINDES: Density String: " << index_string.c_str() << "\n";
                   new_node.density = std::stof(index_string);
                   index_string = (*wind_index)[2].get<std::string>();
-                  debug_log << "KINDEX: Speed String: " << index_string.c_str() << "\n";
+//                  debug_log << "KINDEX: Speed String: " << index_string.c_str() << "\n";
                   new_node.speed = std::stof(index_string);
                   index_string = (*wind_index)[3].get<std::string>();
-                  debug_log << "KINDEX: Temp String: " << index_string.c_str()<< "\n";
+//                  debug_log << "KINDEX: Temp String: " << index_string.c_str()<< "\n";
                   new_node.temperature = std::stoi(index_string);
                   raw_points.push_back(new_node);
              } catch (const std::exception& e) {
@@ -175,7 +175,7 @@ void fetch_kindex () {
 Uint32 SDLCALL fetch_kindex (void *userdata, SDL_TimerID timerID, Uint32 interval) {
   if (timerID) {
     fetch_kindex();
-    return (interval);
+    return (3600000); // 6 hrs
   } else {
     return 0;
   }
@@ -188,8 +188,7 @@ void k_index_chart (ScreenFrame& panel) {
     char* k_index_list = 0 ;
     char* solar_wind_list = 0;
     if (!kindex_timer) {
-      fetch_kindex();
-      kindex_timer = SDL_AddTimer(3600000, fetch_kindex, NULL);
+      kindex_timer = SDL_AddTimer(30, fetch_kindex, NULL);
     }
 
     if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
@@ -225,26 +224,7 @@ void k_index_chart (ScreenFrame& panel) {
         }
     }
 
-/*    if (reload_flag) {
-//        SDL_Log ("Fetching Solar Weather from NOAA");
-//        debug_log << "KINDEX: Kindex cache Miss fetching data from NOAA\n";
-//        data_size = http_loader("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json", (void**)&k_index_list);   // live
-//        data_size += http_loader("https://services.swpc.noaa.gov/products/solar-wind/plasma-7-day.json", (void**)&solar_wind_list);
-//        debug_log << "KINDEX: Fetched Sources\n";
-        if (data_size) {
-            merged = merge_json(k_index_list, solar_wind_list);
-            add_data_cache(MOD_KINDEX, merged.length(), (void*)merged.data());
-            if (k_index_list) {
-              free (k_index_list);
-              k_index_list = 0;
-            }
-            if (solar_wind_list) {
-              free (solar_wind_list);
-              solar_wind_list = 0;
-            }
-        }
-    }
-    */
+
     data.clear();
     debug_log << "KINDEX: Cache Data size! " <<  merged.size() << "\n";
     data.str(merged);
@@ -266,6 +246,7 @@ void k_index_chart (ScreenFrame& panel) {
     size_t kindex_count;
     if (merged.length() < 5) {
       debug_log << "KINDEX: Missing Solar Data!\n";
+      panel.render_text(SDL_FRect {panel.dims.w/20, panel.dims.h/4, (panel.dims.w/10)*8, panel.dims.h/10}, Sans, SDL_Color{128,128,128,0}, "MISSING KINDEX DATA");
       return;
     }
 

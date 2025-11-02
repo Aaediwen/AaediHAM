@@ -9,6 +9,7 @@
 #include <cstring>
 #include <sstream>
 
+SDL_TimerID wspr_timer = 0;
 
 
 TrackedWSPR::TrackedWSPR(const std::string& tx_call, TrackedWSPR::Band band, time_t start = 0) {
@@ -350,26 +351,31 @@ void wspr_serialize() {
 
 }
 
-void wspr_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
-    if (wsprlist.empty()) {
-        SDL_Color wsprcolor;
-        wsprcolor = {128, 128, 128, 255};
-        std::string callsign;
-        int band;
-        while (clockconfig.next_wspr(&callsign, &band)) {
-            wsprcolor.r += 16;
-            if (wsprcolor.r > 255) { wsprcolor.r=0; }
-            wsprcolor.g -=16;
-            if (wsprcolor.g < 0) { wsprcolor.g=255; }
-            wsprcolor.b -=16;
-            if (wsprcolor.b < 0) { wsprcolor.b=255; }
-            wsprlist.emplace_back(callsign, static_cast<TrackedWSPR::Band>(band));
-            wsprlist.back().gen_telemetry();
-            wsprlist.back().m_color = wsprcolor;
-
+Uint32 SDLCALL update_wspr (void *userdata, SDL_TimerID timerID, Uint32 interval) {
+     if (timerID) {
+          SDL_Color wsprcolor;
+          wsprcolor = {128, 128, 128, 255};
+          std::string callsign;
+          int band;
+          while (clockconfig.next_wspr(&callsign, &band)) {
+              wsprcolor.r += 16;
+              if (wsprcolor.r > 255) { wsprcolor.r=0; }
+              wsprcolor.g -=16;
+              if (wsprcolor.g < 0) { wsprcolor.g=255; }
+              wsprcolor.b -=16;
+              if (wsprcolor.b < 0) { wsprcolor.b=255; }
+              wsprlist.emplace_back(callsign, static_cast<TrackedWSPR::Band>(band));
+              wsprlist.back().gen_telemetry();
+              wsprlist.back().m_color = wsprcolor;
         }
+     }
+     return 0;
+}
 
-    }
+void wspr_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
+     if (wsprlist.empty()) {
+          wspr_timer = SDL_AddTimer(30, update_wspr, NULL);
+     }
 
     SDL_FRect TextRect;
     delete_owner_pins(MOD_WSPR);
@@ -386,17 +392,15 @@ void wspr_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     mapsize.w = map.dims.w;
     mapsize.h = map.dims.h;
 
-    ScreenFrame* overlay = overlays.get_overlay(panel.GetRenderer(), MOD_WSPR, mapsize);
-    overlay->Clear(SDL_Color{0,0,0,0});
-    bool redraw_flag = false;
-    redraw_flag = (!overlays.overlay_check(MOD_WSPR));
+
     debug_log << "WSPR: Drawing overlay\n";
     float height_unit = panel.dims.h / 20;
     float width_unit = panel.dims.w / 20;
     if (!wsprlist.empty()) {
         SDL_FRect TextBox ;
         char timestr[64];
-
+        ScreenFrame* overlay = overlays.get_overlay(panel.GetRenderer(), MOD_WSPR, mapsize);
+        overlay->Clear(SDL_Color{0,0,0,0});
         TextBox.x=width_unit;
         TextBox.y = height_unit;
         TextBox.h = height_unit*2;

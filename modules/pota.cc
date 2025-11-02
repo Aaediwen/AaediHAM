@@ -61,10 +61,13 @@ void fetch_pota () {
      char* json_spots = 0 ;
      Uint32 data_size = 0;
      debug_log <<"POTA: Fetching Spots from pota.app via timer\n";
+     SDL_Log("Fetching Spots from pota.app via timer");
      data_size = http_loader("https://api.pota.app/spot/activator", (void**)&json_spots);                           // live
+
      if (data_size) {
           std::string blob = pota_json_parser(json_spots);
           add_data_cache(MOD_POTA, blob.length(), (void*)blob.data());
+          SDL_Log("Stored POTA");
           if(json_spots) {
                free (json_spots);
                json_spots=0;
@@ -76,7 +79,7 @@ void fetch_pota () {
 Uint32 SDLCALL fetch_pota (void *userdata, SDL_TimerID timerID, Uint32 interval) {
      if (timerID) {
           fetch_pota();
-          return (interval);
+          return (300000);
      } else {
           return 0;
      }
@@ -87,8 +90,8 @@ Uint32 SDLCALL fetch_pota (void *userdata, SDL_TimerID timerID, Uint32 interval)
 int pota_page[2]={0,2};
 void pota_spots(ScreenFrame& panel, TTF_Font* font) {
      if (!pota_timer) {
-          fetch_pota();
-          pota_timer = SDL_AddTimer(300000, fetch_pota, NULL);
+//          fetch_pota();
+          pota_timer = SDL_AddTimer(30, fetch_pota, NULL);
      }
 
      if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {

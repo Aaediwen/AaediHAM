@@ -172,6 +172,7 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
          SDL_RenderClear(panel->GetRenderer());
 
          SDL_FRect pin_rect = {4.0f, 4.0f, 8.0f, 8.0f};
+         pin_rect = { unit_scale/5.0f, unit_scale/5.0f, unit_scale*0.6f, unit_scale*0.6f };
          SDL_SetRenderDrawColor(panel->GetRenderer(), 16, 16, 16, 128);
          SDL_RenderFillRect(panel->GetRenderer(), NULL);
          SDL_SetRenderDrawColor(panel->GetRenderer(), current_pin->color.r, current_pin->color.g, current_pin->color.b, current_pin->color.a);
@@ -275,7 +276,7 @@ Uint32 SDLCALL regen_mask (void *userdata, SDL_TimerID timerID, Uint32 interval)
 //            (void*)args->source, (void*)args->dest,
 //            args->panel_dims.w, args->panel_dims.h);
         regen_mask (args->source, args->dest, args->panel_dims);
-        return (interval);
+        return (30000);
     } else {
         return 0;
     }
@@ -339,7 +340,7 @@ int draw_map(ScreenFrame& panel) {
         night_mask_args->source = NightMap.surface;
         night_mask_args->dest = night_mask;
         night_mask_args->panel_dims = panel.dims;
-        map_timer = SDL_AddTimer(30000, regen_mask, night_mask_args);
+        map_timer = SDL_AddTimer(30, regen_mask, night_mask_args);
         debug_log << "MAP: Regen NightMask -- bad renderer\t Old: "<< old_renderer << "\tNew: "<< panel.GetRenderer() <<"\n";
         old_renderer = panel.GetRenderer();
 
@@ -385,6 +386,7 @@ int draw_map(ScreenFrame& panel) {
             current_pin=current_pin->next;
         }
     }
+
     overlays.reset_index();
     ScreenFrame* overlay = overlays.next_overlay();
     while (overlay) {
@@ -393,6 +395,7 @@ int draw_map(ScreenFrame& panel) {
          SDL_RenderTexture(panel.GetRenderer(), overlay->texture, NULL, NULL);
          overlay = overlays.next_overlay();
     }
+
 //    SDL_Log("Drawing Map Complete");
     return 0;
 }

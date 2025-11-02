@@ -23,6 +23,7 @@ void sun_times(double lat, double lon, time_t* sunrise, time_t* sunset, double *
 int add_pin(struct map_pin* new_pin);
 int delete_owner_pins(enum mod_name owner);
 int delete_mod_cache(enum mod_name owner);
+void dump_cache();
 int add_data_cache(enum mod_name owner, const Uint32 size, const void* data);
 int fetch_data_cache(enum mod_name owner, time_t *age, Uint32 *size, void* data);
 int http_loader(const char* source_url, void** result);

@@ -5,6 +5,31 @@
 #include <SDL3/SDL_iostream.h>
 #include <SDL3_image/SDL_image.h>
 
+SDL_TimerID sdo_timer = 0;
+
+void fetch_sdo () {
+         Uint32 data_size = 0;
+         char* raw_image = 0 ;
+        SDL_Log ("Fetching SDO image from NASA");
+        debug_log << "SOLAR: Fetching SDO image from NASA --  ";
+         data_size = http_loader("https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg", (void**)&raw_image);                           // live
+         if (data_size) {
+             debug_log << "SOLAR: Loaded image size: " << data_size << " bytes\n";
+             add_data_cache(MOD_SOLAR, data_size, (void*)raw_image);
+         } else {
+             debug_log << "Failed\n";
+             debug_log << "SDO Fetch Failed\n";
+         }
+}
+
+Uint32 SDLCALL fetch_sdo (void *userdata, SDL_TimerID timerID, Uint32 interval) {
+     if (timerID) {
+          fetch_sdo();
+          return (1200000); // 2 hours
+     } else {
+          return 0;
+     }
+}
 
 void sdo_image(ScreenFrame& panel, time_t timestamp) {
     debug_log << "SOLAR: In SOLAR module\n";
@@ -13,6 +38,9 @@ void sdo_image(ScreenFrame& panel, time_t timestamp) {
     time_t cache_time;
     int reload_flag =0;
     char* raw_image = 0 ;
+    if (!sdo_timer) {
+        sdo_timer=SDL_AddTimer(60, fetch_sdo, NULL);
+    }
     if (timestamp ==0) {
         timestamp = time(NULL);
     }
@@ -37,15 +65,6 @@ void sdo_image(ScreenFrame& panel, time_t timestamp) {
     debug_log.flush();
     bool goodread;
     goodread = true;
-    if (reload_flag) {
-        SDL_Log ("Fetching SDO image from NASA");
-        debug_log << "SOLAR: Fetching SDO image from NASA\n";
-         data_size = http_loader("https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg", (void**)&raw_image);                           // live
-         if (data_size) {
-             debug_log << "SOLAR: Loaded image size: " << data_size << " bytes\n";
-             add_data_cache(MOD_SOLAR, data_size, (void*)raw_image);
-         }
-    }
 
     if (data_size < 10) {
         goodread = false;

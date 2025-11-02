@@ -29,11 +29,7 @@ std::array<SDL_Mutex*, 10> mutexes = { nullptr };
 struct map_pin 		    *map_pins;
 struct data_blob	    *data_cache;
 config 		            clockconfig;
-/*SDL_Mutex* night_mask_mutex = nullptr;
-SDL_Mutex* resize_mutex = nullptr;
-SDL_Mutex* cache_mutex = nullptr;
-SDL_Mutex* http_mutex = nullptr;
-static SDL_Mutex* master_clock_mutex; */
+
 SDL_TimerID map_timer = 0;
 Uint8 interrupt_counter = 0;
 struct regen_mask_args* night_mask_args = nullptr;
@@ -69,29 +65,73 @@ struct {
 
 SDL_TimerID flag_timer = 0;
 
+void panel_assignment(bool increment) {
+    for (auto& panel : winboxes) {
+        if (panel.sequence.size()) {
+            if (increment) {
+                panel.index++;
+                if (panel.index >= panel.sequence.size()) { panel.index = 0 ; }
+            }
+            switch (panel.sequence[panel.index]) {
+                case MOD_MAP:
+                    master_flags.map.panel = &panel.panel;
+                    break;
+                case MOD_DE:
+                    master_flags.de.panel = &panel.panel;
+                    break;
+                case MOD_DX:
+                    master_flags.dx.panel = &panel.panel;
+                    break;
+                case MOD_CLOCK:
+                    master_flags.clock.panel = &panel.panel;
+                    break;
+                case MOD_CALL:
+                    master_flags.callsign.panel = &panel.panel;
+                    break;
+                case MOD_POTA:
+                    master_flags.pota.panel = &panel.panel;
+                    break;
+                case MOD_PSK:
+                    break;
+                case MOD_SAT:
+                    master_flags.sat_tracker.panel = &panel.panel;
+                    break;
+                case MOD_DXSPOT:
+                    master_flags.dx_spots.panel = &panel.panel;
+                    break;
+                case MOD_KINDEX:
+                    master_flags.kindex.panel = &panel.panel;
+                    break;
+                case MOD_NCDXF:
+                    master_flags.ncdxf.panel = &panel.panel;
+                    break;
+                case MOD_SOLAR:
+                    master_flags.solar.panel = &panel.panel;
+                    break;
+                case MOD_WSPR:
+                    master_flags.wspr.panel = &panel.panel;
+                    break;
+                case MOD_LUNAR:
+                    master_flags.lunar.panel = &panel.panel;
+                    break;
+            }
+        }
+    }
+}
+
+
 Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interval) {
-//    debug_log << "FLAG TIMER: In Master flag timer\n";
-    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
-        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
-    }
-    else {
-        SDL_Log("Master Clock run during resize!");
-        return (interval);
-    }
+//    SDL_Log ("FLAG TIMER: In Master flag timer\n");
     (void) userdata;
     interrupt_counter++;
-    if (interrupt_counter > 200) {
+
+    if (interrupt_counter > 4800) {
         interrupt_counter = 0;
     }
     if (timerID) {
         SDL_LockMutex(mutexes[MUTEX_MASTER_CLOCK]);
-        if ((interrupt_counter % 1200)==0) {	// 120 seconds
-            master_flags.kindex.draw_flag = true;
-            master_flags.solar.draw_flag = true;
-            master_flags.wspr.draw_flag = true;
-            master_flags.lunar.draw_flag = true;
-        }
-        if ((interrupt_counter % 6000) == 0) {	// 60 seconds
+
+        if ((interrupt_counter % 600) == 0) {	// 60 seconds
             debug_log << "FLAG_TIMER: MOD PAGER FIRED!\n";
             debug_log.flush();
             master_flags.map.panel	=	&(winboxes[PANEL_MAP].panel);
@@ -107,59 +147,7 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
             master_flags.solar.panel	=	&(winboxes[PANEL_NULL].panel);
             master_flags.wspr.panel	=	&(winboxes[PANEL_NULL].panel);
             master_flags.lunar.panel	=	&(winboxes[PANEL_NULL].panel);
-
-            for (auto& panel : winboxes) {
-
-                if (panel.sequence.size()) {
-                    panel.index++;
-                    if (panel.index >= panel.sequence.size()) { panel.index = 0 ; }
-                    switch (panel.sequence[panel.index]) {
-                        case MOD_MAP:
-                            master_flags.map.panel = &panel.panel;
-                            break;
-                        case MOD_DE:
-                            master_flags.de.panel = &panel.panel;
-                            break;
-                        case MOD_DX:
-                            master_flags.dx.panel = &panel.panel;
-                            break;
-                        case MOD_CLOCK:
-                            master_flags.clock.panel = &panel.panel;
-                            break;
-                        case MOD_CALL:
-                            master_flags.callsign.panel = &panel.panel;
-                            break;
-                        case MOD_POTA:
-                            master_flags.pota.panel = &panel.panel;
-                            break;
-                        case MOD_PSK:
-                            break;
-                        case MOD_SAT:
-                            master_flags.sat_tracker.panel = &panel.panel;
-                            break;
-                        case MOD_DXSPOT:
-                            master_flags.dx_spots.panel = &panel.panel;
-                            break;
-                        case MOD_KINDEX:
-                            master_flags.kindex.panel = &panel.panel;
-                            break;
-                        case MOD_NCDXF:
-                            master_flags.ncdxf.panel = &panel.panel;
-                            break;
-                        case MOD_SOLAR:
-                            master_flags.solar.panel = &panel.panel;
-                            break;
-                        case MOD_WSPR:
-                            master_flags.wspr.panel = &panel.panel;
-                            break;
-                        case MOD_LUNAR:
-                            master_flags.lunar.panel = &panel.panel;
-                            break;
-
-                    }
-                }
-
-            }
+            panel_assignment(true);
 
         }
 
@@ -167,22 +155,34 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
         if ((interrupt_counter % 300)==0) {	// 30 seconds
             master_flags.callsign.draw_flag = true;
         }
+
+        if ((interrupt_counter % 170)==0) {	// 17 seconds
+            master_flags.kindex.draw_flag = true;
+            master_flags.solar.draw_flag = true;
+            master_flags.wspr.draw_flag = true;
+            master_flags.lunar.draw_flag = true;
+        }
+
+
+        if ((interrupt_counter % 50)==0) {	// 5 seconds
+            master_flags.de.draw_flag = true;
+            master_flags.dx.draw_flag = true;
+            master_flags.pota.draw_flag = true;
+            master_flags.ncdxf.draw_flag = true;
+            master_flags.dx_spots.draw_flag = true;
+        }
+
+        if ((interrupt_counter % 20)==0) {	// 2 seconds
+
+        }
+
         if ((interrupt_counter % 10)==0) {	// 1 second
 
             master_flags.map.draw_flag = true;
             master_flags.clock.draw_flag = true;
             master_flags.sat_tracker.draw_flag = true;
         }
-        if ((interrupt_counter % 50)==0) {	// 5 seconds
-            master_flags.de.draw_flag = true;
-            master_flags.dx.draw_flag = true;
-            master_flags.pota.draw_flag = true;
-            master_flags.ncdxf.draw_flag = true;
-        }
 
-        if ((interrupt_counter % 20)==0) {	// 2 seconds
-            master_flags.dx_spots.draw_flag = true;
-        }
 //        debug_log << "FLAG_TIMER: Master flag timer done.\n";
         SDL_UnlockMutex(mutexes[MUTEX_MASTER_CLOCK]);
         return (interval);
@@ -308,6 +308,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 } else {
                     debug_log << "RESIZE: created new renderer: " << (void*)clock_renderer << "\n";
                     debug_log << "RESIZE: Using Driver : " << SDL_GetRendererName(clock_renderer) << " on " << SDL_GetCurrentVideoDriver() << "\n";
+                    std::cout << "RESIZE: Using Driver : " << SDL_GetRendererName(clock_renderer) << " on " << SDL_GetCurrentVideoDriver() << "\n";
                 }
             }
             for (auto& p : panels) {
@@ -321,156 +322,159 @@ void resize_panels(std::array<pager_node, 12>& panels) {
             SDL_RenderClear(clock_renderer);
             SDL_RenderPresent(clock_renderer);
 
+            if ((win_x > 10) && (win_y > 10)) {
+                SDL_FRect panel_dims;
+                debug_log << "RESIZE: Creating New surfaces\n";
+                debug_log.flush();
+                //Rebuilding Callsign panel
+                panel_dims.x = 0;
+                panel_dims.y = 0;
+                panel_dims.w = (win_x / 6.0f) * 2.0f;
+                panel_dims.h = win_y / 8.0f;
 
-            SDL_FRect panel_dims;
-            debug_log << "RESIZE: Creating New surfaces\n";
-            debug_log.flush();
-            //Rebuilding Callsign panel
-            panel_dims.x = 0;
-            panel_dims.y = 0;
-            panel_dims.w = (win_x / 6.0f) * 2.0f;
-            panel_dims.h = win_y / 8.0f;
+                SDL_ClearError();
+                debug_log << "RESIZE Creating Callsign Texture -- ";
+                if (!panels[PANEL_CALLSIGN].panel.Create(clock_renderer, panel_dims)) {
+                    printf("Error Creating callsign tex: %s\n", SDL_GetError());
+                }
+                debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
+                //Rebuilding Clock panel
+                panel_dims.x = 0.0f;
+                panel_dims.y = win_y / 8.0f;
+                panel_dims.w = (win_x / 6.0f) * 2.0f;
+                panel_dims.h = win_y / 8.0f;
+                SDL_ClearError();
+                debug_log << "RESIZE Creating Clock Texture -- ";
+                if (!panels[PANEL_CLOCK].panel.Create(clock_renderer, panel_dims)) {
+                    printf("Error Creating Clock: %s\n", SDL_GetError());
+                }
+                debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
+                //Rebuilding Map panel
+                panel_dims.x = win_x / 6.0f;
+                panel_dims.y = win_y / 4.0f;
+                panel_dims.w = (win_x / 6.0f) * 5.0f;
+                panel_dims.h = (win_y / 4.0f) * 3.0f;
+                SDL_ClearError();
+                debug_log << "RESIZE Creating Map Texture -- ";
+                if (!panels[PANEL_MAP].panel.Create(clock_renderer, panel_dims)) {
+                    printf("Error Creating MAP: %s\n", SDL_GetError());
+                }
+                debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
+                //Rebuilding DE panel
+                panel_dims.x = 0;
+                panel_dims.y = win_y / 4.0f;
+                panel_dims.w = win_x / 6.0f;
+                panel_dims.h = win_y / 4.0f;
+                SDL_ClearError();
+                debug_log << "RESIZE Creating DE Texture -- ";
+                if (!panels[PANEL_DE].panel.Create(clock_renderer, panel_dims)) {
+                    printf("Error Creating DE: %s\n", SDL_GetError());
+                }
+                debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
+                //Rebuilding DX panel");
+                panel_dims.x = 0;
+                panel_dims.y = win_y / 2.0f;
+                panel_dims.w = win_x / 6.0f;
+                panel_dims.h = win_y / 4.0f;
+                SDL_ClearError();
+                debug_log << "RESIZE Creating DX Texture -- ";
+                if (!panels[PANEL_DX].panel.Create(clock_renderer, panel_dims)) {
+                    printf("Error Creating DX tex: %s\n", SDL_GetError());
+                }
+                debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
+                //Rebuilding col3 panel");
+                panel_dims.x = 0;
+                panel_dims.y = (win_y / 4.0f) * 3.0f;
+                panel_dims.w = win_x / 6.0f;
+                panel_dims.h = win_y / 4.0f;
+                SDL_ClearError();
+                debug_log << "RESIZE Creating Flex5 Texture -- ";
+                if (!panels[PANEL_FLEXBOX5].panel.Create(clock_renderer, panel_dims)) {
+                    printf("Error Creating corner tex: %s\n", SDL_GetError());
+                }
+                debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
 
-            SDL_ClearError();
-            debug_log << "RESIZE Creating Callsign Texture -- ";
-            if (!panels[PANEL_CALLSIGN].panel.Create(clock_renderer, panel_dims)) {
-                printf("Error Creating callsign tex: %s\n", SDL_GetError());
-            }
-            debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
-            //Rebuilding Clock panel
-            panel_dims.x = 0.0f;
-            panel_dims.y = win_y / 8.0f;
-            panel_dims.w = (win_x / 6.0f) * 2.0f;
-            panel_dims.h = win_y / 8.0f;
-            SDL_ClearError();
-            debug_log << "RESIZE Creating Clock Texture -- ";
-            if (!panels[PANEL_CLOCK].panel.Create(clock_renderer, panel_dims)) {
-                printf("Error Creating Clock: %s\n", SDL_GetError());
-            }
-            debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
-            //Rebuilding Map panel
-            panel_dims.x = win_x / 6.0f;
-            panel_dims.y = win_y / 4.0f;
-            panel_dims.w = (win_x / 6.0f) * 5.0f;
-            panel_dims.h = (win_y / 4.0f) * 3.0f;
-            SDL_ClearError();
-            debug_log << "RESIZE Creating Map Texture -- ";
-            if (!panels[PANEL_MAP].panel.Create(clock_renderer, panel_dims)) {
-                printf("Error Creating MAP: %s\n", SDL_GetError());
-            }
-            debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
-            //Rebuilding DE panel
-            panel_dims.x = 0;
-            panel_dims.y = win_y / 4.0f;
-            panel_dims.w = win_x / 6.0f;
-            panel_dims.h = win_y / 4.0f;
-            SDL_ClearError();
-            debug_log << "RESIZE Creating DE Texture -- ";
-            if (!panels[PANEL_DE].panel.Create(clock_renderer, panel_dims)) {
-                printf("Error Creating DE: %s\n", SDL_GetError());
-            }
-            debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
-            //Rebuilding DX panel");
-            panel_dims.x = 0;
-            panel_dims.y = win_y / 2.0f;
-            panel_dims.w = win_x / 6.0f;
-            panel_dims.h = win_y / 4.0f;
-            SDL_ClearError();
-            debug_log << "RESIZE Creating DX Texture -- ";
-            if (!panels[PANEL_DX].panel.Create(clock_renderer, panel_dims)) {
-                printf("Error Creating DX tex: %s\n", SDL_GetError());
-            }
-            debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
-            //Rebuilding col3 panel");
-            panel_dims.x = 0;
-            panel_dims.y = (win_y / 4.0f) * 3.0f;
-            panel_dims.w = win_x / 6.0f;
-            panel_dims.h = win_y / 4.0f;
-            SDL_ClearError();
-            debug_log << "RESIZE Creating Flex5 Texture -- ";
-            if (!panels[PANEL_FLEXBOX5].panel.Create(clock_renderer, panel_dims)) {
-                printf("Error Creating corner tex: %s\n", SDL_GetError());
-            }
-            debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
+                //Rebuilding Rowbox1 panel"
+                panel_dims.x = (win_x / 6.0f) * 2.0f;
+                panel_dims.y = 0.0f;
+                panel_dims.w = (win_x / 6.0f);
+                panel_dims.h = win_y / 4.0f;
+                SDL_ClearError();
+                debug_log << "RESIZE Creating Flex1 Texture -- ";
+                if (!panels[PANEL_FLEXBOX1].panel.Create(clock_renderer, panel_dims)) {
+                    printf("Error Creating Rowbox1 tex: %s\n", SDL_GetError());
+                }
+                debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
+                //Rebuilding Rowbox2 panel
+                panel_dims.x = (win_x / 6.0f) * 3.0f;
+                panel_dims.y = 0.0f;
+                panel_dims.w = (win_x / 6.0f);
+                panel_dims.h = win_y / 4.0f;
+                SDL_ClearError();
+                debug_log << "RESIZE Creating Flex2 Texture -- ";
+                if (!panels[PANEL_FLEXBOX2].panel.Create(clock_renderer, panel_dims)) {
+                    printf("Error Creating Rowbox2 tex: %s\n", SDL_GetError());
+                }
+                debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
+                //Rebuilding Rowbox3 panel
+                panel_dims.x = (win_x / 6.0f) * 4.0f;
+                panel_dims.y = 0;
+                panel_dims.w = (win_x / 6.0f);
+                panel_dims.h = win_y / 4.0f;
+                SDL_ClearError();
+                debug_log << "RESIZE Creating Flex3 Texture -- ";
+                if (!panels[PANEL_FLEXBOX3].panel.Create(clock_renderer, panel_dims)) {
+                    printf("Error Creating Rowbox3 tex: %s\n", SDL_GetError());
+                }
+                debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
+                //"Rebuilding Rowbox4 panel
+                panel_dims.x = (win_x / 6.0f) * 5.0f;
+                panel_dims.y = 0.0f;
+                panel_dims.w = (win_x / 6.0f);
+                panel_dims.h = win_y / 4.0f;
+                SDL_ClearError();
+                debug_log << "RESIZE Creating Flex4 Texture -- ";
+                if (!panels[PANEL_FLEXBOX4].panel.Create(clock_renderer, panel_dims)) {
+                    printf("Error Creating Rowbox4 tex: %s\n", SDL_GetError());
+                }
+                debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
+                //Rebuilding NULL panel
+                panel_dims.x = 0.0f;
+                panel_dims.y = 0.0f;
+                panel_dims.w = 100.0f;
+                panel_dims.h = 100.0f;
+                SDL_ClearError();
+                debug_log << "RESIZE Creating NULL Texture -- ";
+                if (!panels[PANEL_NULL].panel.Create(clock_renderer, panel_dims)) {
+                    printf("Error Creating nullframe tex: %s\n", SDL_GetError());
+                }
+                debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
+                panel_assignment(false);
 
-            //Rebuilding Rowbox1 panel"
-            panel_dims.x = (win_x / 6.0f) * 2.0f;
-            panel_dims.y = 0.0f;
-            panel_dims.w = (win_x / 6.0f);
-            panel_dims.h = win_y / 4.0f;
-            SDL_ClearError();
-            debug_log << "RESIZE Creating Flex1 Texture -- ";
-            if (!panels[PANEL_FLEXBOX1].panel.Create(clock_renderer, panel_dims)) {
-                printf("Error Creating Rowbox1 tex: %s\n", SDL_GetError());
+                debug_log << "RESIZE: Reloading Maps and Icon assets\n";
+                debug_log.flush();
+                // recreate the map textures as well so they don't get lost
+                load_maps(clock_renderer, panels[PANEL_MAP].panel.dims);
+                icon_bin.reload_icons(clock_renderer);
+                debug_log << "RESIZE: Re-enabling program loops\n";
+                debug_log.flush();
+                // re-enable the rest of the program
+                master_flags.callsign.draw_flag = true;
+                master_flags.de.draw_flag = true;
+                master_flags.dx.draw_flag = true;
+                master_flags.pota.draw_flag = true;
+                master_flags.sat_tracker.draw_flag = true;
+                master_flags.dx_spots.draw_flag = true;
+                master_flags.ncdxf.draw_flag = true;
+                master_flags.map.draw_flag = true;
+                master_flags.clock.draw_flag = true;
+                master_flags.solar.draw_flag = true;
+                master_flags.wspr.draw_flag = true;
+                master_flags.lunar.draw_flag = true;
+                flag_timer = SDL_AddTimer(100, master_clock, &master_flags);
+                debug_log << "RESIZE: Window resize complete\n";
+                debug_log.flush();
             }
-            debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
-            //Rebuilding Rowbox2 panel
-            panel_dims.x = (win_x / 6.0f) * 3.0f;
-            panel_dims.y = 0.0f;
-            panel_dims.w = (win_x / 6.0f);
-            panel_dims.h = win_y / 4.0f;
-            SDL_ClearError();
-            debug_log << "RESIZE Creating Flex2 Texture -- ";
-            if (!panels[PANEL_FLEXBOX2].panel.Create(clock_renderer, panel_dims)) {
-                printf("Error Creating Rowbox2 tex: %s\n", SDL_GetError());
-            }
-            debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
-            //Rebuilding Rowbox3 panel
-            panel_dims.x = (win_x / 6.0f) * 4.0f;
-            panel_dims.y = 0;
-            panel_dims.w = (win_x / 6.0f);
-            panel_dims.h = win_y / 4.0f;
-            SDL_ClearError();
-            debug_log << "RESIZE Creating Flex3 Texture -- ";
-            if (!panels[PANEL_FLEXBOX3].panel.Create(clock_renderer, panel_dims)) {
-                printf("Error Creating Rowbox3 tex: %s\n", SDL_GetError());
-            }
-            debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
-            //"Rebuilding Rowbox4 panel
-            panel_dims.x = (win_x / 6.0f) * 5.0f;
-            panel_dims.y = 0.0f;
-            panel_dims.w = (win_x / 6.0f);
-            panel_dims.h = win_y / 4.0f;
-            SDL_ClearError();
-            debug_log << "RESIZE Creating Flex4 Texture -- ";
-            if (!panels[PANEL_FLEXBOX4].panel.Create(clock_renderer, panel_dims)) {
-                printf("Error Creating Rowbox4 tex: %s\n", SDL_GetError());
-            }
-            debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
-            //Rebuilding NULL panel
-            panel_dims.x = 0.0f;
-            panel_dims.y = 0.0f;
-            panel_dims.w = 100.0f;
-            panel_dims.h = 100.0f;
-            SDL_ClearError();
-            debug_log << "RESIZE Creating NULL Texture -- ";
-            if (!panels[PANEL_NULL].panel.Create(clock_renderer, panel_dims)) {
-                printf("Error Creating nullframe tex: %s\n", SDL_GetError());
-            }
-            debug_log << "SDL_CreateTexture Result: " << SDL_GetError() << "\n";
-            debug_log << "RESIZE: Reloading Maps and Icon assets\n";
-            debug_log.flush();
-            // recreate the map textures as well so they don't get lost
-            load_maps(clock_renderer, panels[PANEL_MAP].panel.dims);
-            icon_bin.reload_icons(clock_renderer);
-            debug_log << "RESIZE: Re-enabling program loops\n";
-            debug_log.flush();
-            // re-enable the rest of the program
-            master_flags.callsign.draw_flag = true;
-            master_flags.de.draw_flag = true;
-            master_flags.dx.draw_flag = true;
-            master_flags.pota.draw_flag = true;
-            master_flags.sat_tracker.draw_flag = true;
-            master_flags.dx_spots.draw_flag = true;
-            master_flags.ncdxf.draw_flag = true;
-            master_flags.map.draw_flag = true;
-            master_flags.clock.draw_flag = true;
-            master_flags.solar.draw_flag = true;
-            master_flags.wspr.draw_flag = true;
-            master_flags.lunar.draw_flag = true;
-            flag_timer = SDL_AddTimer(100, master_clock, &master_flags);
-            debug_log << "RESIZE: Window resize complete\n";
-            debug_log.flush();
             SDL_UnlockMutex(mutexes[MUTEX_NIGHT_MASK]);
             SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
         }
@@ -654,7 +658,7 @@ int window_init(int x, int y) {
         master_flags.wspr.draw_flag		= true;
         master_flags.lunar.draw_flag		= true;
         if (!flag_timer) {
-            flag_timer = SDL_AddTimer(1000, master_clock, &master_flags);
+            flag_timer = SDL_AddTimer(100, master_clock, &master_flags);
         }
     }
     return 0;
@@ -937,68 +941,68 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         currenttime=time(NULL);
         SDL_LockMutex(mutexes[MUTEX_MASTER_CLOCK]);
         if (master_flags.clock.draw_flag) {
-            debug_log << "ITTERATE: Calling Clock with panel " << &(winboxes[PANEL_CLOCK].panel) << "\n";
+            debug_log << "ITTERATE: Calling Clock ("<< MOD_CLOCK <<") with panel " << &(winboxes[PANEL_CLOCK].panel) << "\n";
             draw_clock(winboxes[PANEL_CLOCK].panel, Sans);
             master_flags.clock.draw_flag = false;
         }
         if (master_flags.callsign.draw_flag) {
-            debug_log << "ITTERATE: Calling Callsign with panel " << master_flags.callsign.panel << "\n";
+            debug_log << "ITTERATE: Calling Callsign ("<< MOD_CALL <<")with panel " << master_flags.callsign.panel << "\n";
             draw_callsign(*(master_flags.callsign.panel), Sans, clockconfig.CallSign().c_str());
             master_flags.callsign.draw_flag = false;
         }
         if (master_flags.map.draw_flag) {
-            debug_log << "ITTERATE: Calling Map with panel " << master_flags.map.panel << "\n";
+            debug_log << "ITTERATE: Calling Map ("<< MOD_MAP <<")with panel " << master_flags.map.panel << "\n";
             draw_map(*(master_flags.map.panel));
             winboxes[PANEL_MAP].panel.draw_border();
             master_flags.map.draw_flag = false;
         }
         if (master_flags.de.draw_flag) {
-            debug_log << "ITTERATE: Calling DE with panel " << master_flags.de.panel << "\n";
+            debug_log << "ITTERATE: Calling DE ("<< MOD_DE <<")with panel " << master_flags.de.panel << "\n";
             draw_de_dx(*(master_flags.de.panel), Sans, clockconfig.DE().latitude, clockconfig.DE().longitude, 1);
             master_flags.de.draw_flag = false;
         }
         if (master_flags.dx.draw_flag) {
-            debug_log << "ITTERATE: Calling DX with panel " << master_flags.dx.panel << "\n";
+            debug_log << "ITTERATE: Calling DX ("<< MOD_DX <<")with panel " << master_flags.dx.panel << "\n";
             draw_de_dx(*(master_flags.dx.panel), Sans, clockconfig.DX().latitude, clockconfig.DX().longitude, 0);
             master_flags.dx.draw_flag = false;
         }
         if (master_flags.pota.draw_flag) {
-            debug_log << "ITTERATE: Calling POTA with panel " << master_flags.pota.panel << "\n";
+            debug_log << "ITTERATE: Calling POTA ("<< MOD_POTA <<")with panel " << master_flags.pota.panel << "\n";
             pota_spots(*(master_flags.pota.panel), Sans);
             master_flags.pota.draw_flag = false;
         }
         if (master_flags.lunar.draw_flag) {
-            debug_log << "ITTERATE: Calling Lunar with panel " << master_flags.lunar.panel << "\n";
+            debug_log << "ITTERATE: Calling Lunar ("<< MOD_LUNAR <<")with panel " << master_flags.lunar.panel << "\n";
             lunar_module(*(master_flags.lunar.panel));
             master_flags.lunar.draw_flag = false;
         }
         if (master_flags.kindex.draw_flag) {
-            debug_log << "ITTERATE: Calling Kindex with panel " << master_flags.kindex.panel << "\n";
+            debug_log << "ITTERATE: Calling Kindex ("<< MOD_KINDEX <<")with panel " << master_flags.kindex.panel << "\n";
             k_index_chart (*(master_flags.kindex.panel));
             master_flags.kindex.draw_flag = false;
         }
         if (master_flags.sat_tracker.draw_flag) {
-            debug_log << "ITTERATE: Calling Sat Tracker with panel " << master_flags.sat_tracker.panel << "\n";
+            debug_log << "ITTERATE: Calling Sat Tracker ("<< MOD_SAT <<")with panel " << master_flags.sat_tracker.panel << "\n";
             sat_tracker (*(master_flags.sat_tracker.panel), Sans, winboxes[PANEL_MAP].panel);
             master_flags.sat_tracker.draw_flag = false;
         }
         if (master_flags.dx_spots.draw_flag) {
-            debug_log << "ITTERATE: Calling DX Spots with panel " << master_flags.dx_spots.panel << "\n";
+            debug_log << "ITTERATE: Calling DX Spots ("<< MOD_DXSPOT <<")with panel " << master_flags.dx_spots.panel << "\n";
             dx_cluster(*(master_flags.dx_spots.panel));
             master_flags.dx_spots.draw_flag = false;
         }
         if (master_flags.ncdxf.draw_flag) {
-            debug_log << "ITTERATE: Calling NCDXF with panel " << master_flags.ncdxf.panel << "\n";
+            debug_log << "ITTERATE: Calling NCDXF ("<< MOD_NCDXF <<")with panel " << master_flags.ncdxf.panel << "\n";
             ncdxf_module(*(master_flags.ncdxf.panel));
             master_flags.ncdxf.draw_flag = false;
         }
         if (master_flags.solar.draw_flag) {
-            debug_log << "ITTERATE: Calling SDO with panel " << master_flags.solar.panel << "\n";
+            debug_log << "ITTERATE: Calling SDO ("<< MOD_SOLAR <<")with panel " << master_flags.solar.panel << "\n";
             sdo_image(*(master_flags.solar.panel));
             master_flags.solar.draw_flag = false;
         }
         if (master_flags.wspr.draw_flag) {
-            debug_log << "ITTERATE: Calling WSPR Tracker with panel " << master_flags.wspr.panel << "\n";
+            debug_log << "ITTERATE: Calling WSPR Tracker ("<< MOD_WSPR <<")with panel " << master_flags.wspr.panel << "\n";
             wspr_tracker (*(master_flags.wspr.panel), Sans, winboxes[PANEL_MAP].panel);
             master_flags.wspr.draw_flag = false;
         }
@@ -1100,6 +1104,11 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                     SDL_SetWindowFullscreen(window, 1);
                 }
                 SDL_SyncWindow(window);
+                break;
+            case SDLK_C:
+                if  (event->key.mod & (SDL_KMOD_LALT | SDL_KMOD_RALT)) {
+                    dump_cache();
+                }
                 break;
             case SDLK_Q:
                 window_destroy();

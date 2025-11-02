@@ -432,10 +432,15 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
 
     panel.Clear();
     SDL_Color lunar_text_color = SDL_Color{ 255,200,200,0 };
+    SDL_Color lunar_shadow_color = SDL_Color{ 32,32,32,0 };
+    float offsetx=unitx/10;
+    float offsety=unity/10;
     SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
     SDL_RenderTexture(panel.GetRenderer(), moon_texture, NULL, NULL);
     char boxtext[64];
     sprintf (boxtext, "Ill: %2.2f\%", (moon_illumination.fraction*100));
+
+    panel.render_text(SDL_FRect{unitx+offsetx,unity+offsety,unitx*8,unity}, Sans, lunar_shadow_color, boxtext);
     panel.render_text(SDL_FRect{unitx,unity,unitx*8,unity}, Sans, lunar_text_color, boxtext);
     debug_log << "LUNAR: " << boxtext << "\n";
 //    sprintf (boxtext, "Ang: %3.3f\%", (moon_illumination.angle));
@@ -460,11 +465,13 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
             sprintf (boxtext, "WANING GIBBOUS");
         }
     }
+    panel.render_text(SDL_FRect{(unitx*10)+offsetx,unity+offsety,unitx*8,unity}, Sans, lunar_shadow_color, boxtext);
     panel.render_text(SDL_FRect{unitx*10,unity,unitx*8,unity}, Sans, lunar_text_color, boxtext);
 //    sprintf (boxtext, "T: %lld", static_cast<long long>(timestamp));
 //    panel.render_text(SDL_FRect{unitx,unity*19,unitx*8,unity}, Sans, SDL_Color{255,128,128,0}, boxtext);
     struct tm* clocktime = gmtime(&timestamp);
     strftime(boxtext, sizeof(boxtext), "%Y-%m-%d", clocktime);
+    panel.render_text(SDL_FRect{(unitx*10)+offsetx,(unity*19)+offsety,unitx*8,unity}, Sans, lunar_shadow_color, boxtext);
     panel.render_text(SDL_FRect{unitx*10,unity*19,unitx*8,unity}, Sans, lunar_text_color, boxtext);
 //    SDL_Log (boxtext);
     SDL_Log: Debug:

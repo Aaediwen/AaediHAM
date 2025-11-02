@@ -509,7 +509,7 @@ int http_loader(const char* source_url, void** result) {
     if (!mutexes[MUTEX_HTTP]) {
         mutexes[MUTEX_HTTP] = SDL_CreateMutex();
     }
-    SDL_LockMutex(mutexes[MUTEX_HTTP]);
+////    SDL_LockMutex(mutexes[MUTEX_HTTP]);
 #ifndef _WIN32          // *NIX version starts here
     CURLcode curlres;
     std::string httpbuffer;
@@ -535,22 +535,22 @@ int http_loader(const char* source_url, void** result) {
                 // return our result text in *result
                 memset(*result, 0, httpbuffer.size() + 1);
                 memcpy(*result, httpbuffer.c_str(), httpbuffer.size());
-                SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
+////                SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
 //                std::cout << "HTTP: Returning "<< httpbuffer.size() << "\n";
                 return(httpbuffer.size());
             } else {
 //                std::cout << "HTTP: Curl result MALLOC error\n";
-                SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
+////                SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
                 return 0;
             }
         } else {
             SDL_Log ("Curl Fetch Error: %s", curl_easy_strerror(curlres));
-            SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
+////            SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
             return 0;
         }
     } else {
         SDL_Log("Failed to init Curl!");
-        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
+////        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
     }
 #else               // WIN32 version starts here
@@ -565,17 +565,17 @@ int http_loader(const char* source_url, void** result) {
     exploded_url.dwExtraInfoLength = (DWORD)-1;
     bool read_result;
     if (source_url == 0) {
-        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
+////        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
     }
     if (source_url[0] == 0) {
-        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
+////        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
     }
     // call once to get the result size
     int len = MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, source_url, -1, NULL, 0);
     if (len == 0) {
-        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
+////        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
     }
 
@@ -583,7 +583,7 @@ int http_loader(const char* source_url, void** result) {
     LPWSTR utf8_url = new wchar_t[len];
     if (MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, source_url, -1, utf8_url, len) == 0) {
         delete[] utf8_url;
-        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
+////        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
     }
     std::string narrow = clockconfig.CallSign() + "-clock-Agent/1.0";
@@ -600,7 +600,7 @@ int http_loader(const char* source_url, void** result) {
         0,
         &exploded_url )) {
         SDL_Log("Error %u trying to Split URL", GetLastError());
-        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
+////        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
 
     }
@@ -615,7 +615,7 @@ int http_loader(const char* source_url, void** result) {
 //        exploded_url.dwExtraInfoLength, exploded_url.lpszExtraInfo, exploded_url.dwExtraInfoLength);
     if (!http) {
         SDL_Log("Unable to Init HTTP");
-        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
+////        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
     }
     else {
@@ -628,7 +628,7 @@ int http_loader(const char* source_url, void** result) {
     if (!http_connection) {
         SDL_Log("Unable to connect to %ls on %u", host.c_str(), exploded_url.nPort);
         WinHttpCloseHandle(http);
-        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
+////        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
     }
     else {
@@ -670,7 +670,7 @@ int http_loader(const char* source_url, void** result) {
         SDL_Log("Unable to request %ls", exploded_url.lpszUrlPath);
         WinHttpCloseHandle(http_connection);
         WinHttpCloseHandle(http);
-        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
+////        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
     }
     else {
@@ -685,7 +685,7 @@ int http_loader(const char* source_url, void** result) {
         WinHttpCloseHandle(http_request);
         WinHttpCloseHandle(http_connection);
         WinHttpCloseHandle(http);
-        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
+////        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
     }
     std::string buffstr;
@@ -730,7 +730,7 @@ int http_loader(const char* source_url, void** result) {
                 WinHttpCloseHandle(http_request);
                 WinHttpCloseHandle(http_connection);
                 WinHttpCloseHandle(http);
-                SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
+////                SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
                 return((int)buffstr.size());
             }
             else {
@@ -738,7 +738,7 @@ int http_loader(const char* source_url, void** result) {
                 WinHttpCloseHandle(http_request);
                 WinHttpCloseHandle(http_connection);
                 WinHttpCloseHandle(http);
-                SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
+////                SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
                 return 0;
             }
 
@@ -747,7 +747,7 @@ int http_loader(const char* source_url, void** result) {
     WinHttpCloseHandle(http_request);
     WinHttpCloseHandle(http_connection);
     WinHttpCloseHandle(http);
-    SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
+////    SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
     return 0;
 #endif
 }

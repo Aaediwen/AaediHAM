@@ -4,6 +4,7 @@
 #include "../aaediclock.h"
 #include "../utils.h"
 
+SDL_TimerID sat_timer =0;
 
 TrackedSatellite::TrackedSatellite(const std::string& source_name, const std::string& l1, const std::string& l2): name(source_name), tle1(l1), tle2(l2) {
      sat_tle = new libsgp4::Tle(name, tle1, tle2);
@@ -421,12 +422,18 @@ std::string sat_json_parser(const char* input_string) {
             trackcols.r -= 20;
             trackcols.g += 20;
             trackcols.b += 10;
+            debug_log << "SAT TRACKER: Processing: " << new_cache.name << " ";
             for (const std::string& stropt : clockconfig.Sats()) {
                 instring = new_cache.name;
                 if (instring.compare(0,stropt.length(),stropt)==0) {
         	    new_cache.draw=true;
                     new_cache.color = trackcols;
                 }
+            }
+            if (new_cache.draw) {
+                debug_log << "Setting to draw \n";
+            } else {
+                debug_log << "\n";
             }
             cache_stream.write(reinterpret_cast<const char*>(&new_cache), sizeof(new_cache));
         } else { break; }
@@ -436,12 +443,58 @@ std::string sat_json_parser(const char* input_string) {
 
 Uint16 pass_pager[2] = {0,0};
 std::vector<TrackedSatellite> satlist;
-void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
 
+bool fetch_celestrak() {
+
+  char* amateur_tle = 0 ;
+  Uint32 data_size;
+        SDL_Log ("Fetching Satellite telemetry from Celestrak");
+        debug_log << "SAT TRACKER: Fetching Satellite telemetry from Celestrak\n";
+        data_size = http_loader("https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle", (void**)&amateur_tle);   //
+//        data_size = http_loader("http://maincoon.aaediwen/celestrak.txt",  (void**)&amateur_tle);
+
+        satlist.clear();
+        if (data_size) {
+            debug_log << "SAT TRACKER: Fetched New Sat data\n";
+            std::string blob = sat_json_parser(amateur_tle);
+            debug_log << "SAT TRACKER: caching "<< blob.length() << " Bytes of Sat Data\n";
+            add_data_cache(MOD_SAT, blob.length(), (void*)blob.data());
+            satlist.clear();
+            data_size = blob.length();
+            if (amateur_tle) {
+                free(amateur_tle);
+                amateur_tle=0;
+            }
+            return true;
+        } // we got input data
+        else { return false; }
+}
+
+Uint32 SDLCALL fetch_celestrak (void *userdata, SDL_TimerID timerID, Uint32 interval) {
+     if (timerID) {
+          bool result = fetch_celestrak();
+          Uint32 interval = 3600000 ;
+          if (result) {
+              return (interval * 6);
+          } else {
+              return (interval * 2);
+          }
+     } else {
+          return 0;
+     }
+}
+
+
+void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
+    ScreenFrame* overlay;
     std::istringstream tle_raw;
     char* amateur_tle = 0 ;
     Uint32 data_size;
     time_t cache_time;
+    if (!sat_timer) {
+        sat_timer = SDL_AddTimer(30000, fetch_celestrak, NULL);
+    }
+
     if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
         SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
@@ -464,11 +517,9 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
         }
     }
     if (reload_flag) {	// fetch new
-        std::ostringstream cache_stream;
-        SDL_Log ("Fetching Satellite telemetry from Celestrak");
-        debug_log << "SAT TRACKER: Fetching Satellite telemetry from Celestrak\n";
-        data_size = http_loader("https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle", (void**)&amateur_tle);   // live
-        satlist.clear();
+/*        std::ostringstream cache_stream;
+
+        data_size=0;
         if (data_size) {
             debug_log << "SAT TRACKER: Fetched New Sat data\n";
             std::string blob = sat_json_parser(amateur_tle);
@@ -481,10 +532,10 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
                 free(amateur_tle);
                 amateur_tle=0;
             }
-        } // we got input data
+        } // we got input data */
     } else {	// use cache[D
         tle_raw.clear();
-        std::string sanitized(amateur_tle);
+        std::string sanitized(amateur_tle, data_size);
         tle_raw.str(sanitized);
         if (amateur_tle) {
             free(amateur_tle);
@@ -500,7 +551,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     mapsize.h = map.dims.h;
     bool redraw_flag = false;
     redraw_flag = (!overlays.overlay_check(MOD_SAT));
-    ScreenFrame* overlay = overlays.get_overlay(panel.GetRenderer(), MOD_SAT, mapsize);
+
     // render the header
     TextRect.w=panel.dims.w/2-10;
     TextRect.h=panel.dims.h/11;
@@ -601,6 +652,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
                 redraw_flag = true;
             }
         }
+        overlay = overlays.get_overlay(panel.GetRenderer(), MOD_SAT, mapsize);
         if (redraw_flag) {
             overlay->Clear(SDL_Color{0,0,0,0});
         }
@@ -626,6 +678,8 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
         }
 
         debug_log << "SAT TRACKER: Loaded "<< satlist.size() << " SATS\n";
+    } else {
+        panel.render_text(SDL_FRect {panel.dims.w/20, panel.dims.h/4, (panel.dims.w/10)*8, panel.dims.h/10}, font, {128,128,0,255}, "NO SELECTED SATS");
     }
 
     return;

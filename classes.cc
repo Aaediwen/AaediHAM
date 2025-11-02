@@ -593,6 +593,7 @@ ScreenFrame* map_overlay::get_overlay(SDL_Renderer* renderer, enum mod_name owne
         }
 //        SDL_Log ("Created overlay ... %p\t Tex: %p", (void*)&(new_overlay.panel), (void*)(new_overlay.panel.texture));
         debug_log << "OVERLAY: Created "<< dims.w << "x" << dims.h << " " << ((dims.w*dims.h*4.0)/1024.0) << "KB overlay ... "<< (void*)&(new_overlay.panel) <<"\t Tex: " << (void*)(new_overlay.panel.texture)<< "\n";
+        new_overlay.panel.Clear(SDL_Color{0,0,0,255});
         SDL_SetTextureBlendMode(new_overlay.panel.texture, SDL_BLENDMODE_BLEND);
         overlay_list.push_back(std::move(new_overlay));
         return (&(overlay_list.back().panel));

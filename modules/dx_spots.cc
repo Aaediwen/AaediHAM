@@ -287,9 +287,7 @@ void duplicate_spot(dxspot& needle) {
 
 void fetch_dxspots() {
     time_t currenttime = time(NULL);
-    if (!SDL_TryLockMutex(dxspot_mutex)) {
-        return;
-    }
+    SDL_LockMutex(dxspot_mutex);
     // check for old entries
 
     if (!dxspots.empty()) {
@@ -300,6 +298,7 @@ void fetch_dxspots() {
                     }
             }
     }
+    SDL_UnlockMutex(dxspot_mutex);
     if (dxsocket) { // we have a valid? socket to read from
         std::vector<std::string> dxbuffer;
         std::string tempstr;
@@ -379,8 +378,10 @@ void fetch_dxspots() {
                         new_spot.timestamp = time(NULL);
                         new_spot.note="";
                     }
+                    SDL_LockMutex(dxspot_mutex);
                     new_spot.find_mode();
                     duplicate_spot(new_spot);
+                    SDL_UnlockMutex(dxspot_mutex);
                 } else if (sscanf(buffstr.c_str(), "%f %31s %15s %7s", &freq, call, date, timez)==4) {
                     if (date[0] =='U') {
     //              	SDL_Log("Skipping line with unexpected keyword: %s", buffstr.c_str());
@@ -421,8 +422,10 @@ void fetch_dxspots() {
                         size_t spotter_end = buffstr.find_last_of('>', (std::string::npos));
                         new_spot.spotter = buffstr.substr(note_end+1, spotter_end-1 );
                         new_spot.note=buffstr.substr(1, note_end-1 );
+                        SDL_LockMutex(dxspot_mutex);
                         new_spot.find_mode();
                         duplicate_spot(new_spot);
+                        SDL_UnlockMutex(dxspot_mutex);
                     }
 
 
@@ -432,7 +435,6 @@ void fetch_dxspots() {
             }
             dxbuffer.clear();
         }
-        SDL_UnlockMutex(dxspot_mutex);
     }
     return;
 }
@@ -440,7 +442,7 @@ void fetch_dxspots() {
 Uint32 SDLCALL fetch_dxspots (void *userdata, SDL_TimerID timerID, Uint32 interval) {
      if (timerID) {
           fetch_dxspots();
-          return (interval);
+          return (10000);
      } else {
           return 0;
      }
@@ -463,8 +465,7 @@ void dx_cluster (ScreenFrame& panel) {
         dxspot_mutex = SDL_CreateMutex();
     }
     if (!dxspot_timer) {
-        fetch_dxspots();
-        dxspot_timer = SDL_AddTimer(10000, fetch_dxspots, NULL);
+        dxspot_timer = SDL_AddTimer(1000, fetch_dxspots, NULL);
     }
     // clear the box
     panel.Clear();
