@@ -9,7 +9,7 @@ The program now requires a config file (aaediclock_config.json) in the Current D
 <HR>
 Keyboard commands:
 <UL>
-  <LI>Alt+C -- dump contents of the primary program cache to disk </LI>LI>
+  <LI>Alt+C -- dump contents of the primary program cache to disk </LI>
   <LI>R -- Toggle rezise on every frame, for stress testing resize code</LI>
   <LI>F11 -- Toggle Fullscreen</LI>
   <LI>Alt+Enter -- Toggle Fullscreen</LI>
