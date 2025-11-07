@@ -141,7 +141,7 @@ void load_maps(SDL_Renderer* surface, SDL_FRect size) {
 }
 
 void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
-
+    // can probably clean this up to not rebuild the pin every single time
     SDL_Texture* icon_tex = nullptr;
     SDL_FRect target_rect;
     int unit_scale = (panel->dims.w/100);

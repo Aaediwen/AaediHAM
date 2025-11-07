@@ -22,15 +22,17 @@ set(SOURCES
     modules/sun.cc
     modules/wspr_tracker.cc
     modules/lunar.cc
+    modules/pskreporter.cc
 )
 
 if(MSVC)
+add_compile_options (-DCMAKE_BUILD_PARALLEL_LEVEL=16)
  #   add_compile_options(/W4 /WX)
-	add_compile_options (-DCMAKE_BUILD_PARALLEL_LEVEL=16 -DCLOCK_DEBUG)
-	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Zi")
-	set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} /DEBUG")
-	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Od /RTC1 /MDd")
-	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Ob0")
+#	add_compile_options (-DCMAKE_BUILD_PARALLEL_LEVEL=16 -DCLOCK_DEBUG)
+#	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Zi")
+#	set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} /DEBUG")
+#	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Od /RTC1 /MDd")
+#	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Ob0")
 else()
 #    add_compile_options(-Wall -Wextra -Werror -Os)
      add_compile_options (-pg)
@@ -74,6 +76,7 @@ if(WIN32)
 	find_build(SDL3_ttf "https://github.com/libsdl-org/SDL_ttf.git" release-3.2.2 .)
 	find_build(SDL3_image "https://github.com/libsdl-org/SDL_image.git" release-3.2.4
 	sdl3_image-src/include)
+    find_build("paho-mqtt3c" "https://github.com/eclipse-paho/paho.mqtt.c.git" "master" .)
 	find_build(nlohmann_json "https://github.com/nlohmann/json.git" "master" .)
 	find_build(sgp4 https://github.com/dnwrnr/sgp4.git "master" .)
 #    find_package(SDL3_image REQUIRED)
@@ -82,7 +85,7 @@ if(WIN32)
 	message(STATUS "SGP4_BINARY_DIR = ${sgp4_BINARY_DIR}")
 	target_include_directories(clock PRIVATE ${sgp4_SOURCE_DIR})
     target_link_libraries(clock PRIVATE winhttp sgp4 SDL3::SDL3
-    SDL3_image::SDL3_image SDL3_ttf::SDL3_ttf ${SGP4_LIB} )
+    SDL3_image::SDL3_image SDL3_ttf::SDL3_ttf ${SGP4_LIB} paho-mqtt3c)
 	
 
 
@@ -98,11 +101,12 @@ elseif(APPLE)
 	find_build(SDL3_ttf "https://github.com/libsdl-org/SDL_ttf.git" release-3.2.2 .)
 	find_build(SDL3_image "https://github.com/libsdl-org/SDL_image.git" release-3.2.4
 	sdl3_image-src/include)
+	find_build("paho-mqtt3c" "https://github.com/eclipse-paho/paho.mqtt.c.git" "master" .)
 	find_build(nlohmann_json "https://github.com/nlohmann/json.git" "master" .)
 	find_build(sgp4 https://github.com/dnwrnr/sgp4.git "master" "sgp4-src/")
 	set(SGP4_LIB sgp4)
 	target_link_libraries(clock PRIVATE SDL3::SDL3 SDL3_ttf::SDL3_ttf 
-	sgp4 nlohmann_json::nlohmann_json SDL3_image::SDL3_image)
+	sgp4 nlohmann_json::nlohmann_json SDL3_image::SDL3_image paho-mqtt3c)
 
 else()
 	set(EXTERNAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/linux")
@@ -115,11 +119,12 @@ else()
 	find_build(SDL3 "https://github.com/libsdl-org/SDL.git" release-3.2.18 .)
 	find_build(SDL3_ttf "https://github.com/libsdl-org/SDL_ttf.git" release-3.2.2 .)
         find_build(SDL3_image "https://github.com/libsdl-org/SDL_image.git" release-3.2.4 .)
+	find_build("paho-mqtt3c" "https://github.com/eclipse-paho/paho.mqtt.c.git" "master" .)
 	find_build(nlohmann_json "https://github.com/nlohmann/json.git" "master" .)
 	find_build(sgp4 https://github.com/dnwrnr/sgp4.git "master" "sgp4-src/")
 	set(SGP4_LIB sgp4)
 	target_link_libraries(clock PRIVATE SDL3::SDL3 SDL3_ttf::SDL3_ttf 
-	sgp4 nlohmann_json::nlohmann_json SDL3_image::SDL3_image)
+	sgp4 nlohmann_json::nlohmann_json SDL3_image::SDL3_image paho-mqtt3c)
 endif()
 
 

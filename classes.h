@@ -74,6 +74,7 @@ public:
     config();
     ~config();
     const std::string& CallSign() const;
+    const std::string& PSKCall() const;
     const GeoCoord& DE() const;
     const GeoCoord& DX() const;
     const ip_server_t& dxserver() const;
@@ -89,6 +90,7 @@ public:
         std::vector<struct WSPRTarget> m_WSPRList;
         int m_WSPRIndex;
         std::string m_CallSign;
+        std::string m_PSKCall;
         std::vector<std::string> m_sats;
         struct GeoCoord m_DE;
         struct GeoCoord m_DX;

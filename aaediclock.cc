@@ -60,12 +60,27 @@ struct {
     ModuleControl solar;
     ModuleControl wspr;
     ModuleControl lunar;
+    ModuleControl psk;
 } static master_flags;
 
 
 SDL_TimerID flag_timer = 0;
 
 void panel_assignment(bool increment) {
+            master_flags.map.panel	=	&(winboxes[PANEL_MAP].panel);
+            master_flags.sat_tracker.panel	=	&(winboxes[PANEL_NULL].panel);
+            master_flags.dx_spots.panel	=	&(winboxes[PANEL_NULL].panel);
+            master_flags.callsign.panel	=	&(winboxes[PANEL_NULL].panel);
+            master_flags.de.panel	=	&(winboxes[PANEL_NULL].panel);
+            master_flags.dx.panel	=	&(winboxes[PANEL_NULL].panel);
+            master_flags.pota.panel	=	&(winboxes[PANEL_NULL].panel);
+            master_flags.ncdxf.panel	=	&(winboxes[PANEL_NULL].panel);
+            master_flags.clock.panel	=	&(winboxes[PANEL_NULL].panel);
+            master_flags.kindex.panel	=	&(winboxes[PANEL_NULL].panel);
+            master_flags.solar.panel	=	&(winboxes[PANEL_NULL].panel);
+            master_flags.wspr.panel	=	&(winboxes[PANEL_NULL].panel);
+            master_flags.lunar.panel	=	&(winboxes[PANEL_NULL].panel);
+            master_flags.psk.panel	=	&(winboxes[PANEL_NULL].panel);
     for (auto& panel : winboxes) {
         if (panel.sequence.size()) {
             if (increment) {
@@ -92,6 +107,7 @@ void panel_assignment(bool increment) {
                     master_flags.pota.panel = &panel.panel;
                     break;
                 case MOD_PSK:
+                    master_flags.psk.panel = &panel.panel;
                     break;
                 case MOD_SAT:
                     master_flags.sat_tracker.panel = &panel.panel;
@@ -134,19 +150,7 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
         if ((interrupt_counter % 600) == 0) {	// 60 seconds
             debug_log << "FLAG_TIMER: MOD PAGER FIRED!\n";
             debug_log.flush();
-            master_flags.map.panel	=	&(winboxes[PANEL_MAP].panel);
-            master_flags.sat_tracker.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.dx_spots.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.callsign.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.de.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.dx.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.pota.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.ncdxf.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.clock.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.kindex.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.solar.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.wspr.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.lunar.panel	=	&(winboxes[PANEL_NULL].panel);
+
             panel_assignment(true);
 
         }
@@ -170,6 +174,7 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
             master_flags.pota.draw_flag = true;
             master_flags.ncdxf.draw_flag = true;
             master_flags.dx_spots.draw_flag = true;
+            master_flags.psk.draw_flag = true;
         }
 
         if ((interrupt_counter % 20)==0) {	// 2 seconds
@@ -231,7 +236,22 @@ void resize_panels(std::array<pager_node, 12>& panels) {
             master_flags.solar.draw_flag = false;
             master_flags.wspr.draw_flag = false;
             master_flags.lunar.draw_flag = false;
+            master_flags.psk.draw_flag = false;
 
+            master_flags.map.panel      	=       nullptr;
+            master_flags.sat_tracker.panel      =       nullptr;
+            master_flags.dx_spots.panel 	=       nullptr;
+            master_flags.callsign.panel 	=       nullptr;
+            master_flags.de.panel       	=       nullptr;
+            master_flags.dx.panel       	=       nullptr;
+            master_flags.pota.panel     	=       nullptr;
+            master_flags.ncdxf.panel    	=       nullptr;
+            master_flags.clock.panel    	=       nullptr;
+            master_flags.kindex.panel   	=       nullptr;
+            master_flags.solar.panel    	=       nullptr;
+            master_flags.wspr.panel     	=       nullptr;
+            master_flags.lunar.panel    	=       nullptr;
+            master_flags.psk.panel    		=       nullptr;
 
             debug_log << "RESIZE: Destroying old surfaces\n";
             debug_log.flush();
@@ -471,6 +491,8 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 master_flags.solar.draw_flag = true;
                 master_flags.wspr.draw_flag = true;
                 master_flags.lunar.draw_flag = true;
+                master_flags.psk.draw_flag = true;
+
                 flag_timer = SDL_AddTimer(100, master_clock, &master_flags);
                 debug_log << "RESIZE: Window resize complete\n";
                 debug_log.flush();
@@ -667,6 +689,7 @@ int window_init(int x, int y) {
 
 int window_destroy() {
     debug_log << "EXIT: Exiting Normally.\n\n";
+    psk_cleanup();
     SDL_DestroyWindow(window);
     SDL_Quit();
     return 0;
@@ -872,6 +895,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     winboxes[PANEL_FLEXBOX1].sequence.push_back(MOD_POTA);
     winboxes[PANEL_FLEXBOX1].sequence.push_back(MOD_NCDXF);
     winboxes[PANEL_FLEXBOX2].sequence.push_back(MOD_SAT);
+    winboxes[PANEL_FLEXBOX2].sequence.push_back(MOD_PSK);
     winboxes[PANEL_FLEXBOX3].sequence.push_back(MOD_DXSPOT);
     winboxes[PANEL_FLEXBOX4].sequence.push_back(MOD_KINDEX);
     winboxes[PANEL_FLEXBOX5].sequence.push_back(MOD_SOLAR);
@@ -944,67 +968,89 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             debug_log << "ITTERATE: Calling Clock ("<< MOD_CLOCK <<") with panel " << &(winboxes[PANEL_CLOCK].panel) << "\n";
             draw_clock(winboxes[PANEL_CLOCK].panel, Sans);
             master_flags.clock.draw_flag = false;
+            debug_log.flush();
         }
         if (master_flags.callsign.draw_flag) {
             debug_log << "ITTERATE: Calling Callsign ("<< MOD_CALL <<")with panel " << master_flags.callsign.panel << "\n";
             draw_callsign(*(master_flags.callsign.panel), Sans, clockconfig.CallSign().c_str());
             master_flags.callsign.draw_flag = false;
+            debug_log.flush();
         }
+
         if (master_flags.map.draw_flag) {
             debug_log << "ITTERATE: Calling Map ("<< MOD_MAP <<")with panel " << master_flags.map.panel << "\n";
             draw_map(*(master_flags.map.panel));
             winboxes[PANEL_MAP].panel.draw_border();
             master_flags.map.draw_flag = false;
+            debug_log.flush();
         }
         if (master_flags.de.draw_flag) {
             debug_log << "ITTERATE: Calling DE ("<< MOD_DE <<")with panel " << master_flags.de.panel << "\n";
             draw_de_dx(*(master_flags.de.panel), Sans, clockconfig.DE().latitude, clockconfig.DE().longitude, 1);
             master_flags.de.draw_flag = false;
+            debug_log.flush();
         }
         if (master_flags.dx.draw_flag) {
             debug_log << "ITTERATE: Calling DX ("<< MOD_DX <<")with panel " << master_flags.dx.panel << "\n";
             draw_de_dx(*(master_flags.dx.panel), Sans, clockconfig.DX().latitude, clockconfig.DX().longitude, 0);
             master_flags.dx.draw_flag = false;
+            debug_log.flush();
         }
         if (master_flags.pota.draw_flag) {
             debug_log << "ITTERATE: Calling POTA ("<< MOD_POTA <<")with panel " << master_flags.pota.panel << "\n";
             pota_spots(*(master_flags.pota.panel), Sans);
             master_flags.pota.draw_flag = false;
+            debug_log.flush();
         }
         if (master_flags.lunar.draw_flag) {
             debug_log << "ITTERATE: Calling Lunar ("<< MOD_LUNAR <<")with panel " << master_flags.lunar.panel << "\n";
+            debug_log.flush();
             lunar_module(*(master_flags.lunar.panel));
             master_flags.lunar.draw_flag = false;
+
         }
         if (master_flags.kindex.draw_flag) {
             debug_log << "ITTERATE: Calling Kindex ("<< MOD_KINDEX <<")with panel " << master_flags.kindex.panel << "\n";
+            debug_log.flush();
             k_index_chart (*(master_flags.kindex.panel));
             master_flags.kindex.draw_flag = false;
         }
         if (master_flags.sat_tracker.draw_flag) {
             debug_log << "ITTERATE: Calling Sat Tracker ("<< MOD_SAT <<")with panel " << master_flags.sat_tracker.panel << "\n";
+            debug_log.flush();
             sat_tracker (*(master_flags.sat_tracker.panel), Sans, winboxes[PANEL_MAP].panel);
             master_flags.sat_tracker.draw_flag = false;
         }
         if (master_flags.dx_spots.draw_flag) {
             debug_log << "ITTERATE: Calling DX Spots ("<< MOD_DXSPOT <<")with panel " << master_flags.dx_spots.panel << "\n";
+            debug_log.flush();
             dx_cluster(*(master_flags.dx_spots.panel));
             master_flags.dx_spots.draw_flag = false;
         }
         if (master_flags.ncdxf.draw_flag) {
             debug_log << "ITTERATE: Calling NCDXF ("<< MOD_NCDXF <<")with panel " << master_flags.ncdxf.panel << "\n";
+            debug_log.flush();
             ncdxf_module(*(master_flags.ncdxf.panel));
+
             master_flags.ncdxf.draw_flag = false;
         }
         if (master_flags.solar.draw_flag) {
             debug_log << "ITTERATE: Calling SDO ("<< MOD_SOLAR <<")with panel " << master_flags.solar.panel << "\n";
+            debug_log.flush();
             sdo_image(*(master_flags.solar.panel));
             master_flags.solar.draw_flag = false;
         }
         if (master_flags.wspr.draw_flag) {
             debug_log << "ITTERATE: Calling WSPR Tracker ("<< MOD_WSPR <<")with panel " << master_flags.wspr.panel << "\n";
+            debug_log.flush();
             wspr_tracker (*(master_flags.wspr.panel), Sans, winboxes[PANEL_MAP].panel);
             master_flags.wspr.draw_flag = false;
+        }
+        if (master_flags.psk.draw_flag) {
+            debug_log << "ITTERATE: Calling PSK Reporter ("<< MOD_PSK <<")with panel " << master_flags.psk.panel << "\n";
+            debug_log.flush();
+            psk_reporter(*(master_flags.psk.panel));
+            master_flags.psk.draw_flag = false;
         }
         winboxes[PANEL_CALLSIGN].panel.present();
         winboxes[PANEL_CLOCK].panel.present();
@@ -1058,6 +1104,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
             debug_log << "EVENT: Resize event triggered!\n";
             resize_panels(winboxes);
             debug_log << "EVENT: Resize event complete!\n";
+            debug_log.flush();
             SDL_Event pending;
             while (SDL_PeepEvents(&pending, 1, SDL_GETEVENT, SDL_EVENT_WINDOW_FIRST, SDL_EVENT_WINDOW_LAST) > 0) {
                 debug_log << "EVENT: Purge event buffer\n";

@@ -16,6 +16,7 @@ using dx_socket_t = int;
 int read_socket(dx_socket_t fd, std::string &result);
 double solar_altitude(double lat_deg, double lon_deg, struct tm *utc, double decl_deg);
 void maidenhead(double lat, double lon, char* maiden);
+struct GeoCoord loc_to_geo (const std::string locator);
 void cords_to_px(double lat, double lon, int w, int h, SDL_FPoint* result);
 int month_to_int(const std::string& month);
 struct GeoCoord subsolar(const time_t now);

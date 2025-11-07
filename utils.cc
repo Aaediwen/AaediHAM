@@ -97,6 +97,56 @@ void maidenhead(double lat, double lon, char* maiden) {
     return;
 }
 
+struct GeoCoord loc_to_geo (const std::string locator) {
+    struct GeoCoord result;
+    result.latitude = 0;
+    result.longitude = 0;
+    if (locator.length() <4) {	//locator too short
+        return result;
+    }
+    char working;
+    working = locator.at(0);
+    if (working >= 'a') {
+        working -= 32;
+    }
+    result.longitude += (working - 'A')*20.0;
+    working = locator.at(1);
+    if (working >= 'a') {
+        working -= 32;
+    }
+    result.latitude += (working - 'A')*10.0;
+    working = locator.at(2);
+    result.longitude += (working - '0')*2.0;
+    working = locator.at(3);
+    result.latitude += (working - '0')*1.0;
+    if (locator.length() >= 6) {
+         working = locator.at(4);
+         if (working >= 'a') {
+             working -= 32;
+         }
+         result.longitude += (working - 'A')/12;
+
+         working = locator.at(5);
+         if (working >= 'a') {
+             working -= 32;
+         }
+         result.latitude += (working - 'A')/24;
+
+
+         result.longitude += (1.0/12.0);
+         result.latitude  += (1.0/24.0);
+         result.longitude -= 180.0;
+         result.latitude  -= 90.0;
+    } else {
+
+         result.longitude += 1.0;
+         result.latitude  += 0.5;
+         result.longitude -= 180.0;
+         result.latitude  -= 90.0;
+    }
+    return result;
+}
+
 void cords_to_px(double lat, double lon, int w, int h, SDL_FPoint* result) {
     result->x=static_cast<float>((lon/180.0f)*(w/2.0f)+(w/2.0f));
     result->y= static_cast<float>(((-1*lat)/90.0f)*(h/2.0f)+(h/2.0f));

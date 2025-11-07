@@ -366,6 +366,9 @@ bool config::next_wspr(std::string *callsign, int *band) {
 void config::write_config() {
     json data = json({});
     data["CallSign"]=m_CallSign.c_str();
+    if (!m_PSKCall.empty()) {
+        data["PSKCall"]=m_PSKCall.c_str();
+    }
     data["DE"]["Latitude"]=m_DE.latitude;
     data["DE"]["Longitude"]=m_DE.longitude;
     data["DX"]["Latitude"]=m_DX.latitude;
@@ -400,6 +403,7 @@ void config::load_config() {
     json data;
 
     m_CallSign = "N0CALL";
+    m_PSKCall = "";
     m_sats.clear();
     m_DE={0, 0};
     m_DX={0, 0};
@@ -459,6 +463,13 @@ void config::load_config() {
                 m_CallSign=data["CallSign"];
             }
         }
+
+        if (data.contains("PSKCall")) {
+            if (data["PSKCall"].is_string()) {
+                m_PSKCall=data["PSKCall"];
+            }
+        }
+
         m_WSPRList.clear();
         m_WSPRIndex = 0;
         if (data.contains("WSPR")) {
@@ -520,6 +531,10 @@ void config::set_qrz_pass(const std::string& newpass) {
 
 const std::string& config::CallSign() const {
     return m_CallSign;
+}
+
+const std::string& config::PSKCall() const {
+    return m_PSKCall;
 }
 
 const GeoCoord& config::DE() const {
