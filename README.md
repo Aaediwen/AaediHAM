@@ -23,6 +23,7 @@ Config File Format:
 <CODE>
 {
      "CallSign": "N0CALL",             // your callsign here
+     "PSKCall": "N0CALL",             // Optional -- if you want  PSK Reporter to show for a callsign other than your own
      "DE": {                           // your location
           "Latitude": 37.978,         
           "Longitude": -84.495
