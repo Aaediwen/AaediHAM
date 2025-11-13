@@ -23,6 +23,7 @@ set(SOURCES
     modules/wspr_tracker.cc
     modules/lunar.cc
     modules/pskreporter.cc
+    modules/contests.cc
 )
 
 if(MSVC)

@@ -65,6 +65,11 @@ void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int 
         de_dx_pin.owner=MOD_DX;
         sprintf(de_dx_pin.label, "DX");
     }
+    if (mouse_event.mod_owner == de_dx_pin.owner) {
+        SDL_Log ("Click event in DE/DX module at %f, %f", mouse_event.mod_cords.x, mouse_event.mod_cords.y);
+        mouse_event.mod_owner = MOD_NULL;
+    }
+
     de_dx_pin.lat=lat;
     de_dx_pin.lon=lon;
     de_dx_pin.icon=0;
@@ -141,7 +146,13 @@ void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int 
     test_time = localtime(&sunset);
     strftime(tempstr, 12, "S%H:%M", test_time);
     panel.render_text(TextRect, font, fontcolor, tempstr);
-
+    if (!de_dx) {
+        TextRect.x=(panel.dims.w/20);
+        TextRect.y=((panel.dims.h)/8)*7;
+        TextRect.h=(panel.dims.h)/8;
+        TextRect.w=(panel.dims.w/10)*8;
+        panel.render_text(TextRect, font, fontcolor, clockconfig.DXmsg().c_str());
+    }
     // clean up
     TTF_SetFontSize(font,oldsize);
 }

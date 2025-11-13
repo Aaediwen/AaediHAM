@@ -14,7 +14,9 @@ enum mod_name {
     MOD_NCDXF           ,
     MOD_SOLAR           ,
     MOD_WSPR		,
-    MOD_LUNAR
+    MOD_LUNAR		,
+    MOD_CONTESTS	,
+    MOD_NULL
 };
 
 enum panel_names {
@@ -75,8 +77,10 @@ public:
     ~config();
     const std::string& CallSign() const;
     const std::string& PSKCall() const;
+    const std::string& DXmsg() const;
     const GeoCoord& DE() const;
     const GeoCoord& DX() const;
+    void set_DX(const GeoCoord& target, const std::string msg);
     const ip_server_t& dxserver() const;
     const std::vector<std::string>& Sats() const;
     const std::string& qrz_key(bool refresh = false);
@@ -94,6 +98,7 @@ public:
         std::vector<std::string> m_sats;
         struct GeoCoord m_DE;
         struct GeoCoord m_DX;
+        std::string m_DXMsg;
         ip_server_t m_dxserver;
         struct {
             std::string Secret;

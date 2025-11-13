@@ -55,6 +55,15 @@ struct pager_node {
     int clickcount = 0;
 };
 extern std::array<pager_node, 12> winboxes;
+
+struct internal_mouse_event {
+    SDL_FPoint mod_cords;
+    int mod_count;
+    enum mod_name mod_owner;
+};
+extern struct internal_mouse_event mouse_event;
+
+
 struct Celestial_Coordinates {
         time_t timestamp= 0;
         double RA	= 0.0;

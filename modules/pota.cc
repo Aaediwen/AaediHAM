@@ -199,6 +199,12 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
                   panel.render_text(TextRect, font, pota_color, spot.park);
                  }
                  TextRect.x = 5;
+                 if (mouse_event.mod_owner == MOD_POTA) {
+                  if ( mouse_event.mod_cords.y >=TextRect.y &&  mouse_event.mod_cords.y <= (TextRect.y+TextRect.h)) {
+                   const std::string dxlabel = pota_pin.label;
+                   clockconfig.set_DX(GeoCoord{pota_pin.lat, pota_pin.lon}, dxlabel);
+                  }
+                 }
                  TextRect.y += ((panel.dims.h/11)+(panel.dims.h/150));
              }
              c++;
@@ -221,6 +227,9 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
         if (TextRect.w > 2) {
            panel.render_text(TextRect, font, pota_color, "NO POTA DATA");
         }
+    }
+    if (mouse_event.mod_owner == MOD_POTA) {
+     mouse_event.mod_owner = MOD_NULL;
     }
     debug_log << "POTA Complete\n";
     debug_log.flush();

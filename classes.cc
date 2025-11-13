@@ -404,6 +404,7 @@ void config::load_config() {
 
     m_CallSign = "N0CALL";
     m_PSKCall = "";
+    m_DXMsg.clear();
     m_sats.clear();
     m_DE={0, 0};
     m_DX={0, 0};
@@ -543,6 +544,16 @@ const GeoCoord& config::DE() const {
 
 const GeoCoord& config::DX() const {
     return m_DX;
+}
+
+void config::set_DX(const GeoCoord& target, const std::string msg) {
+    m_DX = target;
+    m_DXMsg = msg;
+    return;
+}
+
+const std::string& config::DXmsg() const {
+    return m_DXMsg;
 }
 
 const config::ip_server_t& config::dxserver() const {

@@ -9,6 +9,10 @@ int draw_clock(ScreenFrame& panel, TTF_Font* font) {
         SDL_Log("Clock Module during resize event!");
         return (0);
     }
+    if (mouse_event.mod_owner == MOD_CLOCK) {
+        SDL_Log ("Click event in Clock module at %f, %f", mouse_event.mod_cords.x, mouse_event.mod_cords.y);
+        mouse_event.mod_owner = MOD_NULL;
+    }
     SDL_Color fontcolor;
     fontcolor.r=128;
     fontcolor.g=128;

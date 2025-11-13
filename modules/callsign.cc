@@ -17,6 +17,11 @@ void draw_callsign(ScreenFrame& panel, TTF_Font* font, const char* callsign) {
         debug_log << "CALLSIGN: Missing PANEL!\n";
         return ;
     }
+    if (mouse_event.mod_owner == MOD_CALL) {
+        SDL_Log ("Click event in Callsign module at %f, %f", mouse_event.mod_cords.x, mouse_event.mod_cords.y);
+        mouse_event.mod_owner = MOD_NULL;
+    }
+
     panel.Clear();
 //    SDL_Log("Rendering Callsign");
     SDL_Color fontcolor;

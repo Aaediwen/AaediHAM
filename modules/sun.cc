@@ -80,6 +80,7 @@ void sdo_image(ScreenFrame& panel, time_t timestamp) {
         SDL_Texture* SDO_Texture = nullptr;
         SDL_Surface* SDO_Surface = nullptr;
         struct map_pin solar_pin;
+        sprintf(solar_pin.label, "SUB SOLAR POINT");
         solar_pin.owner=MOD_SOLAR;
         struct GeoCoord subsolar_point = subsolar(timestamp);
         solar_pin.lat = subsolar_point.latitude;

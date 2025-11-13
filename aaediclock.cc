@@ -26,6 +26,8 @@ ScreenFrame 	        CountriesMap;
 std::array<pager_node, 12> winboxes;
 std::array<SDL_Mutex*, 10> mutexes = { nullptr };
 
+struct internal_mouse_event mouse_event;
+
 struct map_pin 		    *map_pins;
 struct data_blob	    *data_cache;
 config 		            clockconfig;
@@ -61,6 +63,7 @@ struct {
     ModuleControl wspr;
     ModuleControl lunar;
     ModuleControl psk;
+    ModuleControl contests;
 } static master_flags;
 
 
@@ -81,6 +84,7 @@ void panel_assignment(bool increment) {
             master_flags.wspr.panel	=	&(winboxes[PANEL_NULL].panel);
             master_flags.lunar.panel	=	&(winboxes[PANEL_NULL].panel);
             master_flags.psk.panel	=	&(winboxes[PANEL_NULL].panel);
+            master_flags.contests.panel = 	&(winboxes[PANEL_NULL].panel);
     for (auto& panel : winboxes) {
         if (panel.sequence.size()) {
             if (increment) {
@@ -118,6 +122,9 @@ void panel_assignment(bool increment) {
                 case MOD_KINDEX:
                     master_flags.kindex.panel = &panel.panel;
                     break;
+                case MOD_CONTESTS:
+                    master_flags.contests.panel = &panel.panel;
+                    break;
                 case MOD_NCDXF:
                     master_flags.ncdxf.panel = &panel.panel;
                     break;
@@ -150,9 +157,7 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
         if ((interrupt_counter % 600) == 0) {	// 60 seconds
             debug_log << "FLAG_TIMER: MOD PAGER FIRED!\n";
             debug_log.flush();
-
             panel_assignment(true);
-
         }
 
 
@@ -161,10 +166,7 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
         }
 
         if ((interrupt_counter % 170)==0) {	// 17 seconds
-            master_flags.kindex.draw_flag = true;
-            master_flags.solar.draw_flag = true;
-            master_flags.wspr.draw_flag = true;
-            master_flags.lunar.draw_flag = true;
+
         }
 
 
@@ -173,10 +175,25 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
             master_flags.dx.draw_flag = true;
             master_flags.pota.draw_flag = true;
             master_flags.ncdxf.draw_flag = true;
-            master_flags.dx_spots.draw_flag = true;
-            master_flags.psk.draw_flag = true;
         }
 
+        if ((interrupt_counter % 50)==10) {	// 5 seconds +1
+            master_flags.dx_spots.draw_flag = true;
+            master_flags.psk.draw_flag = true;
+            master_flags.contests.draw_flag = true;
+        }
+        if ((interrupt_counter % 50)==20) {	// 5 seconds +2
+
+        }
+        if ((interrupt_counter % 50)==30) {	// 5 seconds +3
+            master_flags.kindex.draw_flag = true;
+            master_flags.solar.draw_flag = true;
+            master_flags.wspr.draw_flag = true;
+            master_flags.lunar.draw_flag = true;
+        }
+        if ((interrupt_counter % 50)==40) {	// 5 seconds	+4
+
+        }
         if ((interrupt_counter % 20)==0) {	// 2 seconds
 
         }
@@ -237,6 +254,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
             master_flags.wspr.draw_flag = false;
             master_flags.lunar.draw_flag = false;
             master_flags.psk.draw_flag = false;
+            master_flags.contests.draw_flag = false;
 
             master_flags.map.panel      	=       nullptr;
             master_flags.sat_tracker.panel      =       nullptr;
@@ -252,6 +270,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
             master_flags.wspr.panel     	=       nullptr;
             master_flags.lunar.panel    	=       nullptr;
             master_flags.psk.panel    		=       nullptr;
+            master_flags.contests.panel		=	nullptr;
 
             debug_log << "RESIZE: Destroying old surfaces\n";
             debug_log.flush();
@@ -492,6 +511,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 master_flags.wspr.draw_flag = true;
                 master_flags.lunar.draw_flag = true;
                 master_flags.psk.draw_flag = true;
+                master_flags.contests.draw_flag = true;
 
                 flag_timer = SDL_AddTimer(100, master_clock, &master_flags);
                 debug_log << "RESIZE: Window resize complete\n";
@@ -679,6 +699,7 @@ int window_init(int x, int y) {
         master_flags.solar.draw_flag		= true;
         master_flags.wspr.draw_flag		= true;
         master_flags.lunar.draw_flag		= true;
+        master_flags.contests.draw_flag 	= true;
         if (!flag_timer) {
             flag_timer = SDL_AddTimer(100, master_clock, &master_flags);
         }
@@ -875,6 +896,10 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     // init globals
     map_pins			=	0;
     data_cache			=	0;
+    mouse_event.mod_cords = {0.0, 0.0};
+    mouse_event.mod_count = 0;
+    mouse_event.mod_owner = MOD_NULL;
+
     winboxes[PANEL_CALLSIGN].panel.Reset();
     winboxes[PANEL_MAP].panel.Reset();
     winboxes[PANEL_DX].panel.Reset();
@@ -898,6 +923,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     winboxes[PANEL_FLEXBOX2].sequence.push_back(MOD_PSK);
     winboxes[PANEL_FLEXBOX3].sequence.push_back(MOD_DXSPOT);
     winboxes[PANEL_FLEXBOX4].sequence.push_back(MOD_KINDEX);
+    winboxes[PANEL_FLEXBOX4].sequence.push_back(MOD_CONTESTS);
     winboxes[PANEL_FLEXBOX5].sequence.push_back(MOD_SOLAR);
     winboxes[PANEL_FLEXBOX5].sequence.push_back(MOD_WSPR);
     winboxes[PANEL_FLEXBOX5].sequence.push_back(MOD_LUNAR);
@@ -952,6 +978,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     }
 
     if (!resizing) {
+        const Uint64 StartTicks = SDL_GetTicks();
         if (reload_flag) {
             SDL_WindowFlags winstate = SDL_GetWindowFlags(window);
             if (winstate & SDL_WINDOW_FULLSCREEN) {
@@ -1015,6 +1042,12 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             k_index_chart (*(master_flags.kindex.panel));
             master_flags.kindex.draw_flag = false;
         }
+        if (master_flags.contests.draw_flag) {
+            debug_log << "ITTERATE: Calling Contests ("<< MOD_CONTESTS <<")with panel " << master_flags.contests.panel << "\n";
+            debug_log.flush();
+             contest_module (*(master_flags.kindex.panel));
+            master_flags.contests.draw_flag = false;
+        }
         if (master_flags.sat_tracker.draw_flag) {
             debug_log << "ITTERATE: Calling Sat Tracker ("<< MOD_SAT <<")with panel " << master_flags.sat_tracker.panel << "\n";
             debug_log.flush();
@@ -1073,6 +1106,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 //            SDL_SaveBMP(savesurface, outfile.c_str());  // output_file_path from --output
             SDL_DestroySurface(savesurface);
         }
+        debug_log << "ITTERATE: Took " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
     }
     return(SDL_APP_CONTINUE);
 }
@@ -1127,6 +1161,11 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                         debug_log << "EVENT: Panel event coords: " << modx << ", " << mody << "\n";
                         pager.clickpoint={modx, mody};
                         pager.clickcount = event->button.clicks;
+                        if (pager.sequence.size()) {
+                            mouse_event.mod_cords = {modx, mody};
+                            mouse_event.mod_count = event->button.clicks;
+                            mouse_event.mod_owner = pager.sequence[pager.index];
+                        }
                     }
             }
         }

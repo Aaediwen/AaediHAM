@@ -525,6 +525,7 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
     SDL_Log: Debug:
     struct map_pin moon_pin;
     moon_pin.owner=MOD_LUNAR;
+    sprintf(moon_pin.label, "SUB LUNAR POINT");
     moon_pin.lat=sublunar_point.latitude;
     moon_pin.lon=sublunar_point.longitude;
     moon_pin.color=lunar_text_color;

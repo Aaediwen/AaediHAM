@@ -179,6 +179,7 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
          SDL_RenderFillRect(panel->GetRenderer(), &pin_rect );
          target_rect.h=unit_scale/2;
          target_rect.w=unit_scale/2;
+
     }
 
 
@@ -193,6 +194,13 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
     }
     if (target_rect.x <=0) {
         target_rect.x += target_rect.w;
+    }
+    if (mouse_event.mod_owner == MOD_MAP) {
+        if ( mouse_event.mod_cords.y >=target_rect.y &&  mouse_event.mod_cords.y <= (target_rect.y+target_rect.h)
+            && mouse_event.mod_cords.x >=target_rect.x &&  mouse_event.mod_cords.x <= (target_rect.x+target_rect.w)   ) {
+                const std::string dxstring = current_pin->label;
+                clockconfig.set_DX(GeoCoord{current_pin->lat, current_pin->lon}, dxstring);
+        }
     }
     SDL_SetTextureBlendMode(icon_tex, SDL_BLENDMODE_BLEND);
     SDL_SetRenderTarget(panel->GetRenderer(), panel->texture);
@@ -383,6 +391,7 @@ int draw_map(ScreenFrame& panel) {
         current_pin=map_pins;
         while (current_pin) {
             render_pin(&panel, current_pin);
+
             current_pin=current_pin->next;
         }
     }
@@ -395,7 +404,9 @@ int draw_map(ScreenFrame& panel) {
          SDL_RenderTexture(panel.GetRenderer(), overlay->texture, NULL, NULL);
          overlay = overlays.next_overlay();
     }
-
+    if (mouse_event.mod_owner == MOD_MAP) {
+        mouse_event.mod_owner = MOD_NULL;
+    }
 //    SDL_Log("Drawing Map Complete");
     return 0;
 }
