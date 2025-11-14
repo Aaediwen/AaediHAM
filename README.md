@@ -1,12 +1,12 @@
 ![Screenshot](/images/screenshot.jpg "New Program Screenshot")
 
-<HR>
+---
 
 This is my attempt at re-implementing the idea behind HamClock from Clear Sky Institute as an SDL application eventually with versions for Windows, Mac, and Linux from the same code base.
   
 The program now requires a config file (aaediclock_config.json) in the Current Directory. 
 
-<HR>
+---
 
 ## Keyboard Commands
 | Key Combo       | Action                                          |
@@ -19,10 +19,11 @@ The program now requires a config file (aaediclock_config.json) in the Current D
 | **Alt + F4**    | Quit                                             |
 
 
-<HR>
+---
 Config File Format:
 
-<CODE>
+
+```jsonc
 {
      "CallSign": "N0CALL",             // your callsign here
      "PSKCall": "N0CALL",             // Optional -- if you want  PSK Reporter to show for a callsign other than your own
@@ -67,9 +68,9 @@ Config File Format:
           }
      ]
 }
-</CODE>
+```
 
-<HR>
+---
 
 Library dependancies:
 - **nlohmann json -- Niels Lohmann**
@@ -101,7 +102,7 @@ Library dependancies:
   - https://github.com/eclipse-paho/paho.mqtt.c/
   - Used for Handling the MQTT stream from PSK Reporter
  
-<HR>
+---
 
  Data Sources:
  - **NASA Blue Marble**
@@ -165,12 +166,12 @@ Library dependancies:
   - https://www.contestcalendar.com/calendar.rss
   - Current Contest Schedule
   - downloaded every few hours at runtime
- 
- <HR>
+
+ ---
  Build Instructions:
 
- Linux:
- <CODE>
+ **Linux:**
+ ```
       cd <source tree>
       mkdir build
       cd build 
@@ -179,23 +180,23 @@ Library dependancies:
       cp -r ../images . 
       cp -r ../aaediclock_config.json . 
       ./clock
-</CODE>
+```
   I actually recommend creating another directory where you place 
   clock, aaediclock_config.json, and a copy of the image assets. However, 
   it's not a big deal if you choose to do that in the source tree and run from there.
   That's what I do a lot during development
       
 
- Windows:
+ **Windows:**
       Built using MSVC22
-      <CODE>
+  ```
       Open the Source tree where CMakeFile.txt lives
       Select X64-Debug or X64-Release
       Project --> Rescan Solution
       Build --> Build All
       Then you'll need to manually collect the binary and SDL DLL files from the contents of out/build
       You will need to copy the images directory and aaediclock_config.json into the directory where you collect clock.exe and the SDL dll files
-      </CODE>
+  ```
       
   In either case, the directory with the Clock binary also needs aaediclock_config.json and an images subdirectory containing the maps, moon, and satellite icon images
               
