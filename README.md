@@ -7,15 +7,17 @@ This is my attempt at re-implementing the idea behind HamClock from Clear Sky In
 The program now requires a config file (aaediclock_config.json) in the Current Directory. 
 
 <HR>
-Keyboard commands:
-<UL>
-  <LI>Alt+C -- dump contents of the primary program cache to disk </LI>
-  <LI>R -- Toggle rezise on every frame, for stress testing resize code</LI>
-  <LI>F11 -- Toggle Fullscreen</LI>
-  <LI>Alt+Enter -- Toggle Fullscreen</LI>
-  <LI>Q -- Quit</LI>
-  <LI>Alt+F4 -- Quit</LI>
-</UL>
+
+## Keyboard Commands
+| Key Combo       | Action                                          |
+|-----------------|--------------------------------------------------|
+| **Alt + C**     | Dump contents of the primary program cache to disk       |
+| **R**           | Toggle resize each frame (stress-test resize code)    |
+| **F11**         | Toggle fullscreen                                |
+| **Alt + Enter** | Toggle fullscreen                                |
+| **Q**           | Quit                                             |
+| **Alt + F4**    | Quit                                             |
+
 
 <HR>
 Config File Format:
@@ -70,24 +72,43 @@ Config File Format:
 <HR>
 
 Library dependancies:
-<UL>
- <LI>nlohmann json -- https://github.com/nlohmann/json</LI>
- <LI>SDL3          -- https://wiki.libsdl.org/SDL3/FrontPage</LI>
- <LI>SDL3-TTF      -- https://wiki.libsdl.org/SDL3_ttf/FrontPage</LI>
- <LI>GNU LibMath   -- https://www.gnu.org/software/libc/</LI>
- <LI>LibCurl       -- https://curl.se/libcurl/</LI>
- <LI>LibSGP4       -- https://github.com/dnwrnr/sgp4</LI>
- <LI>FontConfig    -- https://www.freedesktop.org/wiki/Software/fontconfig/ (Linux Only)</LI>
-  
- </UL>
+- **nlohmann json -- Niels Lohmann**
+  - https://github.com/nlohmann/json
+  - Used for JSON Parsing and generation
+  - in Config file, POTA, K-index, and PSK Reporter modules
+- SDL3
+  - https://wiki.libsdl.org/SDL3/FrontPage
+  - Primary graphics and event library
+- **SDL3-TTF**
+  - https://wiki.libsdl.org/SDL3_ttf/FrontPage
+  - Used for font loading and text rendering
+- **GNU LibMath**
+  - https://www.gnu.org/software/libc/
+  - Used for advanced math functions, perticularly Trigonometric functions
+- **LibCurl**
+  - https://curl.se/libcurl/
+  - Used on Linux for HTTP Fetches
+- **WinHTTP2**
+  - Part of the Windows SDK from Microsoft
+  - Used on Windows for HTTP Fetches
+- **LibSGP4 -- Daniel Warner**
+  - https://github.com/dnwrnr/sgp4
+  - Used for parsing TLE Satellite Data and generating satellite tracks
+- **FontConfig**
+  - https://www.freedesktop.org/wiki/Software/fontconfig/
+  - Used for font selection under Linux to find a suitable font based on those installed on the system
+- **Eclipse Paho C Client Library**
+  - https://github.com/eclipse-paho/paho.mqtt.c/
+  - Used for Handling the MQTT stream from PSK Reporter
+ 
 <HR>
 
  Data Sources:
- - **Nasa Blue Marble**
+ - **NASA Blue Marble**
    - https://svs.gsfc.nasa.gov/2915
    - Daytime Earth Map for Map view
    - in source tree
- - **Nasa Earth at Night**
+ - **NASA Earth at Night**
    - Nighttime Earth Map for Map View
    - In Source Tree
  - **Country Border**
@@ -136,11 +157,11 @@ Library dependancies:
   - https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg
   - base Solar sunspot image shown in the panel, and used for the Sun icon
   - downloaded every few hours at run time
-- **PSK Reporter**
+- **PSK Reporter -- Philip Gladstone**
   - mqtt.pskreporter.info pskr/filter/v2/+/+/<CallSign>/#
   - Current live PSK Reporter data as plotted on the map
   - real time MQTT feed
-- **WS7BNM Contest Calendar**
+- **WS7BNM Contest Calendar -- Bruce Horn**
   - https://www.contestcalendar.com/calendar.rss
   - Current Contest Schedule
   - downloaded every few hours at runtime
