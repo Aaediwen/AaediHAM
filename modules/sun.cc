@@ -76,7 +76,10 @@ void sdo_image(ScreenFrame& panel, time_t timestamp) {
             data_size = cache_loader(MOD_SOLAR, (void**)&raw_image, &cache_time);
             if (data_size > 10) {
                 SDL_IOStream *imgdata = SDL_IOFromConstMem((void*)raw_image, data_size);
-                SDO_Surface = IMG_Load_IO(imgdata, true);
+                SDL_Surface* temp = IMG_Load_IO(imgdata, true);
+                // preconvert this in software because older versions of OpenGL can't handle it
+                SDO_Surface = SDL_ConvertSurface(temp, SDL_PIXELFORMAT_RGBA32);
+                SDL_DestroySurface(temp);
             }
         }
         // recreate the SDO GPU texture as needed
