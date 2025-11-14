@@ -78,26 +78,73 @@ Library dependancies:
  <LI>LibCurl       -- https://curl.se/libcurl/</LI>
  <LI>LibSGP4       -- https://github.com/dnwrnr/sgp4</LI>
  <LI>FontConfig    -- https://www.freedesktop.org/wiki/Software/fontconfig/ (Linux Only)</LI>
+  
  </UL>
 <HR>
 
  Data Sources:
- <UL>
- <LI>Nasa Blue Marble      --  https://svs.gsfc.nasa.gov/2915</LI>
- <LI>Nasa Earth at Night   --  https://www.visibleearth.nasa.gov/images/144898/earth-at-night-black-marble-2016-color-maps</LI>
- <LI>Country Border        --  Made with Natural Earth. Free vector and raster map data @ naturalearthdata.com.</LI>
- <LI>POTA Spots            --  https://api.pota.app/spot/activator</LI>
- <LI>Satellite Data        --  https://celestrak.org/NORAD/elements/</LI>
- <LI>K Index Data          --  https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json
- <LI>Solar Wind Data       --  https://services.swpc.noaa.gov/products/solar-wind/plasma-7-day.json
- <LI>DX Spots              --  Telnet: dxfun.com:8000 </LI> 
- <LI>WSPR Data             --  http://db1.wspr.live</LI>
- <LI>QRZ API               --  http://xmldata.qrz.com/</LI>  
- <LI>Astronomical Algorithms -- https://archive.org/details/astronomicalalgorithmsjeanmeeus1991</LI>
- <LI>NASA Moon image       -- https://science.nasa.gov/photojournal/nearside-spectacular/</LI>
- <LI>SDO Solar Image       -- https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg</LI>
-   
- </UL>
+ - **Nasa Blue Marble**
+   - https://svs.gsfc.nasa.gov/2915
+   - Daytime Earth Map for Map view
+   - in source tree
+ - **Nasa Earth at Night**
+   - Nighttime Earth Map for Map View
+   - In Source Tree
+ - **Country Border**
+   - Made with Natural Earth. Free vector and raster map data @ naturalearthdata.com
+   - Political Country Map overlay for Map View
+   - In Source Tree
+- **Parks on the Air Spots**
+  - https://api.pota.app/spot/activator
+  - Current Active POTA Spots for POTA module and plotted on the map
+  - downloaded every 5 minutes at runtime
+- **Satellite Data**
+  - https://celestrak.org/NORAD/elements/
+  - Current AmSat Tracking data for Satellite Tracking module
+  - downloaded every couple hours at runtime
+- **K Index Data**
+  - https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json
+  - Solar Weather data for K-Index module. Primary bar graph
+  - downloaded every 4 hours at runtime
+- **Solar Wind Data**
+  - https://services.swpc.noaa.gov/products/solar-wind/plasma-7-day.json
+  - Solar Wind Data for K-Index module, top histogram shows the first derivative of this
+  - downloaded every 4 hours at runtime
+ - **DX Spots**
+   - Telnet: dxfun.com:8000
+   - live DX Cluster data for DX Spots module. this can be changed in the config file.
+   - Real Time Telnet Feed
+   - Currently it does not apply its own filters or proper randomized login (future feature expansion)
+ - **WSPR Data**
+   - http://db1.wspr.live
+   - current WSPR Tracking data for the WSPR module and plotted on the map overlay
+   - fetched every few minutes at run time
+ - **QRZ API**
+   - http://xmldata.qrz.com/
+   - used to get the location and country information to plot DX Spots on the map.
+   - queried when DXSpots gets a new entry
+   - Without this, DX Spots module will still work, but will not show country and will not plot pins on the map.
+ - **Astronomical Algorithms -- Jean Meeus (1991)**
+   - https://archive.org/details/astronomicalalgorithmsjeanmeeus1991
+   - Source for the calculations to get SubSolar and Sublunar position, as well as calculating lunar phase
+   - no run time query
+ - **NASA Moon Image**
+   - https://science.nasa.gov/photojournal/nearside-spectacular/
+   - base moon image over which the phase is masked and used for the moon icon
+   - in source tree
+- **SDO Solar Image**
+  - https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg
+  - base Solar sunspot image shown in the panel, and used for the Sun icon
+  - downloaded every few hours at run time
+- **PSK Reporter**
+  - mqtt.pskreporter.info pskr/filter/v2/+/+/<CallSign>/#
+  - Current live PSK Reporter data as plotted on the map
+  - real time MQTT feed
+- **WS7BNM Contest Calendar**
+  - https://www.contestcalendar.com/calendar.rss
+  - Current Contest Schedule
+  - downloaded every few hours at runtime
+ 
  <HR>
  Build Instructions:
 
