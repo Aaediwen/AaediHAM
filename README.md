@@ -109,6 +109,7 @@ The program now requires a config file (aaediclock_config.json) in the Current D
    - Daytime Earth Map for Map view
    - in source tree
  - **NASA Earth at Night**
+   - https://www.visibleearth.nasa.gov/images/144898/earth-at-night-black-marble-2016-color-maps
    - Nighttime Earth Map for Map View
    - In Source Tree
  - **Country Border**
@@ -181,9 +182,9 @@ The program now requires a config file (aaediclock_config.json) in the Current D
       ./clock
 ```
   I actually recommend creating another directory where you place 
-- clock
-- aaediclock_config.json
-- images/ (image assets)
+  - clock
+  - aaediclock_config.json
+  - images/ (image assets)
   
   However, it's not a big deal if you choose to do that in the source tree as shown above, and run from there. That's what I do a lot during development
       
