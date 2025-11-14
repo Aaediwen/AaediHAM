@@ -1045,7 +1045,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         if (master_flags.contests.draw_flag) {
             debug_log << "ITTERATE: Calling Contests ("<< MOD_CONTESTS <<")with panel " << master_flags.contests.panel << "\n";
             debug_log.flush();
-             contest_module (*(master_flags.kindex.panel));
+             contest_module (*(master_flags.contests.panel));
             master_flags.contests.draw_flag = false;
         }
         if (master_flags.sat_tracker.draw_flag) {
