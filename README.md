@@ -170,7 +170,7 @@ The program now requires a config file (aaediclock_config.json) in the Current D
  ## Build Instructions:
 
  **Linux:**
- ```
+ ```bash
       cd <source tree>
       mkdir build
       cd build 
@@ -181,21 +181,37 @@ The program now requires a config file (aaediclock_config.json) in the Current D
       ./clock
 ```
   I actually recommend creating another directory where you place 
-  clock, aaediclock_config.json, and a copy of the image assets. However, 
-  it's not a big deal if you choose to do that in the source tree and run from there.
-  That's what I do a lot during development
+- clock
+- aaediclock_config.json
+- images/ (image assets)
+  
+  However, it's not a big deal if you choose to do that in the source tree as shown above, and run from there. That's what I do a lot during development
       
 
  **Windows:**
       Built using MSVC22
-  ```
+  ```text
       Open the Source tree where CMakeFile.txt lives
       Select X64-Debug or X64-Release
       Project --> Rescan Solution
       Build --> Build All
-      Then you'll need to manually collect the binary and SDL DLL files from the contents of out/build
-      You will need to copy the images directory and aaediclock_config.json into the directory where you collect clock.exe and the SDL dll files
+
+      after building:
+      Collect the compiled `clock.exe` and Dependancy DLL files from `out/build/...` into a common directory
+      Copy the `images` directory into the same folder as `clock.exe`
+      Copy or create an aaediclock_config.json file in the same directory
   ```
       
-  In either case, the directory with the Clock binary also needs aaediclock_config.json and an images subdirectory containing the maps, moon, and satellite icon images
-              
+##Runtime Requirements (Both Platforms)##
+
+The directory that contains the clock or clock.exe binary must also contain:
+
+- aaediclock_config.json
+- An images/ directory containing:
+  - Day Map
+  - Night Map
+  - Countries Map
+  - Moon image
+  - Satellite icon images
+
+If these are missing, the program will fail to render the corresponding assets.
