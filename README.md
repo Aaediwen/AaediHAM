@@ -20,8 +20,7 @@ The program now requires a config file (aaediclock_config.json) in the Current D
 
 
 ---
-Config File Format:
-
+## Config File Format
 
 ```jsonc
 {
@@ -72,7 +71,7 @@ Config File Format:
 
 ---
 
-Library dependancies:
+## Library dependancies:
 - **nlohmann json -- Niels Lohmann**
   - https://github.com/nlohmann/json
   - Used for JSON Parsing and generation
@@ -104,7 +103,7 @@ Library dependancies:
  
 ---
 
- Data Sources:
+ ## Data Sources:
  - **NASA Blue Marble**
    - https://svs.gsfc.nasa.gov/2915
    - Daytime Earth Map for Map view
@@ -168,7 +167,7 @@ Library dependancies:
   - downloaded every few hours at runtime
 
  ---
- Build Instructions:
+ ## Build Instructions:
 
  **Linux:**
  ```
