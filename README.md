@@ -190,6 +190,7 @@ The program now requires a config file (aaediclock_config.json) in the Current D
       
 
  **Windows:**
+ 
       Built using MSVC22
   ```text
       Open the Source tree where CMakeFile.txt lives
@@ -203,7 +204,7 @@ The program now requires a config file (aaediclock_config.json) in the Current D
       Copy or create an aaediclock_config.json file in the same directory
   ```
       
-##Runtime Requirements (Both Platforms)##
+ **Runtime Requirements (Both Platforms)**
 
 The directory that contains the clock or clock.exe binary must also contain:
 
