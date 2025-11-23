@@ -19,10 +19,8 @@
           "Port": 8000
      },
      "SatList": [
-          "LES-5", 
           "NOAA 15",
           "ISS (ZARYA)",
-          "COSMOS 2409",
           "NOAA 18"
      ]
 }
