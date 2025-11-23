@@ -491,9 +491,9 @@ void dx_cluster (ScreenFrame& panel) {
     for (size_t n=start ; n < dxspots.size(); n++) {
         if (y < panel.dims.h) {
             dxspots[n].display_spot(panel, y, max_age);
-            if (mouse_event.mod_owner == MOD_DXSPOT) {
-                SDL_Log ("Click event in  module at %f, %f", mouse_event.mod_cords.x, mouse_event.mod_cords.y);
-                if ( mouse_event.mod_cords.y >=y &&  mouse_event.mod_cords.y <= (y + panel.dims.h/15)) {
+            if (clock_mouse_event.mod_owner == MOD_DXSPOT) {
+                SDL_Log ("Click event in  module at %f, %f", clock_mouse_event.mod_cords.x, clock_mouse_event.mod_cords.y);
+                if ( clock_mouse_event.mod_cords.y >=y &&  clock_mouse_event.mod_cords.y <= (y + panel.dims.h/15)) {
                     clockconfig.set_DX(GeoCoord{dxspots[n].lat, dxspots[n].lon}, dxspots[n].dx);
                 }
 
@@ -517,9 +517,9 @@ void dx_cluster (ScreenFrame& panel) {
         }
     }
     SDL_UnlockMutex(dxspot_mutex);
-    if (mouse_event.mod_owner == MOD_DXSPOT) {
-        SDL_Log ("Click event in  module at %f, %f", mouse_event.mod_cords.x, mouse_event.mod_cords.y);
-        mouse_event.mod_owner = MOD_NULL;
+    if (clock_mouse_event.mod_owner == MOD_DXSPOT) {
+        SDL_Log ("Click event in  module at %f, %f", clock_mouse_event.mod_cords.x, clock_mouse_event.mod_cords.y);
+        clock_mouse_event.mod_owner = MOD_NULL;
     }
 }
 

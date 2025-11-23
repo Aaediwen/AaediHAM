@@ -65,9 +65,9 @@ void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int 
         de_dx_pin.owner=MOD_DX;
         sprintf(de_dx_pin.label, "DX");
     }
-    if (mouse_event.mod_owner == de_dx_pin.owner) {
-        SDL_Log ("Click event in DE/DX module at %f, %f", mouse_event.mod_cords.x, mouse_event.mod_cords.y);
-        mouse_event.mod_owner = MOD_NULL;
+    if (clock_mouse_event.mod_owner == de_dx_pin.owner) {
+        SDL_Log ("Click event in DE/DX module at %f, %f", clock_mouse_event.mod_cords.x, clock_mouse_event.mod_cords.y);
+        clock_mouse_event.mod_owner = MOD_NULL;
     }
 
     de_dx_pin.lat=lat;

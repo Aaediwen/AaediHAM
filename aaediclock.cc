@@ -26,7 +26,7 @@ ScreenFrame 	        CountriesMap;
 std::array<pager_node, 12> winboxes;
 std::array<SDL_Mutex*, 10> mutexes = { nullptr };
 
-struct internal_mouse_event mouse_event;
+struct internal_mouse_event clock_mouse_event;
 
 struct map_pin 		    *map_pins;
 struct data_blob	    *data_cache;
@@ -187,24 +187,23 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
         }
         if ((interrupt_counter % 50)==30) {	// 5 seconds +3
             master_flags.kindex.draw_flag = true;
-            master_flags.solar.draw_flag = true;
             master_flags.wspr.draw_flag = true;
             master_flags.lunar.draw_flag = true;
         }
         if ((interrupt_counter % 50)==40) {	// 5 seconds	+4
-
+            master_flags.solar.draw_flag = true;
         }
         if ((interrupt_counter % 20)==0) {	// 2 seconds
 
         }
 
         if ((interrupt_counter % 10)==0) {	// 1 second
-
             master_flags.map.draw_flag = true;
-            master_flags.clock.draw_flag = true;
             master_flags.sat_tracker.draw_flag = true;
         }
-
+        if ((interrupt_counter % 2)==0) {	// 2 seconds
+            master_flags.clock.draw_flag = true;
+        }
 //        debug_log << "FLAG_TIMER: Master flag timer done.\n";
         SDL_UnlockMutex(mutexes[MUTEX_MASTER_CLOCK]);
         return (interval);
@@ -896,9 +895,9 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     // init globals
     map_pins			=	0;
     data_cache			=	0;
-    mouse_event.mod_cords = {0.0, 0.0};
-    mouse_event.mod_count = 0;
-    mouse_event.mod_owner = MOD_NULL;
+    clock_mouse_event.mod_cords = {0.0, 0.0};
+    clock_mouse_event.mod_count = 0;
+    clock_mouse_event.mod_owner = MOD_NULL;
 
     winboxes[PANEL_CALLSIGN].panel.Reset();
     winboxes[PANEL_MAP].panel.Reset();
@@ -1162,9 +1161,9 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                         pager.clickpoint={modx, mody};
                         pager.clickcount = event->button.clicks;
                         if (pager.sequence.size()) {
-                            mouse_event.mod_cords = {modx, mody};
-                            mouse_event.mod_count = event->button.clicks;
-                            mouse_event.mod_owner = pager.sequence[pager.index];
+                            clock_mouse_event.mod_cords = {modx, mody};
+                            clock_mouse_event.mod_count = event->button.clicks;
+                            clock_mouse_event.mod_owner = pager.sequence[pager.index];
                         }
                     }
             }

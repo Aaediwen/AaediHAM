@@ -195,9 +195,9 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
     if (target_rect.x <=0) {
         target_rect.x += target_rect.w;
     }
-    if (mouse_event.mod_owner == MOD_MAP) {
-        if ( mouse_event.mod_cords.y >=target_rect.y &&  mouse_event.mod_cords.y <= (target_rect.y+target_rect.h)
-            && mouse_event.mod_cords.x >=target_rect.x &&  mouse_event.mod_cords.x <= (target_rect.x+target_rect.w)   ) {
+    if (clock_mouse_event.mod_owner == MOD_MAP) {
+        if ( clock_mouse_event.mod_cords.y >=target_rect.y &&  clock_mouse_event.mod_cords.y <= (target_rect.y+target_rect.h)
+            && clock_mouse_event.mod_cords.x >=target_rect.x &&  clock_mouse_event.mod_cords.x <= (target_rect.x+target_rect.w)   ) {
                 const std::string dxstring = current_pin->label;
                 clockconfig.set_DX(GeoCoord{current_pin->lat, current_pin->lon}, dxstring);
         }
@@ -404,8 +404,8 @@ int draw_map(ScreenFrame& panel) {
          SDL_RenderTexture(panel.GetRenderer(), overlay->texture, NULL, NULL);
          overlay = overlays.next_overlay();
     }
-    if (mouse_event.mod_owner == MOD_MAP) {
-        mouse_event.mod_owner = MOD_NULL;
+    if (clock_mouse_event.mod_owner == MOD_MAP) {
+        clock_mouse_event.mod_owner = MOD_NULL;
     }
 //    SDL_Log("Drawing Map Complete");
     return 0;

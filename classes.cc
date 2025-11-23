@@ -2,40 +2,33 @@
 #include "utils.h"
 
 #include "modules.h"
+#include "classes.h"
 #include <SDL3_image/SDL_image.h>
 
 using json = nlohmann::json;
 
 
 ScreenFrame::ScreenFrame() {
-    this->dims.x=0;
-    this->dims.y=0;
-    this->dims.h=0;
-    this->dims.w=0;
+    if (this->valid()) {
+        this->dims.x=0;
+        this->dims.y=0;
+        this->dims.h=0;
+        this->dims.w=0;
 
-    this->texture = 0;
-    this->surface = 0;
-    this->renderer = 0;
+        this->texture = 0;
+        this->surface = 0;
+        this->renderer = 0;
+    }
 }
 
 ScreenFrame::~ScreenFrame() {
-    Reset();
+    if (valid()) {
+        Reset();
+    }
 }
 
 ScreenFrame::ScreenFrame(ScreenFrame&& source) noexcept {	// move to new instance
-    dims = std::move(source.dims);
-    renderer = std::move(source.renderer);
-    surface = source.surface;
-    texture = source.texture;
-    source.surface = nullptr;
-    source.texture = nullptr;
-    source.renderer = nullptr;
-    source.dims = {};
-}
-
-ScreenFrame& ScreenFrame::operator=(ScreenFrame&& source) noexcept {	// move over existing
-    if (this != &source) {
-        this->Reset();
+    if (valid() && source.valid()) {
         dims = std::move(source.dims);
         renderer = std::move(source.renderer);
         surface = source.surface;
@@ -44,6 +37,22 @@ ScreenFrame& ScreenFrame::operator=(ScreenFrame&& source) noexcept {	// move ove
         source.texture = nullptr;
         source.renderer = nullptr;
         source.dims = {};
+    }
+}
+
+ScreenFrame& ScreenFrame::operator=(ScreenFrame&& source) noexcept {	// move over existing
+    if (this != &source) {
+        if (valid() && source.valid()) {
+            this->Reset();
+            dims = std::move(source.dims);
+            renderer = std::move(source.renderer);
+            surface = source.surface;
+            texture = source.texture;
+            source.surface = nullptr;
+            source.texture = nullptr;
+            source.renderer = nullptr;
+            source.dims = {};
+        }
     }
     return *this;
 }
@@ -104,6 +113,9 @@ ScreenFrame& ScreenFrame::operator=(const ScreenFrame& source) {	// copy with ov
 
 
 bool ScreenFrame::Create (SDL_Renderer* parent, SDL_FRect size) {
+    if (!valid()) {
+        return false;
+    }
     dims=size;
     int h = static_cast<int>(size.h);
     int w = static_cast<int>(size.w);
@@ -145,23 +157,26 @@ void ScreenFrame::SetRenderer(SDL_Renderer* r) {
 }
 
 void ScreenFrame::Reset() {
+    if (!valid()) {
+        return;
+    }
     try {
         if (renderer) {
             SDL_SetRenderTarget(renderer, nullptr);
             if (this->texture) {
                 SDL_Renderer* texture_renderer = SDL_GetRendererFromTexture(this->texture);
-                debug_log << "SCREENFRAME: Destroying " << ((dims.w * dims.h * 4.0) / 1024.0) << "KB 32 bit Texture " << dims.w << "x" << dims.h << "At " << (void*)texture << "\n";
+////                debug_log << "SCREENFRAME: Destroying " << ((dims.w * dims.h * 4.0) / 1024.0) << "KB 32 bit Texture " << dims.w << "x" << dims.h << "At " << (void*)texture << "\n";
 //                std::cout << "SCREENFRAME: Destroying " << ((dims.w * dims.h * 4.0) / 1024.0) << "KB 32 bit Texture " << dims.w << "x" << dims.h << "At " << (void*)texture << "\n";
-                debug_log << "SCREENFRAME: Panel Address: " << (void*)this << "\n";
+////                debug_log << "SCREENFRAME: Panel Address: " << (void*)this << "\n";
 //                std::cout << "SCREENFRAME: Panel Address: " << (void*)this << "\n";
-                debug_log << "SCREENFRAME: Texture Renderer: " << (void*)texture_renderer;
+////                debug_log << "SCREENFRAME: Texture Renderer: " << (void*)texture_renderer;
 //                std::cout << "SCREENFRAME: Texture Renderer: " << (void*)texture_renderer;
-                debug_log << " SCREENFRAME: ScreenFrame Renderer: " << (void*)(this->renderer) << "\n";
+////                debug_log << " SCREENFRAME: ScreenFrame Renderer: " << (void*)(this->renderer) << "\n";
 //                std::cout << " SCREENFRAME: ScreenFrame Renderer: " << (void*)(this->renderer) << "\n";
-                debug_log.flush();
+////                debug_log.flush();
                 if (texture_renderer != renderer) {
 //                    std::cout << "Texture Renderer mismatch on reset!\n";
-                    debug_log << "Texture Renderer mismatch on reset!\n";
+                    debug_log << "SCREENFRAME: Texture Renderer mismatch on reset!\n";
                 } else {
                     SDL_DestroyTexture(this->texture);
                 }
@@ -301,6 +316,10 @@ void ScreenFrame::Clear(const SDL_Color& color) {
         debug_log << "SCREENFRAME: Bad renderer or texture on Clear\n";
     }
     return;
+}
+
+bool ScreenFrame::valid() {
+    return (magic == MAGIC_SCREENFRAME);
 }
 
 void config::qrz_sesskey() {

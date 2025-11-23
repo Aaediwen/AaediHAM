@@ -61,7 +61,7 @@ struct internal_mouse_event {
     int mod_count;
     enum mod_name mod_owner;
 };
-extern struct internal_mouse_event mouse_event;
+extern struct internal_mouse_event clock_mouse_event;
 
 
 struct Celestial_Coordinates {

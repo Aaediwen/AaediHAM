@@ -32,10 +32,11 @@ enum panel_names {
     PANEL_FLEXBOX5      ,
     PANEL_NULL
 };
-
+#define MAGIC_SCREENFRAME  0x5343524E4652414E
 
 class ScreenFrame {
     private:
+        const uint64_t	    magic = MAGIC_SCREENFRAME;
         SDL_Renderer*       renderer;
     public:
         SDL_Surface*        surface;
@@ -56,6 +57,7 @@ class ScreenFrame {
         void render_text(const SDL_FRect& text_box, TTF_Font *font, const SDL_Color& color, std::string str);
         void render_text(const SDL_FRect& text_box, TTF_Font *font, const SDL_Color& color, const char* str);
         void present();
+        bool valid();
 };
 extern ScreenFrame DayMap;
 extern ScreenFrame NightMap;
