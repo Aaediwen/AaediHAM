@@ -32,13 +32,15 @@ enum mutex_name {
     MUTEX_RESIZE	,
     MUTEX_CACHE		,
     MUTEX_HTTP		,
-    MUTEX_MASTER_CLOCK
+    MUTEX_MASTER_CLOCK	,
+    MUTEX_CELESTRAK	,
+    MUTEX_WSPR
 };
 extern std::array<SDL_Mutex*, 10> mutexes;
-extern SDL_Mutex* night_mask_mutex;
-extern SDL_Mutex* resize_mutex;
-extern SDL_Mutex* cache_mutex;
-extern SDL_Mutex* http_mutex;
+//extern SDL_Mutex* night_mask_mutex;
+//extern SDL_Mutex* resize_mutex;
+//extern SDL_Mutex* cache_mutex;
+//extern SDL_Mutex* http_mutex;
 extern SDL_TimerID map_timer;
 extern TTF_Font* Sans;
 extern std::fstream debug_log;
@@ -50,7 +52,7 @@ extern ScreenFrame CountriesMap;
 struct pager_node {
     std::vector<enum mod_name> sequence;
     ScreenFrame panel;
-    int index=0;
+    unsigned int index=0;
     SDL_FPoint clickpoint;
     int clickcount = 0;
 };
@@ -92,7 +94,7 @@ struct map_pin {
 struct data_blob {
     enum mod_name owner;
     time_t fetch_time;
-    Uint32 size;
+    Uint64 size;
     void *data;
     struct data_blob *next;
 } extern *data_cache;

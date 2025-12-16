@@ -30,7 +30,7 @@ class TrackedSatellite {
         TrackedSatellite& operator=(TrackedSatellite&& source) noexcept;     // move with replace
         TrackedSatellite(const TrackedSatellite& source);		// copy to new
         TrackedSatellite& operator=(const TrackedSatellite& source);	// copy over existing
-        std::string& get_name();
+        const std::string& get_name() const;
         void new_tracking(const std::string& source_name, const std::string& l1, const std::string& l2);
         time_t pass_start();
         time_t pass_end();

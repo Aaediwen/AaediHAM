@@ -9,6 +9,18 @@ int draw_clock(ScreenFrame& panel, TTF_Font* font) {
         SDL_Log("Clock Module during resize event!");
         return (0);
     }
+    if (!font) {
+        debug_log << "CLOCK: No font defined\n";
+        return 1;
+    }
+    if (!panel.GetRenderer()) {
+        debug_log << "CLOCK: Missing Renderer!\n";
+        return 1;
+    }
+    if (!panel.texture) {
+        debug_log << "CLOCK: Missing PANEL!\n";
+        return 1;
+    }
     if (clock_mouse_event.mod_owner == MOD_CLOCK) {
         SDL_Log ("Click event in Clock module at %f, %f", clock_mouse_event.mod_cords.x, clock_mouse_event.mod_cords.y);
         clock_mouse_event.mod_owner = MOD_NULL;
@@ -21,12 +33,8 @@ int draw_clock(ScreenFrame& panel, TTF_Font* font) {
     char timestr[64];
     SDL_FRect TextRect;
 
-    float oldsize = TTF_GetFontSize(font);
-    TTF_SetFontSize(font,72);
-    if (!font) {
-        debug_log << "CLOCK: No font defined\n";
-        return 1;
-    }
+//    float oldsize = TTF_GetFontSize(font);
+//    TTF_SetFontSize(font,72);
 
     // blank the box
     panel.Clear();
@@ -81,6 +89,6 @@ int draw_clock(ScreenFrame& panel, TTF_Font* font) {
     sprintf(timestr, "%s", wintime.c_str());
 #endif
     panel.render_text(TextRect, font, fontcolor, timestr);
-    TTF_SetFontSize(font,oldsize);
+//    TTF_SetFontSize(font,oldsize);
     return 0;
 }

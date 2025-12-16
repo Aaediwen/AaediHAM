@@ -60,13 +60,23 @@ std::vector<struct psk_spot>psk_reports;
 
 int msgarrvd(void *context, char *topicName, int topicLen, MQTTClient_message *message)
 {
+    (void)context;
+    (void)topicName;
+    (void)topicLen;
     debug_log << "PSK: MQTT Message arrived\t";
 //    debug_log << "topic: "<< topicName;
 //    debug_log << "\tmessage: " << (char*)(message->payload) << "\n";
     json psk_report;
+    if (message->payloadlen <=0) {
+        debug_log << "PSK: Invalid MQTT Payload Length\n";
+        return 0;
+    }
     try {
         struct psk_spot new_spot;
-        psk_report=json::parse((char*)(message->payload));
+        /* We don't know how clean payload is, so this string helps verify we're safe */
+        std::string payload(reinterpret_cast<char*>(message->payload), static_cast<size_t>(message->payloadlen));
+        payload.push_back(0);
+        psk_report=json::parse((char*)(payload.c_str()));
         if (psk_report.contains("sq") &&  psk_report["sq"].is_number()) {
               new_spot.sequence 	=	psk_report["sq"].get<uint64_t>();
         } else {
@@ -77,7 +87,7 @@ int msgarrvd(void *context, char *topicName, int topicLen, MQTTClient_message *m
         } else {
               new_spot.frequency	= 	0;
         }
-        if (psk_report.contains("md")) {
+        if (psk_report.contains("md")&&  psk_report["md"].is_string()) {
               new_spot.mode		=	psk_report["md"].get<std::string>();
         } else {
               new_spot.mode		=	"";
@@ -92,24 +102,24 @@ int msgarrvd(void *context, char *topicName, int topicLen, MQTTClient_message *m
         } else {
               new_spot.timestamp	= 	0;
         }
-        if (psk_report.contains("sc")) {
+        if (psk_report.contains("sc")&&  psk_report["sc"].is_string()) {
               new_spot.tx_call 		=	psk_report["sc"].get<std::string>();
         } else {
               new_spot.tx_call		=	"";
         }
-        if (psk_report.contains("sc")) {
+        if (psk_report.contains("rc")&&  psk_report["rc"].is_string()) {
               new_spot.rx_call 		=	psk_report["rc"].get<std::string>();
         } else {
               new_spot.rx_call		=	"";
         }
-        if (psk_report.contains("sl")) {
+        if (psk_report.contains("sl") &&  psk_report["sl"].is_string()) {
               new_spot.tx_loc 		=	psk_report["sl"].get<std::string>();
               new_spot.tx_geo		=	loc_to_geo(new_spot.tx_loc);
         } else {
               new_spot.tx_loc		=	"";
               new_spot.tx_geo		=	{0.0, 0.0};
         }
-        if (psk_report.contains("rl")) {
+        if (psk_report.contains("rl")  &&  psk_report["rl"].is_string()) {
               new_spot.rx_loc 		=	psk_report["rl"].get<std::string>();
               new_spot.rx_geo		=	loc_to_geo(new_spot.rx_loc);
         } else {
@@ -126,7 +136,7 @@ int msgarrvd(void *context, char *topicName, int topicLen, MQTTClient_message *m
         } else {
               new_spot.rx_dxcc		=	0;
         }
-        if (psk_report.contains("b")) {
+        if (psk_report.contains("b") &&  psk_report["b"].is_string()) {
               new_spot.band 		=	psk_report["b"].get<std::string>();
         } else {
               new_spot.band		=	"";
@@ -137,8 +147,11 @@ int msgarrvd(void *context, char *topicName, int topicLen, MQTTClient_message *m
 
         SDL_UnlockMutex(psk_mutex);
     } catch (const json::parse_error &e) {
-        debug_log << "PSK: Report JSON Parse Error " << strlen((char*)(message->payload)) << " bytes " << (char*)(message->payload) << "\n";
+        (void)e;
+        debug_log << "PSK: Report JSON Parse Error " << message->payloadlen << " bytes \n";
         return 0;
+    } catch (const std::exception& e) {
+        debug_log << "PSK: Exception while processing report: " << e.what() << "\n";
     }
     MQTTClient_freeMessage(&message);
     MQTTClient_free(topicName);
@@ -146,11 +159,19 @@ int msgarrvd(void *context, char *topicName, int topicLen, MQTTClient_message *m
 }
 
 
-void connlost(void *context, char *cause)
-{
+void connlost(void* context, char* cause) {
+    (void)context;
     debug_log << "PSK: MQTT Connection lost";
-    debug_log << "\tcause: "<< cause << "\n";
-    mqtt_client = 0;
+    if (cause && cause[0]) {
+        debug_log << "\tcause: " << cause << "\n";
+    }
+    else {
+        debug_log << "\t Bad Cause definition\n";
+    }
+    if (mqtt_client) {
+         MQTTClient_destroy(&mqtt_client);
+         mqtt_client = 0;
+    }
 }
 
 void psk_cleanup() {
@@ -181,6 +202,9 @@ void init_mqtt() {
      }
 //     std::string mqtt_topic = "pskr/filter/v2/+/+/K1KPC/#";
      // create MQTT object
+     if (mqtt_client) {
+         MQTTClient_destroy(&mqtt_client);
+     }
      if ((rc = MQTTClient_create(&mqtt_client, "mqtt.pskreporter.info", mqtt_client_id.c_str(),
         MQTTCLIENT_PERSISTENCE_NONE, NULL)) != MQTTCLIENT_SUCCESS) {
              debug_log << "PSK: Unable to create MQTT client.\n";
@@ -218,7 +242,7 @@ void init_mqtt() {
     }
 }
 
-void display_spot(ScreenFrame& panel, int y, int max_age,  struct psk_spot spot) {
+void display_spot(ScreenFrame& panel, float y, struct psk_spot spot) {
     // add to screen list
        char tempstr[128];
        SDL_Color tempcolor={128,128,0,0};
@@ -233,6 +257,9 @@ void display_spot(ScreenFrame& panel, int y, int max_age,  struct psk_spot spot)
        age_rect.y = y+((TextRect.h/8)*7);
        age_rect.x = 2;
        age_rect.w = (panel.dims.w-4)*(static_cast<float>(time(NULL)-spot.timestamp)/max_age);
+       if (age_rect.w <0) {
+           age_rect.w = 0;
+       }
        debug_log << "PSK: Spot age: "<< (time(NULL)-spot.timestamp) << " Seconds, Bar width: "<< age_rect.w<< " pixels\n";
        SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
        SDL_SetRenderDrawColor(panel.GetRenderer(), 128, 128, 0, 255);
@@ -264,6 +291,29 @@ void psk_reporter(ScreenFrame& panel) {
          init_mqtt();
     }
     time_t currenttime = time(NULL);
+
+    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
+         SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
+    } else {
+         SDL_Log("PSK Reporter DRAW during resize event!");
+         return;
+    }
+    if (!Sans) {
+        debug_log << "PSK: No font defined\n";
+        return;
+    }
+    if (!panel.GetRenderer()) {
+        debug_log << "PSK: Missing Renderer!\n";
+        return;
+    }
+    if (!panel.texture) {
+        debug_log << "PSK: Missing PANEL!\n";
+        return;
+    }
+
+    panel.Clear();
+
+
     SDL_LockMutex(psk_mutex);
     if (!psk_reports.empty()) {
          for (size_t c = psk_reports.size() ; c-- > 0 ;) {
@@ -274,22 +324,15 @@ void psk_reporter(ScreenFrame& panel) {
          }
     }
 
-    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
-         SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
-    } else {
-         SDL_Log("PSK Reporter DRAW during resize event!");
-         return;
-    }
 
-    panel.Clear();
     // display to panel
     panel.render_text(SDL_FRect{2,2, panel.dims.w, panel.dims.h/16}, Sans, SDL_Color{128,128,0,255}, "PSK Reporter");
-    int y=2+panel.dims.h/16;
+    float y=2+panel.dims.h/16;
     size_t start = psk_reports.size() > 15 ? psk_reports.size() - 15 : 0;
     for (size_t n=start ; n < psk_reports.size(); n++) {
         if (y < panel.dims.h) {
 //            dxspots[n].display_spot(panel, y, max_age);
-            display_spot(panel, y, max_age,  psk_reports[n]);
+            display_spot(panel, y, psk_reports[n]);
             y+= panel.dims.h/16;
         }
     }
@@ -300,10 +343,11 @@ void psk_reporter(ScreenFrame& panel) {
     delete_owner_pins(MOD_PSK);
     if (!psk_reports.empty()) {
         for (auto& current_spot : psk_reports) {
-            if (current_spot.rx_geo.latitude && current_spot.rx_geo.longitude ) {
+            if (current_spot.rx_geo.latitude || current_spot.rx_geo.longitude ) {
                 struct map_pin psk_pin;
                 psk_pin.owner       =               MOD_PSK;
-                sprintf(psk_pin.label, "%s", current_spot.rx_call.c_str());
+                snprintf(psk_pin.label, sizeof(psk_pin.label), "%s", current_spot.rx_call.c_str());
+                psk_pin.label[15]=0;
                 psk_pin.lat         =               current_spot.rx_geo.latitude;
                 psk_pin.lon         =               current_spot.rx_geo.longitude;
                 psk_pin.icon        =               0;

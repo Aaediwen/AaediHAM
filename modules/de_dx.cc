@@ -36,8 +36,8 @@ void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int 
         printf("No font defined\n");
         return;
     }
-    float oldsize = TTF_GetFontSize(font);
-    TTF_SetFontSize(font,72);
+//    float oldsize = TTF_GetFontSize(font);
+//    TTF_SetFontSize(font,72);
 
     // blank the box
     panel.Clear();
@@ -154,5 +154,5 @@ void draw_de_dx(ScreenFrame& panel, TTF_Font* font, double lat, double lon, int 
         panel.render_text(TextRect, font, fontcolor, clockconfig.DXmsg().c_str());
     }
     // clean up
-    TTF_SetFontSize(font,oldsize);
+//    TTF_SetFontSize(font,oldsize);
 }

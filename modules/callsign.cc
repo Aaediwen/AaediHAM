@@ -17,6 +17,10 @@ void draw_callsign(ScreenFrame& panel, TTF_Font* font, const char* callsign) {
         debug_log << "CALLSIGN: Missing PANEL!\n";
         return ;
     }
+    if (!font) {
+        debug_log << "CALLSIGN: No font defined\n";
+        return;
+    }
     if (clock_mouse_event.mod_owner == MOD_CALL) {
         SDL_Log ("Click event in Callsign module at %f, %f", clock_mouse_event.mod_cords.x, clock_mouse_event.mod_cords.y);
         clock_mouse_event.mod_owner = MOD_NULL;
@@ -29,10 +33,6 @@ void draw_callsign(ScreenFrame& panel, TTF_Font* font, const char* callsign) {
     fontcolor.g=128;
     fontcolor.b=255;
     fontcolor.a=0;
-    if (!font) {
-        debug_log << "CALLSIGN: No font defined\n";
-        return;
-    }
 
     SDL_FRect TextRect;
     TextRect.x=2;

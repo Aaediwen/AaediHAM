@@ -103,6 +103,7 @@ std::string merge_json (const char* k_index_list, const char* solar_wind_list) {
           k_list = json::parse(k_index_list);
           solar_index = json::parse(solar_wind_list);
      } catch (const std::exception& e) {
+         (void)e;
           debug_log << "KINDEX: JSON Parse error reading Solar Data\n";
           return "";
      }
@@ -147,8 +148,9 @@ std::string merge_json (const char* k_index_list, const char* solar_wind_list) {
 }
 
 
-void fetch_kindex () {
-     Uint32 data_size;
+int SDLCALL fetch_kindex (void* data) {
+     (void)data;
+     Uint64 data_size;
      char* k_index_list = 0 ;
      char* solar_wind_list = 0;
      std::string merged;
@@ -169,12 +171,19 @@ void fetch_kindex () {
               solar_wind_list = 0;
           }
      }
-     return;
+     return 0;
 }
 
 Uint32 SDLCALL fetch_kindex (void *userdata, SDL_TimerID timerID, Uint32 interval) {
+    (void)interval;
+    (void)userdata;
   if (timerID) {
-    fetch_kindex();
+    SDL_Thread* thread = SDL_CreateThread(fetch_kindex, "Kindex Fetcher", nullptr);
+    if (thread) {
+      SDL_DetachThread(thread);
+    } else {
+      debug_log << "Failed to Create Kindex Fetch Thread\n";
+    }
     return (3600000); // 6 hrs
   } else {
     return 0;
@@ -182,11 +191,30 @@ Uint32 SDLCALL fetch_kindex (void *userdata, SDL_TimerID timerID, Uint32 interva
 }
 
 
+
+void plot_solar_wind (ScreenFrame& panel, const std::vector<float>&wind_prime, const SDL_FRect& bar_box, const SDL_Color& color){
+      const float y_height = panel.dims.h/8;
+      if (wind_prime.size()) {
+        std::vector<SDL_FPoint> chart_pts;
+        float point_width = bar_box.w/wind_prime.size();
+        SDL_FPoint new_point;
+        new_point.x = bar_box.x;
+        for (auto solar_wind : wind_prime) {
+          new_point.y = y_height + ((solar_wind/100)* y_height);
+          chart_pts.push_back(new_point);
+          new_point.x += point_width;
+        }
+        SDL_SetRenderDrawColor(panel.GetRenderer(), color.r, color.g, color.b, color.a);
+        SDL_RenderLines(panel.GetRenderer(), chart_pts.data(), static_cast<int>(chart_pts.size()));
+      }
+      return;
+}
+
 void k_index_chart (ScreenFrame& panel) {
+
     std::string merged;
     std::istringstream data;
     char* k_index_list = 0 ;
-    char* solar_wind_list = 0;
     if (!kindex_timer) {
       kindex_timer = SDL_AddTimer(30, fetch_kindex, NULL);
     }
@@ -198,19 +226,23 @@ void k_index_chart (ScreenFrame& panel) {
         SDL_Log("Kindex call during resize event!");
         return;
     }
+    if (!panel.GetRenderer()) {
+        debug_log << "DE/DX: Missing Renderer!\n";
+        return ;
+    }
+    if (!panel.texture) {
+        debug_log << "DE/DX: Missing PANEL!\n";
+        return ;
+    }
 
 
     json source_json;
-    Uint32 data_size;
+    Uint64 data_size;
     time_t cache_time;
-    bool reload_flag = false;
     std::string combined;
     debug_log << "KINDEX: Kindex checking cache\n";
     data_size = cache_loader(MOD_KINDEX, (void**)&k_index_list, &cache_time);
-    if (!data_size) {
-        reload_flag=true;
-    } else if ((time(NULL) - cache_time) > 14400) {
-        reload_flag=true;
+    if ((time(NULL) - cache_time) > 14400) {
         if (k_index_list) {
           free (k_index_list);
           k_index_list = 0;
@@ -241,7 +273,8 @@ void k_index_chart (ScreenFrame& panel) {
     float speed_old = 0;
     float density_old = 0;
 
-    float klast, dlast, slast;
+//    float klast, dlast, slast;
+    float klast = 0.0;
     uint8_t type;
     size_t kindex_count;
     if (merged.length() < 5) {
@@ -251,10 +284,16 @@ void k_index_chart (ScreenFrame& panel) {
     }
 
     data.read(reinterpret_cast<char*>(&kindex_count), sizeof(kindex_count));
+    if (kindex_count <=0) {
+      debug_log << "KINDEX: BAD Solar Data! count: " << kindex_count << "\n";
+      panel.render_text(SDL_FRect {panel.dims.w/20, panel.dims.h/4, (panel.dims.w/10)*8, panel.dims.h/10}, Sans, SDL_Color{128,128,128,0}, "BAD KINDEX DATA");
+      return;
+    }
     debug_log << "KINDEX: Drawing chart size " << kindex_count << "\n";
+
     bar_box.x=1;
     bar_box.w = (panel.dims.w-2)/kindex_count;
-    for (int ki = 0 ; ki < kindex_count ; ki++) {	// read each K Index value
+    for (size_t ki = 0 ; ki < kindex_count ; ki++) {	// read each K Index value
       // reset the primes of actual solar wind display values
       speed_prime.clear();
       density_prime.clear();
@@ -293,16 +332,18 @@ void k_index_chart (ScreenFrame& panel) {
       } else {
           SDL_SetRenderDrawColor(panel.GetRenderer(), 255, 0, 0, 255);
       }
-      bar_box.h=((panel.dims.h*.75)/10)*kindex.kindex;
+      bar_box.h=((panel.dims.h*.75f)/10.0f)*kindex.kindex;
+      if (bar_box.h > panel.dims.h) {
+        bar_box.h = panel.dims.h;
+      }
       bar_box.y = panel.dims.h - bar_box.h;
       SDL_RenderFillRect(panel.GetRenderer(), &bar_box );
-
 
 
       // process solar wind info
       size_t wind_count;
       data.read(reinterpret_cast<char*>(&wind_count), sizeof(wind_count));
-      for (int wi = 0 ; wi < wind_count ; wi++) {	// read each solar_wind value
+      for (size_t wi = 0 ; wi < wind_count ; wi++) {	// read each solar_wind value
         data.read(reinterpret_cast<char*>(&type), sizeof(type));
         if (type != 2) {
           debug_log << "KINDEX: Solar Wind read error! Type not 2 on Solar Wind read\n";
@@ -327,35 +368,8 @@ void k_index_chart (ScreenFrame& panel) {
         density_old = wind_data.density;
       }
       // plot the graphs for solar wind
-      if (speed_prime.size()) {
-        std::vector<SDL_FPoint> chart_pts;
-        float point_width = bar_box.w/speed_prime.size();
-        SDL_FPoint new_point;
-        new_point.x = bar_box.x;
-        for (auto solar_speed : speed_prime) {
-          new_point.y = (panel.dims.h/8)+((solar_speed/100)*(panel.dims.h/8));
-          chart_pts.push_back(new_point);
-          new_point.x += point_width;
-        }
-        SDL_SetRenderDrawColor(panel.GetRenderer(), 128, 64, 64, 64);
-        SDL_RenderLines(panel.GetRenderer(), chart_pts.data(), chart_pts.size());
-      }
-
-      if (density_prime.size()) {
-        std::vector<SDL_FPoint> chart_pts;
-        float point_width = bar_box.w/density_prime.size();
-        SDL_FPoint new_point;
-        new_point.x = bar_box.x;
-        for (auto solar_density : density_prime) {
-          new_point.y = (panel.dims.h/8)+ ((solar_density/100)*(panel.dims.h/8));
-          new_point.y -= (panel.dims.h/8)*7;
-          chart_pts.push_back(new_point);
-          new_point.x += point_width;
-        }
-        SDL_SetRenderDrawColor(panel.GetRenderer(), 64, 255, 64, 200);
-        SDL_RenderLines(panel.GetRenderer(), chart_pts.data(), chart_pts.size());
-      }
-
+      plot_solar_wind (panel, speed_prime, bar_box, SDL_Color{128,64,64,64});
+      plot_solar_wind (panel, density_prime, bar_box, SDL_Color{64, 128, 64, 200});
 
       // -------- end processing wind info
 
@@ -370,7 +384,7 @@ void k_index_chart (ScreenFrame& panel) {
     // draw Yaxis markers
     SDL_SetRenderDrawColor(panel.GetRenderer(), 64, 64, 128, 128);
     for (int c = 0; c < 10 ; c++) {
-        int y = (panel.dims.h/4)+((panel.dims.h*.75)/10)*c;
+        float y = (panel.dims.h/4.0f)+((panel.dims.h*.75f)/10.0f)*c;
         SDL_RenderLine(panel.GetRenderer(), 0,y, panel.dims.w, y);
     }
 
@@ -384,7 +398,11 @@ void k_index_chart (ScreenFrame& panel) {
     bar_box.w=(panel.dims.w/4)*3;
     bar_box.h=panel.dims.h/16;
     char tempfloat[255];
-    sprintf (tempfloat, "K Index: %.1f S': %.1f D': %.1f", klast, speed_prime.back(), density_prime.back());
+    if (!speed_prime.empty() && !density_prime.empty()) {
+        sprintf (tempfloat, "K Index: %.1f S': %.1f D': %.1f", klast, speed_prime.back(), density_prime.back());
+    } else {
+        sprintf (tempfloat, "K Index: %.1f S': BAD WIND", klast);
+    }
     panel.render_text(bar_box, Sans, tempcolor, tempfloat);
     return;
 }

@@ -21,7 +21,7 @@ class dxspot {
 
         void find_mode();
         void fill_qrz();
-        void display_spot(ScreenFrame& panel, int y, int max_age);
+        void display_spot(ScreenFrame& panel, float y);
         void print_spot();
     private:
        void query_qrz ();

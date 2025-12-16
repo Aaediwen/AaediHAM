@@ -30,10 +30,9 @@ class TrackedWSPR {
         TrackedWSPR& operator=(TrackedWSPR&& source) noexcept;     // move with replace
         TrackedWSPR(const TrackedWSPR& source);		// copy to new
         TrackedWSPR& operator=(const TrackedWSPR& source);	// copy over existing
-        std::string& get_name();
+        const std::string& get_name() const;
         time_t telemetry_age();
-//        void add_telemetry(const double lat,const double lon, const double elevation, const double azimuth, const time_t timestamp);
-        struct GeoCoord location ();
+        const struct GeoCoord location () const;
         bool gen_telemetry();
         void draw_telemetry(ScreenFrame& map);
         void serialize(std::ostream& output);
@@ -55,7 +54,8 @@ class TrackedWSPR {
         Band m_band;
         std::vector<struct WSPRTelemetry> m_telemetry;
         void save_cache();
-
+        bool check_cache(const std::string& data, std::string& telemetry_str);
+        void wspr_live_update();
         void load_new_telemetry(std::istream& input);
         void load_telemetry(std::istream& input);
 
@@ -64,4 +64,4 @@ class TrackedWSPR {
 
 
 
-void wspr_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map);
+void wspr_tracker (ScreenFrame& panel, ScreenFrame& map);

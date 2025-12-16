@@ -48,16 +48,16 @@ class ScreenFrame {
         ScreenFrame& operator=(ScreenFrame&& source) noexcept;
         ScreenFrame(const ScreenFrame& source);
         ScreenFrame& operator=(const ScreenFrame& source);
-        bool Create (SDL_Renderer* parent, SDL_FRect size);
+        bool Create (SDL_Renderer* parent, const SDL_FRect size);
         SDL_Renderer* GetRenderer();
         void SetRenderer(SDL_Renderer* r);
         void Reset();
         void draw_border();
         void Clear(const SDL_Color& color = {0, 0, 0, SDL_ALPHA_OPAQUE});
-        void render_text(const SDL_FRect& text_box, TTF_Font *font, const SDL_Color& color, std::string str);
+        void render_text(const SDL_FRect& text_box, TTF_Font *font, const SDL_Color& color, const std::string& str);
         void render_text(const SDL_FRect& text_box, TTF_Font *font, const SDL_Color& color, const char* str);
         void present();
-        bool valid();
+        bool valid() const;
 };
 extern ScreenFrame DayMap;
 extern ScreenFrame NightMap;
@@ -94,7 +94,7 @@ public:
             int band;
         };
         std::vector<struct WSPRTarget> m_WSPRList;
-        int m_WSPRIndex;
+        Uint16 m_WSPRIndex;
         std::string m_CallSign;
         std::string m_PSKCall;
         std::vector<std::string> m_sats;
@@ -121,7 +121,7 @@ class map_overlay {
             enum mod_name owner;
         };
         std::vector<struct transparancy> overlay_list;
-        int index;
+        Uint16 index;
     public:
         map_overlay();
         ~map_overlay();
@@ -139,7 +139,7 @@ extern map_overlay overlays;
 class map_icons {
 
     public:
-        enum icon_names : int {
+        enum icon_names : unsigned int {
             ICON_SAT,
             ICON_SUN,
             ICON_MOON

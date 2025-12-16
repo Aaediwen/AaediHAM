@@ -1,16 +1,27 @@
 #include "../aaediclock.h"
 #include "../utils.h"
 
-void load_maps(SDL_Renderer* surface, SDL_FRect size) {
-    debug_log << "MAP: Reloading Maps\n";
+void maps_reset() {
     DayMap.Reset();
     NightMap.Reset();
     CountriesMap.Reset();
+    return;
+}
+
+void load_maps(SDL_Renderer* target_renderer, SDL_FRect size) {
+    debug_log << "MAP: Reloading Maps\n";
+    maps_reset();
+    if (!target_renderer) {
+        debug_log << "MAP: load_maps called with null renderer\n";
+        return;
+    }
     SDL_Surface* temp_surface = nullptr;
-//    DayMap.surface = SDL_LoadBMP("images/Blue_Marble_2002.bmp");
+    const SDL_Rect intsize = SDL_Rect{0,0,static_cast<int>(size.w), static_cast<int>(size.h)};
+
+    // Load the Day Map Surface
     temp_surface = SDL_LoadBMP("images/Blue_Marble_2002.bmp");
     if (temp_surface) {
-        DayMap.surface = SDL_CreateSurface(size.w, size.h, SDL_PIXELFORMAT_RGBA32);
+        DayMap.surface = SDL_CreateSurface(intsize.w, intsize.h, SDL_PIXELFORMAT_RGBA32);
         if (DayMap.surface) {
             if (!SDL_BlitSurfaceScaled(temp_surface, NULL, DayMap.surface, NULL, SDL_SCALEMODE_LINEAR)) {
                 debug_log << "MAP: Error scaling Day Map to DayMap surface!\n";
@@ -21,12 +32,14 @@ void load_maps(SDL_Renderer* surface, SDL_FRect size) {
         SDL_DestroySurface(temp_surface);
         temp_surface = nullptr;
     }
+    // Create the DayMap GPU Texture
     if (DayMap.surface) {
-        DayMap.texture = SDL_CreateTextureFromSurface(surface,DayMap.surface);
+        DayMap.texture = SDL_CreateTextureFromSurface(target_renderer,DayMap.surface);
         if (!DayMap.texture) {
             SDL_Log("Unable to load DayMap Texture: %s\n", SDL_GetError());
             debug_log << "Unable to load DayMap Texture: " << SDL_GetError() << "\n";
-            exit(1);
+            maps_reset();
+            return;
         } else {
             int w = DayMap.surface->w;
             int h = DayMap.surface->h;
@@ -40,14 +53,17 @@ void load_maps(SDL_Renderer* surface, SDL_FRect size) {
               << "at " << static_cast<void*>(DayMap.texture) << "\n";
         }
     } else {
+        // we were unable to load the Daymap Image
         SDL_Log("Unable to load DayMap Surface: %s\n", SDL_GetError());
         debug_log << "Unable to load DayMap Surface: " << SDL_GetError() << "\n";
-        exit(1);
+        maps_reset();
+        return;
     }
-//    NightMap.surface = SDL_LoadBMP("images/Black_Marble_2016.bmp");
+
+    // load the Night Map
     temp_surface = SDL_LoadBMP("images/Black_Marble_2016.bmp");
     if (temp_surface) {
-        NightMap.surface = SDL_CreateSurface(size.w, size.h, SDL_PIXELFORMAT_RGBA32);
+        NightMap.surface = SDL_CreateSurface(intsize.w, intsize.h, SDL_PIXELFORMAT_RGBA32);
         if (NightMap.surface) {
             if (!SDL_BlitSurfaceScaled(temp_surface, NULL, NightMap.surface, NULL, SDL_SCALEMODE_LINEAR)) {
                 debug_log << "MAP: Error scaling Night Map to NightMap surface!\n";
@@ -58,11 +74,14 @@ void load_maps(SDL_Renderer* surface, SDL_FRect size) {
         SDL_DestroySurface(temp_surface);
         temp_surface = nullptr;
     }
+    // create NightMap GPU Texture
     if (NightMap.surface) {
-        NightMap.texture = SDL_CreateTextureFromSurface(surface,NightMap.surface);
+        NightMap.texture = SDL_CreateTextureFromSurface(target_renderer,NightMap.surface);
         if (!NightMap.texture) {
             SDL_Log("Unable to load NightMap Texture: %s\n", SDL_GetError());
             debug_log << "Unable to load NightMap Texture: " << SDL_GetError() << "\n";
+            maps_reset();
+            return;
         } else {
             int w = NightMap.surface->w;
             int h = NightMap.surface->h;
@@ -78,49 +97,78 @@ void load_maps(SDL_Renderer* surface, SDL_FRect size) {
     } else {
         SDL_Log("Unable to load NightMap Surface: %s\n", SDL_GetError());
         debug_log << "Unable to load NightMap Surface: " << SDL_GetError() << "\n";
-        exit(1);
+        maps_reset();
+        return;
     }
 
     if ((!DayMap.texture) || (!NightMap.texture)) {
         SDL_Log("Unable to load Maps");
+        maps_reset();
+        return;
     }
-
     SDL_SetTextureBlendMode(DayMap.texture, SDL_BLENDMODE_NONE);
     SDL_SetTextureBlendMode(NightMap.texture, SDL_BLENDMODE_NONE);
+
+    // load the Countries Map
     temp_surface = SDL_LoadBMP("images/outline.bmp");
     if (temp_surface) {
-        CountriesMap.surface = SDL_CreateSurface(size.w, size.h, SDL_PIXELFORMAT_RGBA32);
+        CountriesMap.surface = SDL_CreateSurface(intsize.w, intsize.h, SDL_PIXELFORMAT_RGBA32);
         if (CountriesMap.surface) {
             if (!SDL_BlitSurfaceScaled(temp_surface, NULL, CountriesMap.surface, NULL, SDL_SCALEMODE_LINEAR)) {
                 debug_log << "MAP: Error scaling Countries Map to CountriesMap surface!\n";
                 SDL_DestroySurface(CountriesMap.surface);
                 CountriesMap.surface = nullptr;
+                maps_reset();
+                return;
             }
         }
         SDL_DestroySurface(temp_surface);
         temp_surface = nullptr;
     }
+
+
     if (CountriesMap.surface) {
+        // alpha mask the political map
         int x, y;
+        x = 0;
+        y = 0;
         Uint8 cg, cr, cb;
         Uint8* country_pixels = (Uint8*)CountriesMap.surface->pixels;
         const Uint8 bpp = SDL_GetPixelFormatDetails(CountriesMap.surface->format)->bytes_per_pixel;
+        /*
+            about the following FOR loop:
+            --------------------------------
 
+            I am specifically leaving this manual code in here and NOT subsequently cleaning up CountriesMap.surface
+
+            SDL_SetSurfaceColorKey() can do this kind of Alpha keying
+            However, it does not obey anti-aliasing which exists on the country borders
+            This code DOES work with the anti-aliasing.
+
+            After CountriesMap.texture is created, no other code actually cares about CountriesMap.surface
+            However, Other code does check for its existance as a sanity check that this routine ran correctly
+            I *could* nuke the surface and create a stub 1x1 surface, but I don't think it's worth the savings in system RAM
+        */
         for ( y = 0; y < CountriesMap.surface->h ; y++) {
-            for (x=0 ; x < CountriesMap.surface->w ; x++) {
-                int pixel_index = ( CountriesMap.surface->w * bpp * y ) + ( bpp * x );
+            for (x = 0 ; x < CountriesMap.surface->w ; x++) {
+                // get where the pixel lives
+                int pixel_index = CountriesMap.surface->pitch*y + ( bpp * x );
+                // read its color values
                 Uint32 *pixel_val=(Uint32*)(pixel_index+country_pixels);
-
                 SDL_GetRGBA( *pixel_val, SDL_GetPixelFormatDetails(CountriesMap.surface->format), NULL, &cr, &cg, &cb, NULL);
+                // write the new value back
                 Uint32 pixel_val_out = SDL_MapRGBA(SDL_GetPixelFormatDetails(CountriesMap.surface->format), NULL, 0, 0, 0, (255-cg));
                 memcpy((country_pixels + pixel_index), &pixel_val_out, bpp);
             }
         }
-        CountriesMap.texture = SDL_CreateTextureFromSurface(surface,CountriesMap.surface);
+
+        // create CountriesMap GPU Texture
+        CountriesMap.texture = SDL_CreateTextureFromSurface(target_renderer,CountriesMap.surface);
         if (!CountriesMap.texture) {
                 SDL_Log("Unable to load Country texture: %s\n", SDL_GetError());
                 debug_log << "Unable to load Country texture: " << SDL_GetError() << "\n";
-                exit(1);
+                maps_reset();
+                return;
         }  else {
             double surf_size_kb = (CountriesMap.surface->pitch * CountriesMap.surface->h) / 1024.0;
             double tex_size_kb = (CountriesMap.surface->w * CountriesMap.surface->h * 4.0) / 1024.0; // assuming RGBA8888
@@ -133,18 +181,31 @@ void load_maps(SDL_Renderer* surface, SDL_FRect size) {
         }
     } else {
         SDL_Log("MAP: Unable to load Country Surface: %s\n", SDL_GetError());
-        exit(1);
+        maps_reset();
+        return;
     }
 //    SDL_Log("ALL MAPS LOADED %s\n", SDL_GetError());
     return;
 
 }
 
+struct color_pin {
+    SDL_Texture* texture;
+    SDL_Color color;
+    Uint32 colorpack;
+    SDL_Renderer* renderer;
+};
+
+std::vector<struct color_pin>push_pins;
+struct color_pin last_used_pin{};
+
 void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
-    // can probably clean this up to not rebuild the pin every single time
+    if (!current_pin) {
+        return;
+    }
     SDL_Texture* icon_tex = nullptr;
     SDL_FRect target_rect;
-    int unit_scale = (panel->dims.w/100);
+    int unit_scale = static_cast<int>(panel->dims.w/100);
     if (current_pin->icon) {
         icon_tex = SDL_CreateTexture(panel->GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, unit_scale*4, unit_scale*4);
         if (!icon_tex) {
@@ -157,28 +218,72 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
         SDL_SetRenderDrawColor(panel->GetRenderer(), 0, 0, 0, 0);
         SDL_RenderClear(panel->GetRenderer());
         SDL_RenderTexture(panel->GetRenderer(), current_pin->icon, NULL, NULL);
-        target_rect.h=unit_scale*2;
-        target_rect.w=unit_scale*2;
+        target_rect.h=unit_scale*2.0f;
+        target_rect.w=unit_scale*2.0f;
     } else {
-        icon_tex = SDL_CreateTexture(panel->GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, unit_scale, unit_scale);
-        if (!icon_tex) {
-            debug_log << "MAP: Failed to create icon texture: " <<  SDL_GetError() << "\n";
-            return ;
-        }
-    // render the icon
-         SDL_SetRenderTarget(panel->GetRenderer(), icon_tex);
-         // clear the icon
-         SDL_SetRenderDrawColor(panel->GetRenderer(), 0, 0, 0, 0);
-         SDL_RenderClear(panel->GetRenderer());
 
-         SDL_FRect pin_rect = {4.0f, 4.0f, 8.0f, 8.0f};
-         pin_rect = { unit_scale/5.0f, unit_scale/5.0f, unit_scale*0.6f, unit_scale*0.6f };
-         SDL_SetRenderDrawColor(panel->GetRenderer(), 16, 16, 16, 128);
-         SDL_RenderFillRect(panel->GetRenderer(), NULL);
-         SDL_SetRenderDrawColor(panel->GetRenderer(), current_pin->color.r, current_pin->color.g, current_pin->color.b, current_pin->color.a);
-         SDL_RenderFillRect(panel->GetRenderer(), &pin_rect );
-         target_rect.h=unit_scale/2;
-         target_rect.w=unit_scale/2;
+        // module did not request a graphic
+        /*
+         have now added new code to cache colored pins and check for using the last one.
+         this will dynamically push one pin of each color to VRAM and keep it there
+         See the comment below about pin lifetime to prevent memory leaks
+        */
+        Uint32 current_pin_pack = (Uint32(current_pin->color.a) << 24) | (Uint32(current_pin->color.b) << 16) | (Uint32(current_pin->color.g) << 8)  | Uint32(current_pin->color.r);
+        if (last_used_pin.texture && last_used_pin.colorpack == current_pin_pack && last_used_pin.renderer == panel->GetRenderer()) {
+            // matches the last one we used
+            icon_tex = last_used_pin.texture;
+        } else {
+            // not the same, check the cache
+            if (!push_pins.empty()) {
+                for (auto& check_pin : push_pins) {
+                    if (check_pin.colorpack == current_pin_pack && check_pin.renderer == panel->GetRenderer()) {
+                        icon_tex = check_pin.texture;
+                        last_used_pin = check_pin;
+                        break;
+                    }
+                }
+            }
+        }
+        if (!icon_tex) { // nothing in cache already, generate a new icon
+            struct color_pin new_color;
+            new_color.renderer= panel->GetRenderer();
+            new_color.color = current_pin->color;
+            new_color.colorpack = (Uint32(current_pin->color.a) << 24) | (Uint32(current_pin->color.b) << 16) | (Uint32(current_pin->color.g) << 8)  | Uint32(current_pin->color.r);
+            new_color.texture = nullptr;
+            new_color.texture = SDL_CreateTexture(panel->GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, unit_scale, unit_scale);
+            if (!new_color.texture) {
+                debug_log << "MAP: Failed to create icon texture: " <<  SDL_GetError() << "\n";
+                return ;
+            }
+            // render the icon
+            SDL_SetRenderTarget(panel->GetRenderer(), new_color.texture);
+            // clear the icon
+            SDL_SetRenderDrawColor(panel->GetRenderer(), 0, 0, 0, 0);
+            SDL_RenderClear(panel->GetRenderer());
+            // draw the shadow
+            SDL_FRect pin_rect = {4.0f, 4.0f, 8.0f, 8.0f};
+            pin_rect = { unit_scale/5.0f, unit_scale/5.0f, unit_scale*0.6f, unit_scale*0.6f };
+            SDL_SetRenderDrawColor(panel->GetRenderer(), 16, 16, 16, 128);
+            SDL_RenderFillRect(panel->GetRenderer(), NULL);
+            // draw the color swatch
+            SDL_SetRenderDrawColor(panel->GetRenderer(), current_pin->color.r, current_pin->color.g, current_pin->color.b, current_pin->color.a);
+            SDL_RenderFillRect(panel->GetRenderer(), &pin_rect );
+            icon_tex = new_color.texture;
+            push_pins.push_back(new_color);
+            last_used_pin=push_pins.back();
+            /*
+                Let's keep up to 128 cololr pins handy to use in the GPU
+                On even a 16K panel, this maxes out at around 12MB of VRAM
+                and only 128 or less entries to check for on a color change
+            */
+            if (push_pins.size() > 128) {
+                SDL_DestroyTexture(push_pins.front().texture);
+                push_pins.erase(push_pins.begin());
+            }
+
+        }
+        target_rect.h=unit_scale/2.0f;
+        target_rect.w=unit_scale/2.0f;
 
     }
 
@@ -206,7 +311,6 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
     SDL_SetRenderTarget(panel->GetRenderer(), panel->texture);
     SDL_RenderTexture(panel->GetRenderer(), icon_tex, NULL, &target_rect);
     SDL_SetRenderTarget(panel->GetRenderer(), NULL);
-    SDL_DestroyTexture(icon_tex);
     return;
 }
 
@@ -242,10 +346,10 @@ void regen_mask (SDL_Surface* source, SDL_Surface* dest, const SDL_FRect& panel_
 
     const Uint8 dest_bpp = dest_details->bytes_per_pixel;
     const Uint8 source_bpp = source_details->bytes_per_pixel;
-
+    // generate the night terminator alpha mask
     for (panel_cords.y=0 ; panel_cords.y < floor(panel_dims.h) ; panel_cords.y++) {
     //        SDL_Log("Calculating alpha row %i of %f", panel_cords.y, panel_dims.h);
-            source_cords.y = (panel_cords.y/panel_dims.h)*source->h;
+            source_cords.y = static_cast<int>((panel_cords.y/panel_dims.h)*source->h);
             double lat = 90.0 - (180.0 * panel_cords.y / (double)panel_dims.h);
             for (panel_cords.x=0 ; panel_cords.x < floor(panel_dims.w) ; panel_cords.x++) {
                 Uint8 r, g, b;
@@ -262,7 +366,7 @@ void regen_mask (SDL_Surface* source, SDL_Surface* dest, const SDL_FRect& panel_
                 }
                 // Write a pixel with the computed alpha
 
-                source_cords.x = (panel_cords.x/panel_dims.w)*source->w;
+                source_cords.x = static_cast<int>((panel_cords.x/panel_dims.w)*source->w);
                 int source_pixel_index = ( source->w * source_bpp * source_cords.y ) + ( source_bpp * source_cords.x );
                 int dest_pixel_index =   ( dest->w * dest_bpp * panel_cords.y ) + ( dest_bpp * panel_cords.x );
                 Uint32 *source_pixel_val=(Uint32*)(source_pixel_index+source_pixels);
@@ -277,13 +381,23 @@ void regen_mask (SDL_Surface* source, SDL_Surface* dest, const SDL_FRect& panel_
     return;
 }
 
-Uint32 SDLCALL regen_mask (void *userdata, SDL_TimerID timerID, Uint32 interval) {
+int SDLCALL regen_mask_spawn(void* userdata) {
+    struct regen_mask_args* args = (struct regen_mask_args*)userdata;
+    regen_mask (args->source, args->dest, args->panel_dims);
+    return 0;
+}
+
+
+Uint32 SDLCALL regen_mask_timer (void *userdata, SDL_TimerID timerID, Uint32 interval) {
+    (void)interval;
     if (timerID) {
-        struct regen_mask_args* args = (struct regen_mask_args*)userdata;
-//        SDL_Log("Timer Callback — source: %p, dest: %p, dims: %.1fx%.1f",
-//            (void*)args->source, (void*)args->dest,
-//            args->panel_dims.w, args->panel_dims.h);
-        regen_mask (args->source, args->dest, args->panel_dims);
+          SDL_Thread* thread = SDL_CreateThread(regen_mask_spawn, "Map Mask Regen", userdata);
+          if (thread) {
+              SDL_DetachThread(thread);
+          } else {
+              debug_log << "Failed to Create Map Mask Regen Thread\n";
+          }
+
         return (30000);
     } else {
         return 0;
@@ -303,7 +417,7 @@ int draw_map(ScreenFrame& panel) {
     bool regen_mask_flag = false;
 //    SDL_Log("Drawing Map ");
     if (!panel.GetRenderer()) {
-        debug_log << "MAP: Missing Surface!\n";
+        debug_log << "MAP: Missing Renderer!\n";
         return 1;
     }
     if (!panel.texture) {
@@ -314,11 +428,14 @@ int draw_map(ScreenFrame& panel) {
     // blank the box
     panel.Clear();
     if ((!NightMap.surface) || (!DayMap.surface) || (!CountriesMap.surface)) {
-        debug_log << "Missing Map Textures!\n";
-        exit(1);
+        debug_log << "MAP: Missing Map Textures!\n";
+        return 1;
     }
     // start with the day map
-    SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
+    if (!SDL_SetRenderTarget(panel.GetRenderer(), panel.texture)) {
+        debug_log << "MAP: Failed to set render target: " << SDL_GetError() << "\n";
+        return 1;
+    }
     SDL_RenderTexture(panel.GetRenderer(), DayMap.texture, NULL, NULL);
 
     // init the night map alpha mask
@@ -326,11 +443,12 @@ int draw_map(ScreenFrame& panel) {
         (old_renderer != panel.GetRenderer()) ||
         night_mask->w != floor(panel.dims.w) ||
         night_mask->h != floor(panel.dims.h)) {
+        SDL_LockMutex(mutexes[MUTEX_NIGHT_MASK]);    /// MUTEX LOCK in case we triggered while regen_mask is already running
         if (night_mask) {
             debug_log << "MAP: New Night Mask -- Night Mask Dims: "<<night_mask->w<<"x"<<night_mask->h<<"\tPanel: "<<panel.dims.w<<"x"<<panel.dims.h<< "\n";
             SDL_DestroySurface(night_mask);
         }
-        night_mask = SDL_CreateSurface(panel.dims.w, panel.dims.h, SDL_PIXELFORMAT_RGBA32);
+        night_mask = SDL_CreateSurface(static_cast<int>(panel.dims.w), static_cast<int>(panel.dims.h), SDL_PIXELFORMAT_RGBA32);
         if (!night_mask) {
             debug_log << "MAP: Failed to create mask surface: " << SDL_GetError() << "\n";
             return 1;
@@ -348,7 +466,8 @@ int draw_map(ScreenFrame& panel) {
         night_mask_args->source = NightMap.surface;
         night_mask_args->dest = night_mask;
         night_mask_args->panel_dims = panel.dims;
-        map_timer = SDL_AddTimer(30, regen_mask, night_mask_args);
+        map_timer = SDL_AddTimer(30, regen_mask_timer, night_mask_args);
+        SDL_UnlockMutex(mutexes[MUTEX_NIGHT_MASK]);  /// MUTEX UNLOCK
         debug_log << "MAP: Regen NightMask -- bad renderer\t Old: "<< old_renderer << "\tNew: "<< panel.GetRenderer() <<"\n";
         old_renderer = panel.GetRenderer();
 
@@ -379,10 +498,10 @@ int draw_map(ScreenFrame& panel) {
     SDL_SetRenderDrawColor(panel.GetRenderer(), 128,128,128,64);
     SDL_RenderLine(panel.GetRenderer(), 0,(panel.dims.h/2), panel.dims.w, (panel.dims.h/2));
     SDL_SetRenderDrawColor(panel.GetRenderer(), 128,0,0,64);
-    int tropic;
-    tropic = ((-23.4+90) * panel.dims.h)/180;
+    float tropic;
+    tropic = ((-23.4f+90.0f) * panel.dims.h)/180.0f;
     SDL_RenderLine(panel.GetRenderer(), 0,tropic, panel.dims.w, tropic);
-    tropic = ((23.4+90) * panel.dims.h)/180;
+    tropic = ((23.4f+90.0f) * panel.dims.h)/180.0f;
     SDL_RenderLine(panel.GetRenderer(), 0,tropic, panel.dims.w, tropic);
 
     debug_log << "MAP: draw map pins\n";
@@ -398,9 +517,9 @@ int draw_map(ScreenFrame& panel) {
 
     overlays.reset_index();
     ScreenFrame* overlay = overlays.next_overlay();
+    SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
     while (overlay) {
          SDL_SetTextureBlendMode(overlay->texture, SDL_BLENDMODE_BLEND);
-         SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
          SDL_RenderTexture(panel.GetRenderer(), overlay->texture, NULL, NULL);
          overlay = overlays.next_overlay();
     }

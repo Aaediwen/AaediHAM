@@ -10,8 +10,9 @@ SDL_Texture* SDO_Texture = nullptr;
 
 
 bool refresh_icon_flag = false;
-void fetch_sdo () {
-         Uint32 data_size = 0;
+int SDLCALL  fetch_sdo (void *data) {
+         (void)data;
+         Uint64 data_size = 0;
          char* raw_image = 0 ;
         SDL_Log ("Fetching SDO image from NASA");
         debug_log << "SOLAR: Fetching SDO image from NASA --  ";
@@ -24,11 +25,23 @@ void fetch_sdo () {
              debug_log << "Failed\n";
              debug_log << "SDO Fetch Failed\n";
          }
+         if (raw_image) {
+             free(raw_image);
+             raw_image = 0;
+         }
+         return 0;
 }
 
 Uint32 SDLCALL fetch_sdo (void *userdata, SDL_TimerID timerID, Uint32 interval) {
+    (void)interval;
+    (void)userdata;
      if (timerID) {
-          fetch_sdo();
+          SDL_Thread* thread = SDL_CreateThread(fetch_sdo, "SDO Fetcher", nullptr);
+          if (thread) {
+              SDL_DetachThread(thread);
+          } else {
+              debug_log << "Failed to Create SDO Fetch Thread\n";
+          }
           return (1200000); // 2 hours
      } else {
           return 0;
@@ -38,7 +51,7 @@ Uint32 SDLCALL fetch_sdo (void *userdata, SDL_TimerID timerID, Uint32 interval) 
 void sdo_image(ScreenFrame& panel, time_t timestamp) {
     debug_log << "SOLAR: In SOLAR module\n";
     debug_log.flush();
-    Uint32 data_size = 0;
+    Uint64 data_size = 0;
     time_t cache_time;
     char* raw_image = 0 ;
     if (!sdo_timer) {

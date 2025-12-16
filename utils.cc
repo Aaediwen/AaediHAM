@@ -28,7 +28,8 @@ int read_socket(dx_socket_t fd, std::string &result) {
     poll_list.fd=fd;
     poll_list.events = POLLIN;
     result.clear();
-    int max_count = 0;
+    result.reserve(256);
+//    int max_count = 0;
     while (bytesin >0 && temp[0] !=10) {
         errno = 0;
         int poll_res = poll(&poll_list, 1, 100);
@@ -48,19 +49,34 @@ int read_socket(dx_socket_t fd, std::string &result) {
                 } else {
 //                    SDL_Log ("Poll says there is something here, but got nothing");
                 }
+                if (bytesin < 0) {
+                    SDL_Log ("Bad Read, requesting reset");
+                    return -1;
+                }
+#ifdef _WIN32
+                if (bytesin == SOCKET_ERROR) {
+                    SDL_Log ("Socket Error, requesting reset");
+                    return -1;
+                }
+#endif
+            } else if (poll_list.revents & POLLHUP) {
+                return -1;
+
+            } else if (poll_list.revents & POLLERR) {
+                return -1;
+
             } else {
 //                SDL_Log ("Nothing to read");
                 bytesin=-1;
             }
         } else if (poll_res < 0) {
-            // error condition
+            // POLL error condition
             SDL_Log("Read Poll Error: %s", strerror(errno));
+            return poll_res;
         } else {
 //            SDL_Log("Read Poll Timeout");
+//            return 0;
         }
-//        if (max_count > 5) {
-//            bytesin=0;
-//        }
     }
 //    SDL_Log ("Returning %s", result.c_str());
     return total;
@@ -69,6 +85,27 @@ int read_socket(dx_socket_t fd, std::string &result) {
 
 double solar_altitude(double lat_deg, double lon_deg, struct tm *utc, double decl_deg) {
     //Converts latitude and solar declination from degrees to radians
+    if (lon_deg < -180.0) {
+        lon_deg = -180.0;
+    }
+    if (lon_deg > 180.0) {
+        lon_deg = 180.0;
+    }
+    if (lat_deg < -90.0) {
+        lat_deg = -90.0;
+    }
+    if (lat_deg > 90.0) {
+        lat_deg = 90.0;
+    }
+    if (decl_deg < -24.0) {
+        decl_deg = -24.0;
+    }
+    if (decl_deg > 24.0) {
+        decl_deg = 24.0;
+    }
+    if (!utc || utc->tm_hour < 0 || utc->tm_hour > 24 || utc->tm_min < 0 || utc->tm_min > 60 || utc->tm_sec < 0 || utc->tm_sec > 60) {
+        return 0;
+    }
     double lat = lat_deg * M_PI / 180.0;
     double decl = decl_deg * M_PI / 180.0;
 
@@ -76,14 +113,33 @@ double solar_altitude(double lat_deg, double lon_deg, struct tm *utc, double dec
     double solar_time = utc_hours + (lon_deg / 15.0);  // Local solar time for pixel
     double hour_angle = (15.0 * (solar_time - 12.0)) * M_PI / 180.0;
     double sin_alt = sin(lat) * sin(decl) + cos(lat) * cos(decl) * cos(hour_angle);
+    if (sin_alt < -1) {
+        sin_alt = -1;
+    }
+    if (sin_alt > 1) {
+        sin_alt = 1;
+    }
     return asin(sin_alt) * 180.0 / M_PI;
 }
 
 void maidenhead(double lat, double lon, char* maiden) {
-
+    if (!maiden) {
+        return;
+    }
     // generate maidenhead grid square
     // result should be at least 7 bytes long
-
+    if (lon < -180.0) {
+        lon = -180.0;
+    }
+    if (lon > 180.0) {
+        lon = 180.0;
+    }
+    if (lat < -90.0) {
+        lat = -90.0;
+    }
+    if (lat > 90.0) {
+        lat = 90.0;
+    }
     double madlon, madlat;
     madlon = lon + 180;
     madlat = lat + 90;
@@ -105,40 +161,78 @@ struct GeoCoord loc_to_geo (const std::string locator) {
         return result;
     }
     char working;
+
+    // first character
     working = locator.at(0);
     if (working >= 'a') {
         working -= 32;
     }
+    if (working < 'A' || working > 'R') {
+        result.latitude = 0;
+        result.longitude = 0;
+        return result;
+    }
     result.longitude += (working - 'A')*20.0;
+    // second character
     working = locator.at(1);
     if (working >= 'a') {
         working -= 32;
     }
+    if (working < 'A' || working > 'R') {
+        result.latitude = 0;
+        result.longitude = 0;
+        return result;
+    }
     result.latitude += (working - 'A')*10.0;
+    // third character
     working = locator.at(2);
+    if (working < '0' || working > '9') {
+        result.latitude = 0;
+        result.longitude = 0;
+        return result;
+    }
     result.longitude += (working - '0')*2.0;
+    // fourth character
     working = locator.at(3);
+    if (working < '0' || working > '9') {
+        result.latitude = 0;
+        result.longitude = 0;
+        return result;
+    }
     result.latitude += (working - '0')*1.0;
+    // if we have 6, then we get those too
     if (locator.length() >= 6) {
+        // fifth character
          working = locator.at(4);
          if (working >= 'a') {
              working -= 32;
          }
+         if (working < 'A' || working > 'X') {
+             result.latitude = 0;
+             result.longitude = 0;
+             return result;
+         }
          result.longitude += (working - 'A')/12;
 
+         // sixth character
          working = locator.at(5);
          if (working >= 'a') {
              working -= 32;
          }
+         if (working < 'A' || working > 'X') {
+             result.latitude = 0;
+             result.longitude = 0;
+             return result;
+         }
          result.latitude += (working - 'A')/24;
 
-
+         // final adjustment for 6 character
          result.longitude += (1.0/12.0);
          result.latitude  += (1.0/24.0);
          result.longitude -= 180.0;
          result.latitude  -= 90.0;
     } else {
-
+        // final adjustment for 4 character
          result.longitude += 1.0;
          result.latitude  += 0.5;
          result.longitude -= 180.0;
@@ -148,19 +242,31 @@ struct GeoCoord loc_to_geo (const std::string locator) {
 }
 
 void cords_to_px(double lat, double lon, int w, int h, SDL_FPoint* result) {
+    if (!result) return;
+    if (lon < -180.0) {
+        lon = -180.0;
+    }
+    if (lon > 180.0) {
+        lon = 180.0;
+    }
+    if (lat < -90.0) {
+        lat = -90.0;
+    }
+    if (lat > 90.0) {
+        lat = 90.0;
+    }
     result->x=static_cast<float>((lon/180.0f)*(w/2.0f)+(w/2.0f));
     result->y= static_cast<float>(((-1*lat)/90.0f)*(h/2.0f)+(h/2.0f));
     return ;
 }
 
 int month_to_int(const std::string& month) {
-
      static const std::map<std::string, int> months = {
                                                          {"Jan", 0}, {"Feb", 1}, {"Mar", 2}, {"Apr", 3},
                                                          {"May", 4}, {"Jun", 5}, {"Jul", 6}, {"Aug", 7},
                                                          {"Sep", 8}, {"Oct", 9}, {"Nov", 10}, {"Dec", 11}
                                                     };
-    auto temp = months.find(month);
+    auto temp = months.find(month.substr(0,3));
     if (temp != months.end()) {
         return temp->second;
     } else {
@@ -224,83 +330,90 @@ struct GeoCoord subsolar (const time_t now) {
 //Jean Meesus Astronomical Algorithms Ch 24 (1991)
 
     struct GeoCoord result;
+    result.longitude = 0.0;
+    result.latitude = 0.0;
+
     // convert to Julian Centuries since J2000 (January 2000)
-     // divide Unix Time by seconds per day(86400), and adjust offset to 01-01-1970 (2440587.5)
-     double jd = (now / 86400.0) + 2440587.5;
-     // adjust again to January 2000 and divide by 36525 days/Julian century (MESSUS P 151 24.1) T
-     double T = (jd - 2451545.0) / 36525.0;
-     // error of 0.00001 in T == 0.37 days
+    // divide Unix Time by seconds per day(86400), and adjust offset to 01-01-1970 (2440587.5)
+    double jd = (now / 86400.0) + 2440587.5;
+    // adjust again to January 2000 and divide by 36525 days/Julian century (MESSUS P 151 24.1) T
+    double T = (jd - 2451545.0) / 36525.0;
+    // error of 0.00001 in T == 0.37 days
 
-     // Sun mean anomaly (deg) (MEESUS P151 24.3) M
-     double M = fmod(357.52910 + (35999.05030*T) - (0.0001559*T*T) - (0.00000048*T*T*T), 360.0);
-     double M_rad = M * M_PI / 180.0;
+    // Sun mean anomaly (deg) (MEESUS P151 24.3) M
+    double M = fmod(357.52910 + (35999.05030*T) - (0.0001559*T*T) - (0.00000048*T*T*T), 360.0);
+    double M_rad = M * M_PI / 180.0;
 
-     // Solar Equation of Center C (MEESUS P152)
-     // ChatGPT gave slightly different values:
+    // Solar Equation of Center C (MEESUS P152)
+    // ChatGPT gave slightly different values:
 //         double C = (1.914602 - 0.004817*T - 0.000014*T*T)*sin(M*M_PI/180.0)
 //             + (0.019993 - 0.000101*T)*sin(2*M*M_PI/180.0)
 //             + 0.000289*sin(3*M*M_PI/180.0);
-     // here we use values per Meesus
-     double C = (1.914600 - (0.004817*T) - (0.000014*T*T)) * sin(M_rad)
+    // here we use values per Meesus
+    double C = (1.914600 - (0.004817*T) - (0.000014*T*T)) * sin(M_rad)
                 + (0.019993 - (0.000101*T)) * sin(2*M_rad)
                 + 0.000290 * sin(3*M_rad);
 
-     // Sun mean longitude (deg) (MEESUS P151 24.2) L0
-     // per ScienceDirect article 2.1, needs to be in range 0 - 360, hence fmod 360.0
-     double L0 = fmod(280.46645 + 36000.76983*T + 0.0003032*T*T, 360.0);
-     // sun's true geometric Longitude and anomaly (MEESUS P152)
-     double corrected_mean_solar_lon = L0 + C;
-     double corrected_mean_solar_lon_rad = corrected_mean_solar_lon * M_PI/180.0;
-     double corrected_mean_anomaly   = M + C;
+    // Sun mean longitude (deg) (MEESUS P151 24.2) L0
+    // per ScienceDirect article 2.1, needs to be in range 0 - 360, hence fmod 360.0
+    double L0 = fmod(280.46645 + 36000.76983*T + 0.0003032*T*T, 360.0);
+    // sun's true geometric Longitude and anomaly (MEESUS P152)
+    double corrected_mean_solar_lon = L0 + C;
+//    double corrected_mean_solar_lon_rad = corrected_mean_solar_lon * M_PI/180.0;
+//    double corrected_mean_anomaly   = M + C;
 
-     // calculate apparent longitude (MEESUS P152)
-     double omega = 125.04 - 1934.136 * T;
-     double apparent_longitude = corrected_mean_solar_lon - 0.00569 - 0.00478 * sin(omega * M_PI/180);
-     double apparent_longitude_rad = apparent_longitude * M_PI/180.0;
-     // obliquity of the eleptic per MEESUS 21.2
-     // deg + min/60 + sec/3600
-     double obliquity = (23.0 + (26.0/60.0) + (21.448/3600.0) )
+    // calculate apparent longitude (MEESUS P152)
+    double omega = 125.04 - 1934.136 * T;
+    double apparent_longitude = corrected_mean_solar_lon - 0.00569 - 0.00478 * sin(omega * M_PI/180);
+    double apparent_longitude_rad = apparent_longitude * M_PI/180.0;
+    // obliquity of the eleptic per MEESUS 21.2
+    // deg + min/60 + sec/3600
+    double obliquity = (23.0 + (26.0/60.0) + (21.448/3600.0) )
                     - ((46.8150/3600.0) * T)
                     - ((0.00059/3600.0) * T * T)
                     + ((0.001813/3600.0) * T * T * T);
-     double obliquity_rad = obliquity * M_PI / 180.0;
-     // solar latitude (MEESUS P153)
-     // meesus 24.6 + see note after 24.8
-     double right_ascension_rad = atan2(cos(obliquity_rad) * sin(apparent_longitude_rad), cos(apparent_longitude_rad));
+    double obliquity_rad = obliquity * M_PI / 180.0;
+    // solar latitude (MEESUS P153)
+    // meesus 24.6 + see note after 24.8
+    double right_ascension_rad = atan2(cos(obliquity_rad) * sin(apparent_longitude_rad), cos(apparent_longitude_rad));
 //     double right_ascension = cot((cos(obliquity_rad) * sin(corrected_mean_solar_lon_rad))
 //                              / cos(corrected_mean_solar_lon_rad));
-     double right_ascension = right_ascension_rad * (180.0/M_PI);
-     if(right_ascension < 0) right_ascension += 360.0;  // normalize to [0,360)
-     // meesus 24.7
-     double declination_rad = asin(sin(obliquity_rad) * sin(apparent_longitude_rad));
-     double declination = declination_rad * (180.0/M_PI);
+    double right_ascension = right_ascension_rad * (180.0/M_PI);
+    if(right_ascension < 0) right_ascension += 360.0;  // normalize to [0,360)
+    // meesus 24.7
+    double declination_rad = asin(sin(obliquity_rad) * sin(apparent_longitude_rad));
+    double declination = declination_rad * (180.0/M_PI);
 
-     // adjust coordinate system from Celestial to geographical relative to Greenwich
-//      Meesus P89
-        // Greenwich Mean Sidereal Time (deg)
-     double d = jd - 2451545.0;
-     double GMST = fmod(280.46061837 + 360.98564736629*d, 360.0);
+    // adjust coordinate system from Celestial to geographical relative to Greenwich
+//     Meesus P89
+       // Greenwich Mean Sidereal Time (deg)
+    double d = jd - 2451545.0;
+    double GMST = fmod(280.46061837 + 360.98564736629*d, 360.0);
 
-      // Subsolar longitude
-      double lon = fmod(right_ascension - GMST, 360.0);
-      if (lon < -180) lon += 360;
-      if (lon > 180) lon -= 360;
+    // Subsolar longitude
+    double lon = fmod(right_ascension - GMST, 360.0);
+    if (lon < -180) lon += 360;
+    if (lon > 180) lon -= 360;
 
-     result.longitude = lon;
-     result.latitude = declination;
+    result.longitude = lon;
+    result.latitude = declination;
 
-     g_celestials.sun.timestamp=time(NULL);
-     g_celestials.sun.Lat = result.latitude;
-     g_celestials.sun.Lon = result.longitude;
-     g_celestials.sun.RA  = right_ascension_rad;
-     g_celestials.sun.Dec = declination_rad;
+    g_celestials.sun.timestamp=time(NULL);
+    g_celestials.sun.Lat = result.latitude;
+    g_celestials.sun.Lon = result.longitude;
+    g_celestials.sun.RA  = right_ascension_rad;
+    g_celestials.sun.Dec = declination_rad;
     return (result);
 }
 
 void sun_times(double lat, double lon, time_t* sunrise, time_t* sunset, double *solar_alt, time_t now) {
-    // fet sunrise and sunset times
+    if (!solar_alt || !sunrise || !sunset) {
+        return;
+    }
+    // get sunrise and sunset times
     tm* utc = gmtime(&now);
     double solar_decl = 23.45 * (sin( (2 * M_PI/365) * (284+(utc->tm_yday+1)) ));
+    // get current solar altitude
     *solar_alt = solar_altitude(lat, lon, utc, solar_decl);
     // find the next zero crossing for sunrise if current alt <0
 
@@ -309,32 +422,31 @@ void sun_times(double lat, double lon, time_t* sunrise, time_t* sunset, double *
     tm* test_time;
     *sunrise = now;
     *sunset = now;
-    if (test_alt <0) {
-        while (test_alt <0) {
-            *sunrise +=5;
-            *sunset += 5;
-            test_time = gmtime(sunrise);
-            test_alt = solar_altitude(lat, lon, test_time, solar_decl);
+    if (test_alt < 0) { // it's night right now
+        while (test_alt < 0) { // get sunrise time
+            *sunrise 	+= 	5;
+            *sunset  	+= 	5;
+            test_time 	= 	gmtime(sunrise);
+            test_alt  	= 	solar_altitude(lat, lon, test_time, solar_decl);
         }
-        while (test_alt >0) {
-            *sunset += 5;
-            test_time = gmtime(sunset);
-            test_alt = solar_altitude(lat, lon, test_time, solar_decl);
+        while (test_alt > 0) {  // proceed to get the sunset time
+            *sunset 	+= 	5;
+            test_time 	= 	gmtime(sunset);
+            test_alt 	= 	solar_altitude(lat, lon, test_time, solar_decl);
         }
-    } else {
-       while (test_alt >0) {
-            *sunrise +=5;
-            *sunset += 5;
-            test_time = gmtime(sunset);
-            test_alt = solar_altitude(lat, lon, test_time, solar_decl);
+    } else {		// it's day right now
+       while (test_alt > 0) {	// get sunset time
+            *sunrise 	+=	5;
+            *sunset 	+= 	5;
+            test_time 	= 	gmtime(sunset);
+            test_alt 	= 	solar_altitude(lat, lon, test_time, solar_decl);
         }
-        while (test_alt <0) {
-            *sunrise += 5;
-            test_time = gmtime(sunrise);
-            test_alt = solar_altitude(lat, lon, test_time, solar_decl);
+        while (test_alt <0) {// proceed to get sunrise time
+            *sunrise 	+= 	5;
+            test_time 	= 	gmtime(sunrise);
+            test_alt 	= 	solar_altitude(lat, lon, test_time, solar_decl);
         }
     }
-
 }
 
 int add_pin(struct map_pin* new_pin) {
@@ -342,6 +454,12 @@ int add_pin(struct map_pin* new_pin) {
 //    SDL_Log("Adding pin %s", new_pin->label);
     struct map_pin* empty_pin;
     struct map_pin* current_pin;
+
+    if (!new_pin || new_pin->owner < 0 || new_pin->owner > MOD_NULL) {
+        debug_log << "MAP PIN: Attempt to add Bad PIN Skipping!\n";
+        return 0;
+    }
+    // make the new pin slot
     if (map_pins) {
         current_pin = map_pins;
         while (current_pin->next) {
@@ -353,6 +471,11 @@ int add_pin(struct map_pin* new_pin) {
         map_pins = (struct map_pin*)malloc(sizeof(struct map_pin));
         empty_pin=map_pins;
     }
+    if (!empty_pin) {
+        debug_log << "MAP PIN: Add ALLOC ERROR! Skipping!\n";
+        return (0);
+    }
+    // copy the pin into place
     empty_pin->next=0;
     empty_pin->owner = new_pin->owner;
     empty_pin->lat = new_pin->lat;
@@ -369,11 +492,16 @@ int add_pin(struct map_pin* new_pin) {
         memcpy(empty_pin->tooltip, new_pin->tooltip, 512);
         empty_pin->tooltip[511]=0;
     }
+    // done
     return (0);
 }
 
 int delete_owner_pins(enum mod_name owner) {
     // delete all map pins owned by a module
+    if (owner > MOD_NULL || owner < 0) {
+        debug_log << "MAP PIN: Attempt to Delete for bad module ID " << owner << "!\n";
+        return 0;
+    }
     struct map_pin* current_pin;
     struct map_pin* next_pin;
     struct map_pin* last_pin;
@@ -383,7 +511,7 @@ int delete_owner_pins(enum mod_name owner) {
         last_pin=0;
         while (current_pin) {
             if (!current_pin) {
-                debug_log << "MAP PIN: Null current_pin!\n";
+                debug_log << "MAP PIN: Delete -- Null current_pin!\n";
                 break;
             }
 
@@ -414,8 +542,15 @@ int delete_mod_cache(enum mod_name owner) {
     struct data_blob* next_chunk;
     struct data_blob* last_chunk;
     struct data_blob* old_chunk;
+
+    if (owner > MOD_NULL || owner < 0) {
+        debug_log << "CACHE: Attempt to Delete for bad module ID " << owner << "!\n";
+        return 0;
+    }
+
     if (!mutexes[MUTEX_CACHE]) {
-        mutexes[MUTEX_CACHE] = SDL_CreateMutex();
+        debug_log << "CACHE: Missing CACHE Mutex!\n";
+        return 0;
     }
     SDL_LockMutex(mutexes[MUTEX_CACHE]);
     if (data_cache) {
@@ -438,7 +573,9 @@ int delete_mod_cache(enum mod_name owner) {
                     last_chunk->next = next_chunk;
                 }
                 current_chunk = next_chunk;
-                free (old_chunk->data);
+                if (old_chunk->data) {
+                    free (old_chunk->data);
+                }
                 free (old_chunk);
             } else {
                 last_chunk = current_chunk;
@@ -455,24 +592,36 @@ void dump_cache() {
 
     struct data_blob* current_chunk;
      if (data_cache) {
+           SDL_LockMutex(mutexes[MUTEX_CACHE]);
            std::ofstream out("cache.dump", std::ios::binary);
            current_chunk = data_cache;
            while (current_chunk) {
                out.write(reinterpret_cast<const char*>(current_chunk), sizeof(struct data_blob));
-               out.write(reinterpret_cast<const char*>(current_chunk->data), current_chunk->size);
+               if (current_chunk->data) {
+                   out.write(reinterpret_cast<const char*>(current_chunk->data), current_chunk->size);
+               }
                current_chunk = current_chunk->next;
            }
+           SDL_UnlockMutex(mutexes[MUTEX_CACHE]);
            out.close();
      }
      return;
 }
 
 
-int add_data_cache(enum mod_name owner, const Uint32 size, const void* data) {
-    delete_mod_cache(owner);
-    if (!mutexes[MUTEX_CACHE]) {
-        mutexes[MUTEX_CACHE] = SDL_CreateMutex();
+int add_data_cache(enum mod_name owner, const Uint64 size, const void* data) {
+    if (owner > MOD_NULL || owner < 0) {
+        debug_log << "CACHE: Attempt to Add for bad module ID " << owner << "!\n";
+        return 0;
     }
+    if (size < 1 || !data) {
+        debug_log << "CACHE: Attempt to store invalid cache from "<< owner << "\n";
+    }
+    if (!mutexes[MUTEX_CACHE]) {
+        debug_log << "CACHE: Missing CACHE Mutex!\n";
+        return 0;
+    }
+    delete_mod_cache(owner);
     SDL_LockMutex(mutexes[MUTEX_CACHE]);
     // add a new data_cache for a module
     struct data_blob* empty_locker;
@@ -499,7 +648,7 @@ int add_data_cache(enum mod_name owner, const Uint32 size, const void* data) {
     empty_locker->fetch_time=time(NULL);
     empty_locker->size = size;
     empty_locker->data = malloc(size+1);
-    if (empty_locker->data) {
+    if (empty_locker->data && data) {
         memset(empty_locker->data, 0, size + 1);
         memcpy(empty_locker->data, data, size);
         ((char*)empty_locker->data)[size] = '\0';
@@ -511,10 +660,9 @@ int add_data_cache(enum mod_name owner, const Uint32 size, const void* data) {
 //    printf ("Test stored data\n %s \n -----------\n",(char*)empty_locker->data);
     SDL_UnlockMutex(mutexes[MUTEX_CACHE]);
     return (1);
-
 }
 
-int fetch_data_cache(enum mod_name owner, time_t *age, Uint32 *size, void* data) {
+int fetch_data_cache(enum mod_name owner, time_t *age, Uint64 *size, void* data) {
     // function to check for and return locally cached web data
     if (!age || !size) {
         SDL_Log("VERY BAD Data Cache call! No return values!");
@@ -523,7 +671,8 @@ int fetch_data_cache(enum mod_name owner, time_t *age, Uint32 *size, void* data)
     }
     if (data_cache) {
         if (!mutexes[MUTEX_CACHE]) {
-            mutexes[MUTEX_CACHE] = SDL_CreateMutex();
+            debug_log << "CACHE: Missing CACHE Mutex!\n";
+            return 0;
         }
 
         SDL_LockMutex(mutexes[MUTEX_CACHE]);
@@ -532,8 +681,8 @@ int fetch_data_cache(enum mod_name owner, time_t *age, Uint32 *size, void* data)
             if (current->owner == owner) {
 //                printf ("Test fetched data\n %s \n -----------\n",(char*)current->data);
                 memcpy(age, &(current->fetch_time), sizeof(time_t));
-                memcpy(size, &(current->size), sizeof(Uint32));
-                if (data != NULL) {
+                memcpy(size, &(current->size), sizeof(Uint64));
+                if ((data != NULL) && (current->data != NULL)) {
                     memcpy(data, current->data, current->size);
                     debug_log << "CACHE: returning " << current->size << " bytes\n";
                 }
@@ -548,6 +697,76 @@ int fetch_data_cache(enum mod_name owner, time_t *age, Uint32 *size, void* data)
     return (0);
 }
 
+const std::string hexencode (const std::string source) {
+    std::string result;
+    result.clear();
+    result.reserve(source.size()*3);
+    for (unsigned int pos = 0 ; pos < source.size() ; pos++) {
+        unsigned char c = source.at(pos);
+        // we have an already URL Clean character
+        if ((c >= '0' && c <= '9') ||
+            (c >= 'a' && c <= 'z') ||
+            (c >= 'A' && c <= 'Z') ||
+            c == '-' || c == '_' || c == '.' || c == '!' || c == '~' ||
+            c == '*' || c == '\'' || c == '(' || c == ')') {
+            result.push_back(c);
+        } else {
+             // something else
+             result.push_back('%');
+             char hex;
+             hex = c / 16;
+             hex += hex <= 9 ? '0' : 'a' - 10;
+             result.push_back(hex);
+             hex = c % 16;
+             hex += hex <= 9 ? '0' : 'a' - 10;
+             result.push_back(hex);
+        }
+    }
+    return result;
+}
+
+const std::string URL_Encode(const char* source) {
+    std::string result;
+    result.clear();
+    if (!source || !source[0]) {
+        return (result);
+    }
+    std::string working(source);
+    size_t tag_start, tag_stop, equalpos;
+    tag_start=0;
+    // copy in the base of the URL
+    tag_stop = working.find("?");
+    if (tag_stop != std::string::npos) {
+        result = working.substr(0,tag_stop+1);
+        tag_start = tag_stop+1;
+        //if we have arguments encode them
+        while (tag_start != std::string::npos) {
+            // grab the next segment
+            tag_stop = working.find_first_of("&;",tag_start+1);
+            std::string argument;
+            if (tag_stop != std::string::npos) {
+                argument = working.substr(tag_start, tag_stop - tag_start);
+            } else {
+                argument = working.substr(tag_start, tag_stop);
+            }
+            equalpos = argument.find("=");
+            if (equalpos != std::string::npos) {
+                // we have a key=value pair, copy the key and encode the value
+                result += argument.substr(0,equalpos+1);
+                // temporarilly just copying this , need to URLencode this piece
+                result += hexencode(argument.substr(equalpos+1,std::string::npos));
+            } else {
+                // whatever is in argument has no value. just copy it
+                result += argument.substr(0,equalpos);
+            }
+            tag_start = tag_stop;
+        }
+    } else {
+        // there is nothing to do here
+        result = working;
+    }
+    return result;
+}
 
 size_t cache_http_callback( char* in, size_t size, size_t nmemb, void* out) {
     std::string* buffer = static_cast<std::string*>(out);
@@ -555,10 +774,18 @@ size_t cache_http_callback( char* in, size_t size, size_t nmemb, void* out) {
     return (size*nmemb);
 }
 
-int http_loader(const char* source_url, void** result) {
+Uint64 http_loader(const char* source_url, void** result) {
     if (!mutexes[MUTEX_HTTP]) {
         mutexes[MUTEX_HTTP] = SDL_CreateMutex();
     }
+    if (source_url == 0) {
+        return 0;
+    }
+    if (source_url[0] == 0) {
+        return 0;
+    }
+    std::string encoded_url = URL_Encode(source_url);
+//    SDL_Log (encoded_url.c_str());
 ////    SDL_LockMutex(mutexes[MUTEX_HTTP]);
 #ifndef _WIN32          // *NIX version starts here
     CURLcode curlres;
@@ -566,7 +793,8 @@ int http_loader(const char* source_url, void** result) {
 //    std::cout << "HTTP: Fetching data from "<< source_url << "\n";
     CURL *curl = curl_easy_init();
     if (curl) {
-        curl_easy_setopt(curl, CURLOPT_URL, source_url);
+//        curl_easy_setopt(curl, CURLOPT_URL, source_url);
+        curl_easy_setopt(curl, CURLOPT_URL, encoded_url.c_str());
         curl_easy_setopt(curl, CURLOPT_HTTP_VERSION,
                         (long)CURL_HTTP_VERSION_3);
         curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15);
@@ -614,16 +842,9 @@ int http_loader(const char* source_url, void** result) {
     exploded_url.dwUrlPathLength = (DWORD)-1;
     exploded_url.dwExtraInfoLength = (DWORD)-1;
     bool read_result;
-    if (source_url == 0) {
-////        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
-        return 0;
-    }
-    if (source_url[0] == 0) {
-////        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
-        return 0;
-    }
     // call once to get the result size
-    int len = MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, source_url, -1, NULL, 0);
+//    int len = MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, source_url, -1, NULL, 0);
+    int len = MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, encoded_url.c_str(), -1, NULL, 0);
     if (len == 0) {
 ////        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
@@ -631,7 +852,8 @@ int http_loader(const char* source_url, void** result) {
 
     // actually convert to UTF8
     LPWSTR utf8_url = new wchar_t[len];
-    if (MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, source_url, -1, utf8_url, len) == 0) {
+//    if (MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, source_url, -1, utf8_url, len) == 0) {
+    if (MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, encoded_url.c_str(), -1, utf8_url, len) == 0) {
         delete[] utf8_url;
 ////        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
@@ -802,10 +1024,13 @@ int http_loader(const char* source_url, void** result) {
 #endif
 }
 
-Uint32 cache_loader(const enum mod_name owner, void** result, time_t *result_time) {
-    Uint32 cache_size;
+Uint64 cache_loader(const enum mod_name owner, void** result, time_t *result_time) {
+    Uint64 cache_size;
 //    time_t cache_age;
     int cache_success = 0;
+    if (!result_time) {
+        return 0;
+    }
     *result_time = 0;
     // attempt to fetch from cache
     if (fetch_data_cache(owner, result_time, &cache_size, NULL)) {
@@ -817,22 +1042,22 @@ Uint32 cache_loader(const enum mod_name owner, void** result, time_t *result_tim
             memset(*result, 0, cache_size + 1);
             cache_success = fetch_data_cache(owner, result_time, &cache_size, *result);
             if (cache_success) {
+                debug_log << "CACHE: Got from Cache "<< cache_size <<" Bytes\n";
                 return (cache_size);
             } else {
-                SDL_Log("Cache Loader fetch error!");
+                debug_log << "CACHE: Cache Loader fetch error!\n";
                 free(*result);
                 *result=nullptr;
                 return 0;
             }
             // cache hit
         } else {
-            SDL_Log("Cache loader MALLOC error");
+            debug_log << "CACHE: Cache Loader MALLOC error!\n";
             *result = nullptr;
             return 0;
         }
-//        SDL_Log("Got from Cache %i Bytes", strlen(json_spots));
-
     } else {
+        debug_log << "CACHE: Cache MISS\n";
         return 0; // cache miss
     }
 }
@@ -857,30 +1082,6 @@ std::string url_encode(const std::string& input) {
     return result;
 }
 
-SDL_Texture* SDLCLOCK_CreateTexture(SDL_Renderer* renderer, SDL_PixelFormat format, SDL_TextureAccess access, int w, int h, const char* owner = "unknown", const char* where = "") {
-    SDL_Texture* t = SDL_CreateTexture(renderer, format, access, w, h);
-    if (!t) {
-        SDL_Log("CreateTexture failed (%s): %s", owner, SDL_GetError());
-        debug_log << "CREATE FAILED : tex=" << (void*)t
-            << " w=" << w << " h=" << h
-            << " owner=" << owner << " " << where << "\n";
-        return nullptr;
-    }
-    else {
-        debug_log << "CREATE: tex=" << (void*)t
-            << " w=" << w << " h=" << h
-            << " owner=" << owner << " " << where << "\n";
-        return t;
-    }
-}
-
-void SDLCLOCK_DestroyTexture(SDL_Texture* t, const char* where = "") {
-    if (!t) return;
-    debug_log << "DESTROY: tex=" << (void*)t
-        << " at " << where << "\n";
-    SDL_DestroyTexture(t);
-    return;
-}
 
 void mutex_checker() {
     int index = 0;

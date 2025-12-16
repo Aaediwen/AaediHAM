@@ -36,8 +36,23 @@ void ncdxf_module(ScreenFrame& panel) {
         SDL_Log("NCDXF call during resize event!");
         return;
     }
+    if (!Sans) {
+        debug_log << "NCDXF: No font defined\n";
+        return;
+    }
+    if (!panel.GetRenderer()) {
+        debug_log << "NCDXF: Missing Renderer!\n";
+        return;
+    }
+    if (!panel.texture) {
+        debug_log << "NCDXF: Missing PANEL!\n";
+        return;
+    }
+
     panel.Clear();
     SDL_FRect TextBox;
+
+    // Header
     TextBox.x = panel.dims.w/20;
     TextBox.y = panel.dims.h/20;
     TextBox.h = panel.dims.h/15;
@@ -48,26 +63,35 @@ void ncdxf_module(ScreenFrame& panel) {
     TextBox.w = (panel.dims.w/3) - (panel.dims.w/20);
     int cycle_sec = (time_now) % 180; // 3 minutes = 180 seconds
     int beacon_index = cycle_sec / 10; // which 10-second slot
+
+
     for (int i = 0; i < 5; ++i) {
+        // Render the current beacon for each frequency slot
         int beacon_offset = (beacon_index - (i)) % 18;
         if (beacon_offset <0) {
             beacon_offset +=18;
         }
+        // frequency
         sprintf(tempstr, "%4.3f", beacon_freqs[i]);
         debug_log <<"NCDXF: " << tempstr << "\n";
         panel.render_text(TextBox, Sans, {128,128,64,0}, tempstr);
+        // station callsign
         TextBox.x = (panel.dims.w/3)*2;
         sprintf(tempstr, "%s", beacons[beacon_offset].call);
         panel.render_text(TextBox, Sans, {128,128,64,0}, tempstr);
-        TextBox.y += panel.dims.h/15;
-        TextBox.x = panel.dims.w/20;
-        TextBox.w = (panel.dims.w * .75) - panel.dims.w/20;
+        // station location
+        TextBox.y += panel.dims.h/15.0f;
+        TextBox.x = panel.dims.w/20.0f;
+        TextBox.w = (panel.dims.w * .75f) - panel.dims.w/20.0f;
         sprintf(tempstr, "%s", beacons[beacon_offset].location.c_str());
         panel.render_text(TextBox, Sans, {64,64,32,0}, tempstr);
+        // next line!
         TextBox.y += panel.dims.h/10;
         TextBox.x = panel.dims.w/20;
         TextBox.w = (panel.dims.w/3) - (panel.dims.w/20);
 
     }
+
+
     return;
 }

@@ -18,13 +18,16 @@ struct pota_spot {
 
 
 std::string pota_json_parser(const char* input_string) {
-
+    if (!input_string || !(input_string[0])) {
+         debug_log << "POTA: NULL Json INPUT Error \n";
+         return "";
+    }
     std::ostringstream cache_stream;
-    int goodread = 1;
     json spot_list;
     try {
         spot_list=json::parse(input_string);
     } catch (const json::parse_error &e) {
+        (void)e;
         debug_log << "POTA: Json Parse Error " << strlen(input_string) << " bytes " << input_string << "\n";
         return "";
     }
@@ -44,22 +47,33 @@ std::string pota_json_parser(const char* input_string) {
             std::string instring;
             instring 		= spot["activator"].template get<std::string>();
             strncpy(new_cache.activator, instring.c_str(), 31);
+            new_cache.activator[31] = 0;
             instring		= spot["mode"].template get<std::string>();
             strncpy(new_cache.mode, instring.c_str(), 15);
+            new_cache.mode[15] = 0;
             instring		= spot["reference"].template get<std::string>();
             strncpy(new_cache.park, instring.c_str(), 15);
+            new_cache.park[15] = 0;
             new_cache.latitude  = spot["latitude"].template get<double>();
             new_cache.longitude = spot["longitude"].template get<double>();
             instring            = spot["frequency"].template get<std::string>();
-            new_cache.frequency = stod(instring)/1000;
+            try {
+                 new_cache.frequency = stod(instring)/1000;
+            } catch (std::exception& e) {
+               (void)e;
+               new_cache.frequency = 0;
+            }
+            instring.clear();
             cache_stream.write(reinterpret_cast<const char*>(&new_cache), sizeof(new_cache));
         }
     }
     return (cache_stream.str());
 }
-void fetch_pota () {
+int SDLCALL fetch_pota (void* data) {
+     (void)data;
+     SDL_Delay(5000);
      char* json_spots = 0 ;
-     Uint32 data_size = 0;
+     Uint64 data_size = 0;
      debug_log <<"POTA: Fetching Spots from pota.app via timer\n";
      SDL_Log("Fetching Spots from pota.app via timer");
      data_size = http_loader("https://api.pota.app/spot/activator", (void**)&json_spots);                           // live
@@ -73,12 +87,20 @@ void fetch_pota () {
                json_spots=0;
           }
      }
-     return;
+     SDL_Delay(5000);
+     return 0;
 }
 
 Uint32 SDLCALL fetch_pota (void *userdata, SDL_TimerID timerID, Uint32 interval) {
+    (void)interval;
+    (void)userdata;
      if (timerID) {
-          fetch_pota();
+          SDL_Thread* thread = SDL_CreateThread(fetch_pota, "POTA Fetcher", nullptr);
+          if (thread) {
+              SDL_DetachThread(thread);
+          } else {
+              debug_log << "Failed to Create POTA Fetch Thread\n";
+          }
           return (300000);
      } else {
           return 0;
@@ -90,7 +112,6 @@ Uint32 SDLCALL fetch_pota (void *userdata, SDL_TimerID timerID, Uint32 interval)
 int pota_page[2]={0,2};
 void pota_spots(ScreenFrame& panel, TTF_Font* font) {
      if (!pota_timer) {
-//          fetch_pota();
           pota_timer = SDL_AddTimer(30, fetch_pota, NULL);
      }
 
@@ -101,13 +122,29 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
          SDL_Log("POTA DRAW during resize event!");
          return;
      }
+     if (!font) {
+        debug_log << "POTA: No font defined\n";
+        return;
+    }
+    if (!panel.GetRenderer()) {
+        debug_log << "POTA: Missing Renderer!\n";
+        return;
+    }
+    if (!panel.texture) {
+        debug_log << "POTA: Missing PANEL!\n";
+        return;
+    }
+
+
+
+
     char* json_spots = 0 ;
 
     int c, tot;
     c=0;
     tot=0;
 
-    int pin_alpha = 192;
+    Uint8 pin_alpha = 192;
     char tempstr[64];
     SDL_FRect TextRect;
 
@@ -116,13 +153,14 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
     pota_color.g = 128;
     pota_color.b = 0;
     pota_color.a = 0;
-    Uint32 data_size;
+    Uint64 data_size;
     time_t cache_time;
     int reload_flag =0;
     std::istringstream spots_raw;
     // fetch the POTA spot data
     delete_owner_pins(MOD_POTA);
     data_size = cache_loader(MOD_POTA, (void**)&json_spots, &cache_time);
+    // if we got no or stale data from the cache, throw it away and act like we never saw it
     if (!data_size) {
         reload_flag=1;
     } else if ((time(NULL) - cache_time) > 400) {
@@ -133,18 +171,18 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
         }
     }
     debug_log << "POTA: READ "<< data_size << " FROM CACHE!!!!\n";
+    // if we got legit data from the cache, prep it for processing
     if (reload_flag) {
        spots_raw.clear();
-
     } else {
         spots_raw.clear();
         std::string sanitized(json_spots, data_size);
         spots_raw.str(sanitized);
-             if(json_spots) {
-              free (json_spots);
-              json_spots=0;
-             }
-             debug_log << "POTA: from cache "<< spots_raw.str().size()<<" buffer size\n";
+        if(json_spots) {
+             free (json_spots);
+             json_spots=0;
+        }
+        debug_log << "POTA: from cache "<< spots_raw.str().size()<<" buffer size\n";
     }
 
 
@@ -161,6 +199,7 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
     TextRect.x=5;
     TextRect.y=2;
     panel.render_text(TextRect, font, pota_color, "POTA ACTIVATORS");
+    // sanity check for valid POTA data
     if (spots_raw.str().size() < 5) {
      goodread = false;
     }
@@ -168,15 +207,21 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
     TextRect.w=(panel.dims.w/4)-(panel.dims.w/20);
     TextRect.h=panel.dims.h/11;
     TextRect.x=5;
-    TextRect.y=((panel.dims.h/11)+(panel.dims.h/150));;
+    TextRect.y=((panel.dims.h/11)+(panel.dims.h/150));
     if (goodread) {
+        // we have legitimate data
         struct pota_spot spot;
         while (spots_raw.read(reinterpret_cast<char*>(&spot), sizeof(spot))) {
-
+             // loop through the cached POTA spots
              tot++;
              struct map_pin pota_pin;
              pota_pin.owner  =               MOD_POTA;
-             sprintf(pota_pin.label, "%s", spot.activator);
+             int length = static_cast<int>(strlen(spot.activator));
+             memset (pota_pin.label,0,16);
+             if (length > 15) {
+                 length = 15;
+             }
+             memcpy(pota_pin.label, spot.activator, length);
              pota_pin.lat    =               spot.latitude;
              pota_pin.lon    =            spot.longitude;
              pota_pin.icon   =               0;
@@ -222,12 +267,14 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
         TextRect.y=2;
         sprintf(tempstr, "%i", tot);
         panel.render_text(TextRect, font, pota_color, tempstr);
-    } else {// good read
+    } else {
+        // no legitimate POTA Data :(
         TextRect.w=panel.dims.w-10;
         if (TextRect.w > 2) {
            panel.render_text(TextRect, font, pota_color, "NO POTA DATA");
         }
     }
+    // reset the mouse event
     if (clock_mouse_event.mod_owner == MOD_POTA) {
      clock_mouse_event.mod_owner = MOD_NULL;
     }

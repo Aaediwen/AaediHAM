@@ -15,6 +15,7 @@
 #define SHUT_WR   SD_SEND
 #pragma comment(lib, "ws2_32.lib")
 #else
+#include <unistd.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -27,7 +28,16 @@ const int max_age=1800;
 
 dxspot::dxspot() {
     qrz_valid = false;
+    spotter.clear();
+    dx.clear();
+    note.clear();
+    mode.clear();
     country.clear();
+    timestamp = 0;
+    frequency = 0.0;
+    lat = 0.0;
+    lon = 0.0;
+    entity = 0;
 };
 
 dxspot::~dxspot() {};
@@ -39,54 +49,73 @@ void dxspot::find_mode () {
     }
     std::string mode_parent = note;
     std::transform(mode_parent.begin(), mode_parent.end(), mode_parent.begin(), ::toupper);
-    if (mode_parent.find("FT8") != std::string::npos) mode =  "FT8";
+    static const char* known_modes[] = { "FT8", "FT4", "CW", "USB", "LSB", "SSB", "RTTY" };
+    for (const char* m : known_modes) {
+        if (mode_parent.find(m) != std::string::npos) {
+            mode = m;
+            break;
+        }
+    }
+/*    if (mode_parent.find("FT8") != std::string::npos) mode =  "FT8";
     if (mode_parent.find("FT4") != std::string::npos) mode =  "FT4";
     if (mode_parent.find("CW") != std::string::npos) mode = "CW";
     if (mode_parent.find("SSB") != std::string::npos) mode =  "SSB";
     if (mode_parent.find("USB") != std::string::npos) mode =  "USB";
     if (mode_parent.find("LSB") != std::string::npos) mode =  "LSB";
-    if (mode_parent.find("RTTY") != std::string::npos) mode =  "RTTY";
+    if (mode_parent.find("RTTY") != std::string::npos) mode =  "RTTY"; */
     return;
 }
 
 void dxspot::fill_qrz() {
     query_qrz();
 }
-void dxspot::display_spot(ScreenFrame& panel, int y, int max_age) {
+void dxspot::display_spot(ScreenFrame& panel, float y) {
     // add to screen list
+       if (y < 0) {
+           debug_log << "DXSPOTS: Invalid Y coordinate\n";
+           return;
+       }
+       if (!panel.GetRenderer() || !panel.texture || panel.dims.w <= 0 || panel.dims.h <= 0 ) {
+           debug_log << "DXSPOTS: Invalid Panel\n";
+           return;
+       }
        char tempstr[128];
        SDL_Color tempcolor={128,0,0,0};
        SDL_FRect TextRect;
-       TextRect.x=2;
-       TextRect.y= y * 1.0f;
-       TextRect.w=panel.dims.w/4;
-       TextRect.h=panel.dims.h/15;
+       TextRect.x	=	2;
+       TextRect.y	=	y * 1.0f;
+       TextRect.w	=	panel.dims.w/4;
+       TextRect.h	=	panel.dims.h/15;
 
        SDL_FRect age_rect;
-       age_rect.h = TextRect.h/8;
-       age_rect.y = y+((TextRect.h/8)*7);
-       age_rect.x = 2;
-       age_rect.w = (panel.dims.w-4)*(static_cast<float>(time(NULL)-timestamp)/max_age);
-       debug_log << "DXSPOTS: Spot age: "<< (time(NULL)-timestamp) << " Seconds, Bar width: "<< age_rect.w<< " pixels\n";
+       age_rect.h 	= 	TextRect.h/8;
+       age_rect.y 	= 	y + (( TextRect.h / 8 ) * 7 );
+       age_rect.x 	= 	2;
+       age_rect.w 	= 	( panel.dims.w - 4 ) * ( static_cast<float>(time(NULL) - timestamp ) / max_age );
+       if (age_rect.w > panel.dims.w-8) {
+           age_rect.w = panel.dims.w-8;
+       }
+       debug_log << "DXSPOTS: Spot age: "<< (time(NULL) - timestamp) << " Seconds, Bar width: "<< age_rect.w << " pixels\n";
        SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
        SDL_SetRenderDrawColor(panel.GetRenderer(), 128, 128, 0, 255);
        SDL_RenderFillRect(panel.GetRenderer(), &age_rect );
        SDL_SetRenderTarget(panel.GetRenderer(), NULL);
        panel.render_text(TextRect, Sans, tempcolor, dx.c_str());
-       TextRect.x += (panel.dims.w/4)+2;
+       TextRect.x 	+= 	( panel.dims.w / 4 ) + 2;
        sprintf(tempstr, "%4.3f", (frequency/1000));
        panel.render_text(TextRect, Sans, tempcolor, tempstr);
-       TextRect.x += (panel.dims.w/4)+2;
-       TextRect.w /=2;
+       TextRect.x 	+= 	( panel.dims.w / 4 ) + 2;
+       TextRect.w 	/=	2;
        if (mode.size() >0) {
             panel.render_text(TextRect, Sans, tempcolor, mode.c_str());
        }
-       TextRect.w += (panel.dims.w/4)-(panel.dims.w/20);
-       TextRect.x += (panel.dims.w/8)+1;
+       TextRect.w 	+= 	( panel.dims.w / 4 ) - ( panel.dims.w / 20 );
+       TextRect.x 	+= 	( panel.dims.w / 8 ) + 1;
        if (country.size() >0) {
-       panel.render_text(TextRect, Sans, tempcolor, country.c_str());
+           panel.render_text(TextRect, Sans, tempcolor, country.c_str());
        }
-       TextRect.y += ((panel.dims.h/11)+(panel.dims.h/150));
+//       TextRect.y 	+= 	(( panel.dims.h / 11 ) + ( panel.dims.h / 150 ));
+       return;
 }
 
 void dxspot::print_spot() {
@@ -111,7 +140,7 @@ void dxspot::query_qrz () {
     bool lat_valid, lon_valid;
     lat_valid=false;
     lon_valid=false;
-    Uint32 xml_size;
+    Uint64 xml_size;
     if (dx.empty()) {
         return;
     }
@@ -130,15 +159,27 @@ void dxspot::query_qrz () {
                 tag_stop = keyline.find("</lat>");
                 if ((tag_start != std::string::npos) && (tag_stop != std::string::npos)) {
                     tag_start += 5;
-                    lat = std::stod(keyline.substr(tag_start, tag_stop - tag_start));
-                    lat_valid = true;
+                    try {
+                        lat = std::stod(keyline.substr(tag_start, tag_stop - tag_start));
+                        lat_valid = true;
+                    } catch (std::exception& e) {
+                        (void) e;
+                        lat = 0;
+                        lat_valid = false;
+                    }
                 }
                 tag_start = keyline.find("<lon>");
                 tag_stop = keyline.find("</lon>");
                 if ((tag_start != std::string::npos) && (tag_stop != std::string::npos)) {
                     tag_start += 5;
-                    lon = std::stod(keyline.substr(tag_start, tag_stop - tag_start));
-                    lon_valid = true;
+                    try {
+                        lon = std::stod(keyline.substr(tag_start, tag_stop - tag_start));
+                        lon_valid = true;
+                    } catch (std::exception& e) {
+                        (void) e;
+                        lon = 0;
+                        lon_valid = false;
+                    }
                 }
                 tag_start = keyline.find("<country>");
                 tag_stop = keyline.find("</country>");
@@ -159,6 +200,10 @@ void dxspot::query_qrz () {
                     }
                 }
             }
+        }
+        if (xml) {
+            free(xml);
+            xml = 0;
         }
     }
     if (lat_valid && lon_valid) {
@@ -185,20 +230,20 @@ std::vector<dxspot>dxspots;
 void init_fd() {
         std::string serverip=clockconfig.dxserver().name;
         std::string serverport=std::to_string(clockconfig.dxserver().port);
-        struct addrinfo* serveraddr;
+        struct addrinfo* serveraddr = nullptr;
         struct addrinfo hints;
         dxsocket = 0;
-        int res = 0;
+
         memset(&hints, 0, sizeof hints);
         hints.ai_family = AF_INET;       // or AF_UNSPEC to allow IPv4/IPv6
         hints.ai_socktype = SOCK_STREAM;
 #ifdef _WIN32
         WSADATA wsaData;
+        int res = 0;
         debug_log << "DXSPOTS: WSAStartup ... ";
         res = WSAStartup(MAKEWORD(2, 2), &wsaData);
         if (res != 0) {
             debug_log << "DXSPOTS: failed: " << res << "\n";
-            freeaddrinfo(serveraddr);
             return;
         } else {
             debug_log << "DXSPOTS: Success" << "\n";
@@ -208,10 +253,13 @@ void init_fd() {
         res = getaddrinfo(serverip.c_str(), serverport.c_str(), &hints, &serveraddr);
         if (res == 0) {
             debug_log << " Success" << "\n";
-        } else {
+        }
+        else {
             debug_log << " Failed " << WSAGetLastError() << "\n";
             WSACleanup();
-            freeaddrinfo(serveraddr);
+            if (serveraddr) {
+                freeaddrinfo(serveraddr);
+            }
             return;
         }
 
@@ -220,13 +268,15 @@ void init_fd() {
         if (dxsocket == INVALID_SOCKET) {
             debug_log << "Bad DX socket " << WSAGetLastError() << "\n";
             WSACleanup();
-            freeaddrinfo(serveraddr);
+            if (serveraddr) {
+                freeaddrinfo(serveraddr);
+            }
             return;
         } else {
             debug_log << "Got DX socket" << "\n";
         }
         debug_log << "DXSPOTS: Connecting to " << serverip << " " << serverport << "\n";
-        if (connect(dxsocket, serveraddr->ai_addr, serveraddr->ai_addrlen) == SOCKET_ERROR) {
+        if (connect(dxsocket, serveraddr->ai_addr, static_cast<int>(serveraddr->ai_addrlen)) == SOCKET_ERROR) {
             debug_log << "DXSPOTS: server connect error on client: " << WSAGetLastError() << "\n";
             shutdown(dxsocket, SHUT_RDWR);
             WSACleanup();
@@ -259,7 +309,7 @@ void init_fd() {
 }
 
 void duplicate_spot(dxspot& needle) {
-    size_t old_index;
+    size_t old_index = 0;
     bool found=false;
     for (size_t c = 0 ; c < dxspots.size() ; c++) {
         if (dxspots[c].dx == needle.dx) {
@@ -285,8 +335,10 @@ void duplicate_spot(dxspot& needle) {
 //    SDL_Log ("Stored: %i DX Spots", dxspots.size());
 }
 
-void fetch_dxspots() {
+int SDLCALL fetch_dxspots(void* data) {
+    (void)data;
     time_t currenttime = time(NULL);
+    bool clean_socket = true;
     SDL_LockMutex(dxspot_mutex);
     // check for old entries
 
@@ -307,13 +359,13 @@ void fetch_dxspots() {
 
         while (!readcount && read_limit < 5) {
             read_limit++;
-                    if (dxsocket) {
-                            readcount = read_socket(dxsocket, tempstr);
-                    }
-                    if (readcount < 0) {
-    //			dxsocket = 0;
-                            readcount = 0;
-                    }
+            if (dxsocket) {
+                readcount = read_socket(dxsocket, tempstr);
+            }
+            if (readcount < 0) {
+                clean_socket = false;
+                readcount = 0;
+            }
         }
 
         if (read_limit <5) {
@@ -321,13 +373,19 @@ void fetch_dxspots() {
             while (readcount) {
                 if (!tempstr.empty()) {
                     dxbuffer.push_back(tempstr);
-                    tempstr.clear();;
+                    tempstr.clear();
                 }
-                readcount = read_socket(dxsocket, tempstr);
+                if (dxsocket) {
+                    readcount = read_socket(dxsocket, tempstr);
+                }
+                if (readcount < 0) {
+                    clean_socket = false;
+                    readcount = 0;
+                }
             }
             debug_log << "DXSPOTS: DONE Reading " << dxbuffer.size()<< " lines of input\n";
 
-            for (std::string buffstr : dxbuffer) {
+            for (std::string& buffstr : dxbuffer) {
                 // scan variables for line ID
                 float freq;
                 char call[32] = {0};
@@ -338,7 +396,7 @@ void fetch_dxspots() {
                 // process the input line
                 debug_log << "DXSPOTS: buffstr " << buffstr.c_str() << "\n";
                 if (!buffstr.compare(1,5, "ogin:")) {
-                    send(dxsocket, clockconfig.CallSign().c_str(), clockconfig.CallSign().length(),0);
+                    send(dxsocket, clockconfig.CallSign().c_str(), static_cast<int>(clockconfig.CallSign().length()),0);
                     send(dxsocket, "\n", 1,0);
                     debug_log << "DXSPOTS: Sent Callsign\n";
                 } else if (!buffstr.compare(0,5, "Hello")) {
@@ -350,21 +408,22 @@ void fetch_dxspots() {
                     int consumed = 0;
                     std::string tempstring;
                     size_t spotter_end = buffstr.find_first_of(':');
-                    new_spot.spotter = buffstr.substr(6, spotter_end-1 );
+//                    new_spot.spotter = buffstr.substr(6, spotter_end-1 );
+                    new_spot.spotter = buffstr.substr(6, spotter_end-7 );
                     tempstring=buffstr.substr(spotter_end+1,std::string::npos);
-                    buffstr= tempstring;
+                    buffstr = tempstring;
                     debug_log << "DXSPOTS: Extracted Spotter " << new_spot.spotter.c_str() << "\n";
-                    sscanf (buffstr.c_str(), "%lf %13s %n", &(new_spot.frequency), call, &consumed);
-                    debug_log << "DXSPOTS: Extracted Frequency " << new_spot.frequency << "\n";
-                    tempstring=buffstr.substr(consumed,std::string::npos);
-                    buffstr= tempstring;
-                    new_spot.dx=call;
+                    if (sscanf(buffstr.c_str(), "%lf %13s %n", &(new_spot.frequency), call, &consumed)==2) {
+                        debug_log << "DXSPOTS: Extracted Frequency " << new_spot.frequency << "\n";
+                    }
+                    tempstring = buffstr.substr(consumed,std::string::npos);
+                    buffstr = tempstring;
+                    new_spot.dx = call;
                     debug_log << "DXSPOTS: Extracted DX " << new_spot.dx.c_str() << "\n";
                     spotter_end = buffstr.find_last_of('Z', (std::string::npos));
                     if (spotter_end != std::string::npos) {
-                        tempstring = buffstr.substr(spotter_end-4, spotter_end-1 );
+                        tempstring = buffstr.substr(spotter_end-4, 4 );
                         struct tm *new_time;
-                        std::memset(&new_time, 0, sizeof(new_time));
                         new_time = gmtime(&currenttime);
                         if (sscanf(tempstring.c_str(), "%2d%2d",
                             &(new_time->tm_hour), &(new_time->tm_min)) != 2) {
@@ -388,9 +447,11 @@ void fetch_dxspots() {
                     } else {
                         debug_log << "DXSPOTS: Got cached DX entry\n" <<  buffstr.c_str() << "\n";
                         dxspot new_spot;
-                        int consumed=0;
+                        size_t consumed=0;
                         std::string tempstring;
-                        sscanf (buffstr.c_str(), "%lf %13s %n", &(new_spot.frequency), call, &consumed);
+                        int scansize;
+                        sscanf (buffstr.c_str(), "%lf %13s %n", &(new_spot.frequency), call, &scansize);
+                        consumed += scansize;
                         tempstring=buffstr.substr(consumed,std::string::npos);
                         buffstr= tempstring;
                         new_spot.dx=call;
@@ -420,7 +481,7 @@ void fetch_dxspots() {
                         buffstr= tempstring;
                         size_t note_end = buffstr.find_last_of('<', (std::string::npos-1));
                         size_t spotter_end = buffstr.find_last_of('>', (std::string::npos));
-                        new_spot.spotter = buffstr.substr(note_end+1, spotter_end-1 );
+                        new_spot.spotter = buffstr.substr(note_end+1, (spotter_end-note_end+1) );
                         new_spot.note=buffstr.substr(1, note_end-1 );
                         SDL_LockMutex(dxspot_mutex);
                         new_spot.find_mode();
@@ -430,18 +491,38 @@ void fetch_dxspots() {
 
 
                 } else {
-    //          	SDL_Log("Ignoring line");
+              	    debug_log << "Ignoring line "<< buffstr << "\n";
                 }
             }
             dxbuffer.clear();
         }
+        if (!clean_socket) {
+            debug_log << "DXSPOTS: read_socket indicates failure; will close socket\n";
+#ifdef _WIN32
+            shutdown(dxsocket, SHUT_RDWR);
+            closesocket(dxsocket);
+            WSACleanup();
+#else
+            shutdown(dxsocket, SHUT_RDWR);
+            close(dxsocket);
+#endif
+            dxsocket = 0;
+        }
     }
-    return;
+    return 0;
 }
 
 Uint32 SDLCALL fetch_dxspots (void *userdata, SDL_TimerID timerID, Uint32 interval) {
+    (void)interval;
+    (void)userdata;
      if (timerID) {
-          fetch_dxspots();
+          SDL_Thread* thread = SDL_CreateThread(fetch_dxspots, "DX Spot Fetcher", nullptr);
+          if (thread) {
+              SDL_DetachThread(thread);
+          } else {
+              debug_log << "Failed to Create DX Spot Fetch Thread\n";
+          }
+//          fetch_dxspots();
           return (10000);
      } else {
           return 0;
@@ -467,9 +548,17 @@ void dx_cluster (ScreenFrame& panel) {
     if (!dxspot_timer) {
         dxspot_timer = SDL_AddTimer(1000, fetch_dxspots, NULL);
     }
+    if (!panel.GetRenderer()) {
+        debug_log << "DXSPOTS: Missing Renderer!\n";
+        return ;
+    }
+    if (!panel.texture) {
+        debug_log << "DXSPOTS: Missing PANEL!\n";
+        return ;
+    }
+
     // clear the box
     panel.Clear();
-    time_t currenttime = time(NULL);
 
     if (!dxsocket) {
         SDL_Log("Error Connecting to DX Spot Telnet Session");
@@ -485,12 +574,13 @@ void dx_cluster (ScreenFrame& panel) {
     }
 
 
-    int y=2;
+//    int y=2;
+    float y = 2.0f;
     SDL_LockMutex(dxspot_mutex);
     size_t start = dxspots.size() > 15 ? dxspots.size() - 15 : 0;
     for (size_t n=start ; n < dxspots.size(); n++) {
         if (y < panel.dims.h) {
-            dxspots[n].display_spot(panel, y, max_age);
+            dxspots[n].display_spot(panel, y);
             if (clock_mouse_event.mod_owner == MOD_DXSPOT) {
                 SDL_Log ("Click event in  module at %f, %f", clock_mouse_event.mod_cords.x, clock_mouse_event.mod_cords.y);
                 if ( clock_mouse_event.mod_cords.y >=y &&  clock_mouse_event.mod_cords.y <= (y + panel.dims.h/15)) {
@@ -499,7 +589,7 @@ void dx_cluster (ScreenFrame& panel) {
 
             }
 
-            y+= panel.dims.h/15;
+            y+= static_cast<int>(panel.dims.h)/15;
         }
     }
     delete_owner_pins(MOD_DXSPOT);

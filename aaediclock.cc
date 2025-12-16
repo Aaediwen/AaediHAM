@@ -33,7 +33,7 @@ struct data_blob	    *data_cache;
 config 		            clockconfig;
 
 SDL_TimerID map_timer = 0;
-Uint8 interrupt_counter = 0;
+Uint16 interrupt_counter = 0;
 struct regen_mask_args* night_mask_args = nullptr;
 map_overlay overlays;
 map_icons icon_bin;
@@ -137,6 +137,8 @@ void panel_assignment(bool increment) {
                 case MOD_LUNAR:
                     master_flags.lunar.panel = &panel.panel;
                     break;
+                case MOD_NULL:
+                    break;
             }
         }
     }
@@ -201,7 +203,7 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
             master_flags.map.draw_flag = true;
             master_flags.sat_tracker.draw_flag = true;
         }
-        if ((interrupt_counter % 2)==0) {	// 2 seconds
+        if ((interrupt_counter % 2)==0) {	// .2 seconds
             master_flags.clock.draw_flag = true;
         }
 //        debug_log << "FLAG_TIMER: Master flag timer done.\n";
@@ -349,9 +351,9 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                     std::cout << "RESIZE: Using Driver : " << SDL_GetRendererName(clock_renderer) << " on " << SDL_GetCurrentVideoDriver() << "\n";
                 }
             }
-            for (auto& p : panels) {
-                p.panel.SetRenderer(clock_renderer);
-            }
+//            for (auto& p : panels) {
+//                p.panel.SetRenderer(clock_renderer);
+//            }
             SDL_GetCurrentRenderOutputSize(clock_renderer, &win_x, &win_y);
             printf("Resizing Window to %i X %i\n", win_x, win_y);
             debug_log << "RESIZE: Resizing Window to " << win_x << " X " << win_y << "\n";
@@ -534,6 +536,8 @@ void resize_panels(std::array<pager_node, 12>& panels) {
 
 #ifdef _WIN32
 extern "C" int CALLBACK WinFontCallback(const LOGFONT * lpelfe, const TEXTMETRIC * lpntme, DWORD FontType, LPARAM lParam) {
+    (void)FontType;
+    (void)lpntme;
     std::string* outFontName = reinterpret_cast<std::string*>(lParam);
     if (lParam && lpelfe && lpelfe->lfFaceName[0]) {  // we got a font with a name
         *outFontName = lpelfe->lfFaceName;
@@ -809,7 +813,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
             printf("\t--renderer\tset the SDL renderer to use. renderer=help or renderer=list will show a list of avaliable rendering engines\n");
             printf("\t--geometry\tResolution of the output from --headless, or the starting window resolution in a GUI environment\n");
             printf("\t--output\tOutput file path for --headless\n");
-            printf("\t--QRZ_Pass\tSet the password to use for QRZ.com (uses the Callsign for UserName\n");
+            printf("\t--QRZ_Pass\tSet the password to use for QRZ.com (uses the Callsign for UserName)\n");
             printf("\t--help\t\tThis help text\n");
             return (SDL_APP_SUCCESS);
         } else if (arg.rfind("--QRZ_Pass",0)==0) {
@@ -936,6 +940,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     mutexes[MUTEX_RESIZE]	= SDL_CreateMutex();
     mutexes[MUTEX_CACHE]	= SDL_CreateMutex();
     mutexes[MUTEX_HTTP]		= SDL_CreateMutex();
+    mutexes[MUTEX_CELESTRAK]	= SDL_CreateMutex();
+    mutexes[MUTEX_WSPR]		= SDL_CreateMutex();
 /*    night_mask_mutex = SDL_CreateMutex();
     resize_mutex = SDL_CreateMutex();
     cache_mutex = SDL_CreateMutex();
@@ -1075,7 +1081,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         if (master_flags.wspr.draw_flag) {
             debug_log << "ITTERATE: Calling WSPR Tracker ("<< MOD_WSPR <<")with panel " << master_flags.wspr.panel << "\n";
             debug_log.flush();
-            wspr_tracker (*(master_flags.wspr.panel), Sans, winboxes[PANEL_MAP].panel);
+            wspr_tracker (*(master_flags.wspr.panel), winboxes[PANEL_MAP].panel);
             master_flags.wspr.draw_flag = false;
         }
         if (master_flags.psk.draw_flag) {

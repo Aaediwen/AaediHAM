@@ -9,7 +9,6 @@
 #include <cstring>
 #include <sstream>
 
-SDL_TimerID wspr_timer = 0;
 
 
 TrackedWSPR::TrackedWSPR(const std::string& tx_call, TrackedWSPR::Band band, time_t start = 0) {
@@ -72,34 +71,39 @@ TrackedWSPR& TrackedWSPR::operator=(const TrackedWSPR& source) { // copy with ov
     return (*this);
 }
 
-std::string& TrackedWSPR::get_name() {
+const std::string& TrackedWSPR::get_name () const {
     return (this->m_tx_sign);
 }
 
 void TrackedWSPR::serialize(std::ostream& output) {
     char tx_sign[32];
+    SDL_LockMutex(mutexes[MUTEX_WSPR]);
+    strncpy (tx_sign, m_tx_sign.c_str(), 30);
     tx_sign[31]=0;
-    strcpy (tx_sign, m_tx_sign.c_str());
     output.write(tx_sign, 32);
     output.write(reinterpret_cast<const char*>(&m_band), sizeof(m_band));
     output.write(reinterpret_cast<const char*>(&m_start_time), sizeof(time_t));
-    uint32_t n_points = m_telemetry.size();
+    uint32_t n_points = static_cast<uint32_t>(m_telemetry.size());                                     // need to investigate moving this to uint64
     output.write(reinterpret_cast<const char*>(&n_points), sizeof(n_points));
     if (n_points) {
          output.write(reinterpret_cast<const char*>(m_telemetry.data()),
                            n_points * sizeof(TrackedWSPR::WSPRTelemetry));
     }
+    SDL_UnlockMutex(mutexes[MUTEX_WSPR]);
     return;
 }
 
-struct GeoCoord TrackedWSPR::location () {
+const struct GeoCoord TrackedWSPR::location () const {
     // get the current lat/lon over which the satellite currently is
-    if (m_telemetry.empty()) {
-        return {0.0,0.0};
-    } else {
-        return  m_telemetry.back().tx_loc;
+    struct GeoCoord result = {0.0,0.0};
+    SDL_LockMutex(mutexes[MUTEX_WSPR]);
+    if (!m_telemetry.empty()) {
+        result =  m_telemetry.back().tx_loc;
     }
+    SDL_UnlockMutex(mutexes[MUTEX_WSPR]);
+    return result;
 }
+
 void TrackedWSPR::save_cache() {
     std::ostringstream cache_stream(std::ios::binary);
     cache_stream.clear();
@@ -135,38 +139,42 @@ void TrackedWSPR::load_new_telemetry(std::istream& input) {
         }
         if (fields.size() >=16) {
             struct WSPRTelemetry datapoint;
-            datapoint.id = std::stoull(fields[0]);
-            // convert raw_time to time_t here for timestamp
-            struct tm new_time {};
+            try {
+                datapoint.id = std::stoull(fields[0]);
+                // convert raw_time to time_t here for timestamp
+                struct tm new_time {};
 
-            if (sscanf(fields[1].c_str(), "%4d-%2d-%2d %2d:%2d:%2d",
-            &(new_time.tm_year), &(new_time.tm_mon), &(new_time.tm_mday),
-            &(new_time.tm_hour), &(new_time.tm_min), &(new_time.tm_sec)) !=6) {
-                debug_log << "WSPR: Time parse error " <<  fields[1].c_str() << "\n";
-            } else {
-                new_time.tm_year -=1900;
-                new_time.tm_mon--;
-            }
-            datapoint.timestamp = 0;
-            datapoint.timestamp = timegm(&new_time);
-            debug_log << "WSPR: Input RX Latitude: " << fields[4].c_str();
-            datapoint.rx_loc.latitude = std::stod(fields[4]);
-            debug_log << " Input RX Long: " << fields[5].c_str() << "\n";
-            datapoint.rx_loc.longitude = std::stod(fields[5]);
-            datapoint.tx_loc.latitude = std::stod(fields[8]);
-            datapoint.tx_loc.longitude = std::stod(fields[9]);
-            strcpy (datapoint.rx_sign, fields[3].c_str());
-            strcpy (datapoint.tx_grid, fields[10].c_str());
-            strcpy (datapoint.rx_grid, fields[6].c_str());
-            datapoint.tx_power = std::stod(fields[15]);
+                if (sscanf(fields[1].c_str(), "%4d-%2d-%2d %2d:%2d:%2d",
+                &(new_time.tm_year), &(new_time.tm_mon), &(new_time.tm_mday),
+                &(new_time.tm_hour), &(new_time.tm_min), &(new_time.tm_sec)) !=6) {
+                    debug_log << "WSPR: Time parse error " <<  fields[1].c_str() << "\n";
+                } else {
+                    new_time.tm_year -=1900;
+                    new_time.tm_mon--;
+                    }
+                datapoint.timestamp = 0;
+                datapoint.timestamp = timegm(&new_time);
+                debug_log << "WSPR: Input RX Latitude: " << fields[4].c_str();
+                datapoint.rx_loc.latitude = std::stod(fields[4]);
+                debug_log << " Input RX Long: " << fields[5].c_str() << "\n";
+                datapoint.rx_loc.longitude = std::stod(fields[5]);
+                datapoint.tx_loc.latitude = std::stod(fields[8]);
+                datapoint.tx_loc.longitude = std::stod(fields[9]);
+                strncpy (datapoint.rx_sign, fields[3].c_str(),31);
+                strncpy (datapoint.tx_grid, fields[10].c_str(),8);
+                strncpy (datapoint.rx_grid, fields[6].c_str(),8);
+                datapoint.tx_power = std::stod(fields[15]);
 
-            if (m_telemetry.empty() || (datapoint.timestamp > m_telemetry.back().timestamp)) {
-                m_telemetry.push_back(datapoint);
+                if (m_telemetry.empty() || (datapoint.timestamp > m_telemetry.back().timestamp)) {
+                    m_telemetry.push_back(datapoint);
+                }
+            } catch (std::exception& e) {
+                debug_log << "WSPR: Exception loading new telemetry: "<< e.what() << "\n";
             }
         }
-
     }
 }
+
 void TrackedWSPR::load_telemetry(std::istream& input) {
     struct WSPRTelemetry datapoint;
     while (input.read (reinterpret_cast<char*>(&datapoint), sizeof(datapoint))) {
@@ -177,66 +185,106 @@ void TrackedWSPR::load_telemetry(std::istream& input) {
     return;
 }
 
+void TrackedWSPR::wspr_live_update() {
+    Uint64 data_size;
+    void* http_buffer = nullptr;
+    SDL_Log ("Checking for new data from db1.wspr.live");
+    debug_log << "WSPR: Checking for new data from db1.wspr.live\n";
+    std::string query = "SELECT * FROM wspr.rx WHERE tx_sign='"+m_tx_sign+"'";
+    query += " AND band="+std::to_string(static_cast<int16_t>(m_band));
+    if (!m_telemetry.empty()) {
+        query += " AND id > " + std::to_string(m_telemetry.back().id);
+    }
+    const std::string url_string = "http://db1.wspr.live/?query="+url_encode(query);
+    debug_log << "WSPR: Calling http loader with " << url_string.c_str() << "\n";;
+    data_size = http_loader(url_string.c_str(), &http_buffer);   // live
+    if (data_size) {
+          // process raw new entries
+        // update caches
+        debug_log << "WSPR: Got new data from web\n";
+        std::string data(reinterpret_cast<const char*>(http_buffer), data_size);
+        std::istringstream stringbuffer(data);
+        SDL_LockMutex(mutexes[MUTEX_WSPR]);
+        load_new_telemetry(stringbuffer);
+        save_cache();
+        SDL_UnlockMutex(mutexes[MUTEX_WSPR]);
+        free (http_buffer);
+
+    }
+    return;
+}
+
+
+bool TrackedWSPR::check_cache (const std::string& data, std::string& telemetry_str) {
+    struct head {
+        char tx_sign[32];
+        TrackedWSPR::Band band;
+        time_t start_time;
+        Uint32 telemetry_size;
+    } header;
+    std::istringstream stringbuffer(data);
+    void* telemetry_data = 0;
+    telemetry_str.clear();
+    bool use_cache = false;
+    while (stringbuffer.read (reinterpret_cast<char*>(&header), sizeof(header))) {
+        // this allocates space for teh telemetry data we are about to read
+        size_t telemetry_size = (header.telemetry_size * sizeof(TrackedWSPR::WSPRTelemetry));
+        header.tx_sign[31] = 0;
+        telemetry_data = malloc(telemetry_size);
+        // pimary conditional if we have the right one or not
+        if ((header.band == m_band) && (!strncmp(header.tx_sign, m_tx_sign.c_str(), 31))) {
+            // we do here
+            if (telemetry_data) {
+                if (stringbuffer.read(reinterpret_cast<char*>(telemetry_data), telemetry_size)) {
+                    debug_log << "WSPR: Got a cache Hit with "<<header.telemetry_size << " entries!\n";
+                    telemetry_str.assign(reinterpret_cast<const char*>(telemetry_data), telemetry_size);
+                    free (telemetry_data);
+                    telemetry_data = nullptr;
+                    use_cache = true;
+                }
+            }
+        } else {
+            // we don't here
+            // seek past telemetry data here
+            if (telemetry_data) {
+                if (stringbuffer.read(reinterpret_cast<char*>(telemetry_data), telemetry_size)) {
+                    free (telemetry_data);
+                    telemetry_data = nullptr;
+                }
+            }
+        }
+    } // while
+    return use_cache;
+}
+
 bool TrackedWSPR::gen_telemetry() {
     // generate the telemetry track for a WSPR station
-    m_telemetry.clear();
-    Uint32 data_size;
-
+    Uint64 data_size;
     bool add_flag;
     add_flag=true;
     void* data_buffer = nullptr;
-    void* http_buffer = nullptr;
-    void* telemetry_data = 0;
     time_t cache_time;
     // check cache, then disk, then do a web query for anything new
     data_size = cache_loader(MOD_WSPR, &data_buffer, &cache_time);
     bool use_cache = false;
     std::istringstream telemetry_buffer;
+    SDL_LockMutex(mutexes[MUTEX_WSPR]);
+    m_telemetry.clear();
+    std::string telemetry_str;
     if (data_size) {
-        // if we find an entry set use_cache
-        struct head {
-            char tx_sign[32];
-            TrackedWSPR::Band band;
-            time_t start_time;
-            Uint32 telemetry_size;
-        } header;
+        // check for this WSPR station in cache and use it if found
         std::string data(reinterpret_cast<const char*>(data_buffer), data_size);
-        std::istringstream stringbuffer(data);
-        // find the telemetry buffer we need
-        while (stringbuffer.read (reinterpret_cast<char*>(&header), sizeof(header))) {
-        size_t telemetry_size = (header.telemetry_size * sizeof(TrackedWSPR::WSPRTelemetry));
-        telemetry_data = malloc(telemetry_size);
-            if ((header.band == m_band) && (!strncmp(header.tx_sign, m_tx_sign.c_str(), 31))) {
-		// more magic to read our telemetry goes here
-		if (telemetry_data) {
-                    if (stringbuffer.read(reinterpret_cast<char*>(telemetry_data), telemetry_size)) {
-                        debug_log << "WSPR: Got a cache Hit with "<<header.telemetry_size << " entries!\n";
-                        std::string telemetry_str(reinterpret_cast<const char*>(telemetry_data), telemetry_size);
-                        telemetry_buffer.str(telemetry_str);
-                        use_cache=true;
-                    }
-		}
-            } else {
-		// seek past telemetry data here
-		if (stringbuffer.read(reinterpret_cast<char*>(telemetry_data), telemetry_size)) {
-		    if (telemetry_data) {
-	                free (telemetry_data);
-	                telemetry_data = nullptr;
-	            }
-		}
-            }
-	}
+        use_cache = check_cache(data, telemetry_str);
 	if (data_buffer) {
 	    free (data_buffer);
 	    data_buffer=nullptr;
 	}
     }
 
-    if (use_cache && telemetry_data) {
+    if (use_cache && !(telemetry_str.empty())) {
         debug_log << "WSPR: Using Cache data\n";
+        telemetry_buffer.str(telemetry_str);
         load_telemetry(telemetry_buffer);
-        free (telemetry_data);
-        telemetry_data = nullptr;
     } else {
         // read cache from disk
         debug_log << "WSPR: Trying Disk cache\n";
@@ -251,38 +299,21 @@ bool TrackedWSPR::gen_telemetry() {
         }
         disk_file.close();
     }
+    SDL_UnlockMutex(mutexes[MUTEX_WSPR]);
 //    SDL_Log ("Balloon spot count: %zu", m_telemetry.size());
     if ((time(NULL) - cache_time) > 1400) {
-    SDL_Log ("Checking for new data from db1.wspr.live");
-    debug_log << "WSPR: Checking for new data from db1.wspr.live\n";
-    std::string query = "SELECT * FROM wspr.rx WHERE tx_sign='"+m_tx_sign+"'";
-    query += " AND band="+std::to_string(static_cast<int16_t>(m_band));
-    if (!m_telemetry.empty()) {
-        query += " AND id > " + std::to_string(m_telemetry.back().id);
+        wspr_live_update();
     }
-    const std::string url_string = "http://db1.wspr.live/?query="+url_encode(query);
-    debug_log << "WSPR: Calling http loader with " << url_string.c_str() << "\n";;
-    data_size = http_loader(url_string.c_str(), &http_buffer);   // live
-    if (data_size) {
-        debug_log << "WSPR: Got new data from web\n";
-        std::string data(reinterpret_cast<const char*>(http_buffer), data_size);
-        std::istringstream stringbuffer(data);
-        load_new_telemetry(stringbuffer);
-        save_cache();
-        free (http_buffer);
-        // process raw new entries
-        // update caches
-    }
-}
     return add_flag;
 }
 
 time_t TrackedWSPR::telemetry_age() {
+    time_t result = 0;
+    SDL_LockMutex(mutexes[MUTEX_WSPR]);
     if (m_telemetry.empty()) {
-        return 0;
-    } else {
-        return (m_telemetry.back().timestamp);
+        result = m_telemetry.back().timestamp;
     }
+    return result;
 }
 
 
@@ -298,17 +329,27 @@ void TrackedWSPR::draw_telemetry(ScreenFrame& map) {
         SDL_Log("WSPR Draw during resize event!");
         return;
     }
+    if (!map.GetRenderer()) {
+        debug_log << "WSPR: Missing Renderer!\n";
+        return;
+    }
+    if (!map.texture) {
+        debug_log << "WSPR: Missing PANEL!\n";
+        return;
+    }
+
     if (this->m_telemetry.empty()) { return; }
     debug_log << "WSPR: Draw telemetry on texture: " << (void*)map.texture << "\n";
     SDL_SetRenderTarget(map.GetRenderer(), map.texture);
     SDL_SetRenderDrawColor(map.GetRenderer(), this->m_color.r, this->m_color.g, this->m_color.b, this->m_color.a);
-    SDL_FPoint* SDLPoints = (SDL_FPoint*)malloc(sizeof(SDL_FPoint)*this->m_telemetry.size());
-
     int index=0;
     int render_size=0;
     int xt, yt;
     xt = static_cast<int>(map.dims.w);
     yt = static_cast<int>(map.dims.h);
+
+    SDL_LockMutex(mutexes[MUTEX_WSPR]);
+    SDL_FPoint* SDLPoints = (SDL_FPoint*)malloc(sizeof(SDL_FPoint)*this->m_telemetry.size());
     for (WSPRTelemetry point : m_telemetry) {
         cords_to_px(point.tx_loc.latitude, point.tx_loc.longitude, xt, yt, &(SDLPoints[index]));
         render_size++;
@@ -330,6 +371,7 @@ void TrackedWSPR::draw_telemetry(ScreenFrame& map) {
          }
          index++;
     }
+    SDL_UnlockMutex(mutexes[MUTEX_WSPR]);
     SDL_SetRenderDrawColor(map.GetRenderer(), this->m_color.r, this->m_color.g, this->m_color.b, this->m_color.a);
     SDL_RenderLines(map.GetRenderer(), SDLPoints, render_size);
     free (SDLPoints);
@@ -351,33 +393,36 @@ void wspr_serialize() {
 
 }
 
-Uint32 SDLCALL update_wspr (void *userdata, SDL_TimerID timerID, Uint32 interval) {
-     if (timerID) {
-          SDL_Color wsprcolor;
-          wsprcolor = {128, 128, 128, 255};
-          std::string callsign;
-          int band;
-          while (clockconfig.next_wspr(&callsign, &band)) {
-              wsprcolor.r += 16;
-              if (wsprcolor.r > 255) { wsprcolor.r=0; }
-              wsprcolor.g -=16;
-              if (wsprcolor.g < 0) { wsprcolor.g=255; }
-              wsprcolor.b -=16;
-              if (wsprcolor.b < 0) { wsprcolor.b=255; }
-              wsprlist.emplace_back(callsign, static_cast<TrackedWSPR::Band>(band));
-              wsprlist.back().gen_telemetry();
-              wsprlist.back().m_color = wsprcolor;
-        }
-     }
-     return 0;
+int SDLCALL update_wspr (void *userdata) {
+    (void)userdata;
+    SDL_Color wsprcolor;
+    wsprcolor = {128, 128, 128, 255};
+    std::string callsign;
+    int band;
+    while (clockconfig.next_wspr(&callsign, &band)) {
+        wsprcolor.r += 16;
+//        if (wsprcolor.r > 255) { wsprcolor.r=0; }
+        wsprcolor.g -=16;
+//        if (wsprcolor.g < 0) { wsprcolor.g=255; }
+        wsprcolor.b -=16;
+//        if (wsprcolor.b < 0) { wsprcolor.b=255; }
+        wsprlist.emplace_back(callsign, static_cast<TrackedWSPR::Band>(band));
+        wsprlist.back().gen_telemetry();
+        wsprlist.back().m_color = wsprcolor;
+    }
+    return 0;
 }
 
-void wspr_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
+void wspr_tracker (ScreenFrame& panel, ScreenFrame& map) {
      if (wsprlist.empty()) {
-          wspr_timer = SDL_AddTimer(30, update_wspr, NULL);
-     }
+          SDL_Thread* thread = SDL_CreateThread(update_wspr, "WSPR Init", nullptr);
+          if (thread) {
+              SDL_DetachThread(thread);
+          } else {
+              debug_log << "Failed to Create WSPR Init Thread\n";
+          }
 
-    SDL_FRect TextRect;
+     }
     delete_owner_pins(MOD_WSPR);
     if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
         SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
@@ -386,6 +431,19 @@ void wspr_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
         SDL_Log("WSPR Tracker during resize event!");
         return;
     }
+    if (!Sans) {
+        debug_log << "WSPR: No font defined\n";
+        return;
+    }
+    if (!panel.GetRenderer()) {
+        debug_log << "WSPR: Missing Renderer!\n";
+        return;
+    }
+    if (!panel.texture) {
+        debug_log << "WSPR: Missing PANEL!\n";
+        return;
+    }
+
     // clear the box
     panel.Clear();
     SDL_FRect mapsize ;
@@ -421,8 +479,8 @@ void wspr_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
             }
         }
     } else {
-        panel.render_text(SDL_FRect{ width_unit, height_unit, width_unit * 18, height_unit*2 }, Sans, SDL_Color{ 255,200, 200 }, "NO WSPR STATIONS");
-        panel.render_text(SDL_FRect{ width_unit, height_unit*5, width_unit * 18, height_unit*2 }, Sans, SDL_Color{ 255,200, 200 }, "CONFIGURED");
+        panel.render_text(SDL_FRect{ width_unit, height_unit, width_unit * 18, height_unit*2 }, Sans, SDL_Color{ 255,200, 200, 255 }, "NO WSPR STATIONS");
+        panel.render_text(SDL_FRect{ width_unit, height_unit*5, width_unit * 18, height_unit*2 }, Sans, SDL_Color{ 255,200, 200, 255 }, "CONFIGURED");
     }
 
     return;

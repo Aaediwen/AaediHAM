@@ -9,22 +9,37 @@ struct {
     double i		= 0.0;
 } moon_illumination;
 
-double moon_phase_angle(const time_t& t) {
-    double jd =  (t / 86400) + 2440587.5;
+namespace LunarConstants {
+    constexpr double JD_UNIX_EPOCH 		= 2440587.5; 	// offset to 01-01-1970 (2440587.5)
+    constexpr double SECONDS_PER_DAY 		= 86400.0;   	// seconds per calendar day
+    constexpr double DAYS_PER_JULIAN_CENTURY	= 36525.0;	// days per Julian Century
+    constexpr double SYNODIC_MONTH		= 29.53058867;  // synodic month
+    constexpr double J2000			= 2451545.0;	// Julian Date of J2000.0, which is January 1, 2000 at 12:00 TT
+    constexpr double NEW_MOON			= 2451550.1;	// Julian Date of known new moon (Jan 6, 2000 18:14 UT)
+    constexpr double OBLIQUITY_J2000		= 23.4392911;	// (23.0 + (26.0/60.0) + (21.448/3600.0) )  23°26'21.448"
+}
+// may need to restore this function later to take a crack at non-hard coded phase angle
+/*double moon_phase_angle(const time_t& t) {
+    double jd =  (t / LunarConstants::SECONDS_PER_DAY) + LunarConstants::JD_UNIX_EPOCH;
     // Days since known new moon (Jan 6, 2000 18:14 UT)
-    double D = jd - 2451550.1;
-    double synodic_month = 29.53058867;
+    double D = jd - LunarConstants::NEW_MOON;
 
     // Phase as fraction of synodic month [0,1)
-    double phase = fmod(D, synodic_month) / synodic_month;
+    double phase = fmod(D,  LunarConstants::SYNODIC_MONTH) / LunarConstants::SYNODIC_MONTH;
     if (phase < 0) phase += 1.0;
 
     // Convert to phase angle [0, 2π]
     return phase * 2.0 * M_PI;
 }
+*/
 
-//SDL_Surface* gen_moon_phase_mask(SDL_Renderer* renderer, SDL_FRect size) {
 SDL_Surface* gen_moon_phase_mask(SDL_FRect size) {
+
+/*
+    function to generate the lunar phase mask bitmap
+    according to the data in the moon_illumination global
+    and SDL_FRect size
+*/
     if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
         SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
@@ -32,31 +47,40 @@ SDL_Surface* gen_moon_phase_mask(SDL_FRect size) {
         SDL_Log("Gen Moon Phase Mask during resize event!");
         return (nullptr);
     }
+    if (size.w < 1.0 || size.h < 1.0) {
+        debug_log << "MOON: Invalid MASK DIMS\n";
+        return (nullptr);
+    }
     SDL_Surface* result = nullptr;
     if (moon_illumination.timestamp) {
-//        moon_illumination.angle=M_PI;
-        result = SDL_CreateSurface(size.w, size.h, SDL_PIXELFORMAT_RGBA32);
-//        SDL_Log("Illumination Percent\t %3.3f", moon_illumination.fraction *100);
-//        SDL_Log("Illumination Angle\t %3.3f", moon_illumination.angle);
-//        SDL_Log("Timestamp\t %lld", static_cast<long long>(moon_illumination.timestamp));
+        // moon_illumination global is valid
+        result = SDL_CreateSurface(static_cast<int>(size.w), static_cast<int>(size.h), SDL_PIXELFORMAT_RGBA32);
+        debug_log << "MOON: Illumination Percent\t  " << moon_illumination.fraction *100 << "\n";
+        debug_log << "MOON: Illumination Angle\t  " << moon_illumination.angle << "\n";
+        debug_log << "MOON: Timestamp\t  " << moon_illumination.timestamp << "\n";
         if (result) {
-            float x, y;
-            float cx=size.w/2.0;
-            float cy=size.h/2.0;
-            SDL_SetSurfaceBlendMode(result, SDL_BLENDMODE_BLEND);
-            Uint8* alpha_pixels = (Uint8*)result->pixels;
+            // we were able to create the target surface
+            // now to render the mask to it
+
+            const double cx=size.w/2.0f;
+            const double cy=size.h/2.0f;
+            const double r = cx;
             const SDL_PixelFormatDetails* dest_details = SDL_GetPixelFormatDetails(result->format);
             const Uint8 dest_bpp = dest_details->bytes_per_pixel;
-//            SDL_Log("Moon illumination: %f", moon_illumination.fraction);
-            int alpha = 0;
-            int red = 0;
-            double r = cx;
+            Uint8* alpha_pixels = (Uint8*)result->pixels;
+            SDL_SetSurfaceBlendMode(result, SDL_BLENDMODE_BLEND);
+
+            float x, y;
+            Uint8 alpha = 0;
+            Uint8 red = 0;
+            // calculate the mask pixel by pixel
             for (y = 0 ; y < size.h ; y++) {
                 for (x = 0 ; x < size.w ; x++) {
-                    float dx = x-cx;
-                    float dy = y-cy;
+                    double dx = x-cx;
+                    double dy = y-cy;
                     double value = sqrt((dx)*(dx) + (dy)*(dy));
                     if (value < r) {
+                        // inside if the lunar disc
                         // rotate point by moon illumination angle
                         double xr = (dx * cos(moon_illumination.angle)) - (dy * sin(moon_illumination.angle));
                         double yr = (dx * sin(moon_illumination.angle)) + (dy * cos(moon_illumination.angle));
@@ -76,7 +100,10 @@ SDL_Surface* gen_moon_phase_mask(SDL_FRect size) {
 ////                        mask according to are we greater or less than this point
 ////                        accross the rotation surface of the moon for each pixel of the image
                         */
-                        double chord_half = sqrt((r*r) - (yr*yr));
+                        // attempting to trap negative sqrt == NaN possability
+                        double arg = (r*r) - (yr * yr);
+                        if ( arg <= 0.0 ) arg = 0.0;
+                        double chord_half = sqrt(arg);
 
                         double cut = ((2.0*moon_illumination.fraction)-1.0) * chord_half;
 ////                        if ((moon_illumination.fraction < 0.75) && (moon_illumination.fraction > 0.25)) {
@@ -96,37 +123,44 @@ SDL_Surface* gen_moon_phase_mask(SDL_FRect size) {
                             alpha=196;
                         }
 ////
-////                        // inside if the lunar disc
+////
                     } else {
                         red = 0;
                         alpha = 255; // outside of the lunar disc
                     }
-
-                    int dest_pixel_index =   ( result->w * dest_bpp * y ) + ( dest_bpp * x );
+                    // copy the pixel value into place
+                    int dest_pixel_index =   static_cast<int>(( result->w * dest_bpp * y ) + ( dest_bpp * x ));
                     Uint32 dst_pixel_val = SDL_MapRGBA(dest_details, NULL, red, 0, 0, (alpha));
                     memcpy((alpha_pixels + dest_pixel_index), &dst_pixel_val, dest_bpp);
                 }
              }
-
+             debug_log << "MOON: Done Creating Moon Phase Alpha mask \n";
         } else {
              debug_log << "MOON: Error Creating Moon Phase Alpha mask: " << SDL_GetError() << "\n";
              SDL_Log ("No MOON MASK!");
+             return (nullptr);
         }
     } else {
+        // moon_illumination global is invalid
         SDL_Log ("No lunar timestamp! skipping mask");
     }
     return (result);
 }
 
 struct GeoCoord sublunar(const time_t time) {
+    // function to calculate the sublunar position given a unix time
     struct GeoCoord result;
-    // convert to Julian Centuries since J2000 (January 2000)
-     // divide Unix Time by seconds per day(86400), and adjust offset to 01-01-1970 (2440587.5)
 
-    double jd =  (static_cast<double>(time) / 86400) + 2440587.5;	// convert to Julian date
+    //================================================================================
+    // Calculate Lunar Arguments
+    //================================================================================
+    // convert to Julian Centuries since J2000 (January 2000)
+     // divide Unix Time by seconds per day(86400), and adjust offset to 01-01-1970 (2440587.5l)
+
+    double jd =  (static_cast<double>(time) / LunarConstants::SECONDS_PER_DAY) + LunarConstants::JD_UNIX_EPOCH;	// convert to Julian date
      // adjust again to January 2000 and divide by 36525 days/Julian century (MESSUS P 151 24.1) T
      // error of 0.00001 in T == 0.37 days
-    double T = (jd - 2451545.0) / 36525.0;	// Time to Julian Centuries
+    double T = (jd - LunarConstants::J2000) / LunarConstants::DAYS_PER_JULIAN_CENTURY;	// Time to Julian Centuries
     // L' D M M' F
     // moon mean longitude (Meeus P 308 45.1)
     double L0 = fmod(218.3164591 + (481267.88134236 * T)
@@ -151,13 +185,16 @@ struct GeoCoord sublunar(const time_t time) {
     double F_rad = F*M_PI/180.0;
     double D_rad = D*M_PI/180.0;
     double M0_rad = M0*M_PI/180.0;
-    double A1 = 119.75 + (131.849 * T);
-    double A2 = 53.09 +  (479264.290 * T);
-    double A3 = 313.45 + (481266.484 * T);
+//    double A1 = 119.75 + (131.849 * T);
+//    double A2 = 53.09 +  (479264.290 * T);
+//    double A3 = 313.45 + (481266.484 * T);
     // Meeus P 308 45.6
-    double E = 1- (0.002516 * T) - (0.0000074 * T * T);
+//    double E = 1- (0.002516 * T) - (0.0000074 * T * T);
 
 
+//================================================================================
+// MEEUS Correction Tables
+//================================================================================
 
 //==============================================================================
 // Need to figure out how to re-generate something like the Meeus table for copyright reasons
@@ -232,7 +269,7 @@ struct GeoCoord sublunar(const time_t time) {
      double obliquity_rad = obliquity * M_PI / 180.0;
 
 */
-    double eps = (23.0 + (26.0/60.0) + (21.448/3600.0) )
+    double eps = LunarConstants::OBLIQUITY_J2000
                     - ((46.8150/3600.0) * T)
                     - ((0.00059/3600.0) * T * T)
                     + ((0.001813/3600.0) * T * T * T);
@@ -240,8 +277,9 @@ struct GeoCoord sublunar(const time_t time) {
     lon = lon*M_PI/180.0;
     lat = lat*M_PI/180.0;
 
+//================================================================================
 // right ascension / declination
-
+//================================================================================
     double x = cos(lon) * cos(lat);
     double y = sin(lon) * cos(lat) * cos(eps) - sin(lat) * sin(eps);
     double z = sin(lon) * cos(lat) * sin(eps) + sin(lat) * cos(eps);
@@ -249,8 +287,11 @@ struct GeoCoord sublunar(const time_t time) {
     double RA_rad  = atan2(y, x);       // radians
     double Dec_rad = asin(z);
 
-    // illuminated fraction of the moon
-    // Meeus 46.4 p 316
+//================================================================================
+// illuminated fraction of the moon
+// Meeus 46.4 p 316
+//================================================================================
+
     double i = 180 - D - (6.289 * sin(M0_rad))
                        + (2.100 * sin(M_rad))
                        - (1.274 * sin(2*D_rad - M0_rad))
@@ -288,10 +329,10 @@ struct GeoCoord sublunar(const time_t time) {
     }
     moon_illumination.i=i;
     //--------------------------------------------------------------------
-     // adjust coordinate system from Celestial to geographical relative to Greenwich
-//      Meesus P89
-        // Greenwich Mean Sidereal Time (deg)
-    double d = jd - 2451545.0;
+    // adjust coordinate system from Celestial to geographical relative to Greenwich
+    //      Meesus P89
+    // Greenwich Mean Sidereal Time (deg)
+    double d = jd - LunarConstants::J2000;
     double GMST = fmod(280.46061837 + 360.98564736629 * d, 360.0);
     if (GMST < 0) GMST += 360.0;
 
@@ -300,6 +341,10 @@ struct GeoCoord sublunar(const time_t time) {
     if (lon_sublunar < -M_PI) lon_sublunar += 2*M_PI;
 
     double lat_sublunar = Dec_rad;
+
+//================================================================================
+// populate results
+//================================================================================
 
     // convert result to degrees
     result.latitude = lat_sublunar*180.0/M_PI;
@@ -328,37 +373,49 @@ SDL_Renderer* old_moon_renderer = nullptr;
 SDL_Mutex* moon_mutex = 0;
 SDL_TimerID moon_timer = 0;
 
-void regen_lunar_surface() {
+int SDLCALL regen_lunar_surface(void* data) {
+    (void)data;
+//================================================================================
+// background routine to reload the lunar images and regen the mask
+//================================================================================
    // reload moon image if needed
     if (regen_moon_image) {
+        //================================================================================
+        // load the base moon image from disk
+        //================================================================================
+        float x, y;
         SDL_Surface* image_surface = IMG_Load("images/PIA14011.jpg");
         SDL_LockMutex(moon_mutex);
-        if (image_surface) {
-            float x, y;
-            x = image_surface->w;
-            y = image_surface->h;
-            int bpp = 4;
-            double surf_size_kb = (image_surface->pitch * image_surface->h) / 1024.0;
-            double tex_size_kb = (x * y * 4.0) / 1024.0; // assuming RGBA8888
+        static int bpp = 4;
+        double surf_size_kb;
+        double tex_size_kb;
+        if (image_surface) { // able to load the image from disk
+            // log the success
+            x = static_cast<float>(image_surface->w);
+            y = static_cast<float>(image_surface->h);
+            surf_size_kb = (image_surface->pitch * image_surface->h) / 1024.0;
+            tex_size_kb = (x * y * 4.0) / 1024.0; // assuming RGBA8888
             debug_log << "LUNAR: Loaded Moon surface "
                 << x << "x" << y << " "
                 << bpp * 8 << "-bit surface ≈ " << surf_size_kb << " KB "
                 << "=> GPU texture ≈ " << tex_size_kb << " KB "
                 << "at " << static_cast<void*>(image_surface) << "\n";
+            //================================================================================
+            // re-create the cached panel moon CPU side SDL_Surface
+            //================================================================================
             if (moon_image) {
                 SDL_DestroySurface(moon_image);
                 moon_image = 0;
             }
             moon_image = SDL_CreateSurface((image_surface->w), (image_surface->h), SDL_PIXELFORMAT_RGBA32);
-            if (moon_image) {
+            if (moon_image) { // able to re-create the moon SDL_Surface
+                // log the success
                 SDL_ClearSurface(moon_image, 0, 0, 0, 0);
                 moon_surface_age = time(NULL);
-                float x, y;
-                x = moon_image->w;
-                y = moon_image->h;
-                int bpp = 4;
-                double surf_size_kb = (moon_image->pitch * moon_image->h) / 1024.0;
-                double tex_size_kb = (x * y * 4.0) / 1024.0; // assuming RGBA8888
+                x = static_cast<float>(moon_image->w);
+                y = static_cast<float>(moon_image->h);
+                surf_size_kb = (moon_image->pitch * moon_image->h) / 1024.0;
+                tex_size_kb = (x * y * 4.0) / 1024.0; // assuming RGBA8888
                 debug_log << "LUNAR: created moon_image surface "
                     << x << "x" << y << " "
                     << bpp * 8 << "-bit surface ≈ " << surf_size_kb << " KB "
@@ -366,31 +423,43 @@ void regen_lunar_surface() {
                     << "at " << static_cast<void*>(image_surface) << "\n";
             }
         }
+        //================================================================================
+        // We have here been able to load the image from disk
+        // and create the new CPU side SDL_Surface to render to
+        // now we actually generate the image
+        //================================================================================
         if (moon_image && image_surface) {
+            // copy the loaded image to our output SDL_Surface
             if (SDL_BlitSurfaceScaled(image_surface, NULL, moon_image, NULL, SDL_SCALEMODE_LINEAR)) {
+                // if successful, generate the phase mask
                 SDL_FRect iconsize;
-                iconsize.w = moon_image->w;
-                iconsize.h = moon_image->h;
+                iconsize.w = static_cast<float>(moon_image->w);
+                iconsize.h = static_cast<float>(moon_image->h);
                 debug_log << "LUNAR: Generating moon mask ... ";
                 SDL_Surface* moon_mask =  gen_moon_phase_mask(iconsize);
                 if (moon_mask) {
+                    // able to create the phase mask, blit it onto our surface
                     debug_log << "Success\n";
                     SDL_BlitSurface(moon_mask, nullptr, moon_image, nullptr);
                     SDL_DestroySurface(moon_mask);
                 } else {
+                    // missing phase, no phase mask to show
                     debug_log << "We have no MOON MASK in the parent!\n";
                     SDL_Log ("We have no MOON MASK in the parent!");
                 }
+                // set transparancy
                 SDL_SetSurfaceColorKey(moon_image, 1, 0);
                 regen_moon_texture = true;
                 regen_moon_image = false;
-
             }
 
             if (!moon_texture) {
                 regen_moon_texture = true;
             }
         } else {
+            //================================================================================
+            // Something went wrong loading the image from disk or creating the new SDL_Surface
+            //================================================================================
             debug_log << "LUNAR Missing Moon image or image surface\n";
             if (image_surface) {
                 debug_log << "LUNAR: Loaded image from BMP\n";
@@ -401,17 +470,26 @@ void regen_lunar_surface() {
                 moon_image = nullptr;
             }
         }
+        // cleanup and exit
         SDL_UnlockMutex(moon_mutex);
         if (image_surface) {
             debug_log << "LUNAR: Cleaning up image_surface\n";
             SDL_DestroySurface(image_surface);
         }
     } // end reload
+    return 0;
 }
 
 Uint32 SDLCALL regen_lunar_surface (void *userdata, SDL_TimerID timerID, Uint32 interval) {
+    (void)interval;
+    (void)userdata;
      if (timerID) {
-          regen_lunar_surface();
+          SDL_Thread* thread = SDL_CreateThread(regen_lunar_surface, "Lunar Regen", nullptr);
+          if (thread) {
+              SDL_DetachThread(thread);
+          } else {
+              debug_log << "Failed to Create Lunar Regen Thread\n";
+          }
           return (1000);
      } else {
           return 0;
@@ -435,6 +513,18 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
         regen_moon_image = true;
         moon_timer = SDL_AddTimer(10, regen_lunar_surface, NULL);
     }
+    if (!panel.GetRenderer()) {
+        debug_log << "LUNAR: Missing Renderer!\n";
+        return ;
+    }
+    if (!panel.texture) {
+        debug_log << "LUNAR: Missing PANEL!\n";
+        return ;
+    }
+    if (clock_mouse_event.mod_owner == MOD_LUNAR) {
+        SDL_Log ("Click event in Lunar module at %f, %f", clock_mouse_event.mod_cords.x, clock_mouse_event.mod_cords.y);
+        clock_mouse_event.mod_owner = MOD_NULL;
+    }
 
     debug_log << "LUNAR: getting panel units\n";
     debug_log.flush();
@@ -456,7 +546,6 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
     debug_log << "LUNAR: Getting Sublunar point\n";
     debug_log.flush();
     struct GeoCoord sublunar_point = sublunar(timestamp);
-//    regen_lunar_surface();
     SDL_LockMutex(moon_mutex);
     debug_log << "LUNAR: locked moon mutex in parent\n";
     debug_log.flush();
@@ -485,7 +574,7 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
     }
     // apply text overlays
     char boxtext[64];
-    sprintf (boxtext, "Ill: %2.2f\%", (moon_illumination.fraction*100));
+    sprintf (boxtext, "Ill: %2.2f", (moon_illumination.fraction*100));
 
     panel.render_text(SDL_FRect{unitx+offsetx,unity+offsety,unitx*8,unity}, Sans, lunar_shadow_color, boxtext);
     panel.render_text(SDL_FRect{unitx,unity,unitx*8,unity}, Sans, lunar_text_color, boxtext);
@@ -522,7 +611,6 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
     panel.render_text(SDL_FRect{unitx*10,unity*19,unitx*8,unity}, Sans, lunar_text_color, boxtext);
 //    SDL_Log (boxtext);
     // submit the map pin
-    SDL_Log: Debug:
     struct map_pin moon_pin;
     moon_pin.owner=MOD_LUNAR;
     sprintf(moon_pin.label, "SUB LUNAR POINT");
