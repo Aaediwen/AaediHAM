@@ -34,7 +34,8 @@ enum mutex_name {
     MUTEX_HTTP		,
     MUTEX_MASTER_CLOCK	,
     MUTEX_CELESTRAK	,
-    MUTEX_WSPR
+    MUTEX_WSPR		,
+    MUTEX_CONTESTS
 };
 extern std::array<SDL_Mutex*, 10> mutexes;
 //extern SDL_Mutex* night_mask_mutex;
@@ -45,9 +46,9 @@ extern SDL_TimerID map_timer;
 extern TTF_Font* Sans;
 extern std::fstream debug_log;
 
-extern ScreenFrame DayMap;
-extern ScreenFrame NightMap;
-extern ScreenFrame CountriesMap;
+//extern ScreenFrame DayMap;
+//extern ScreenFrame NightMap;
+//extern ScreenFrame CountriesMap;
 
 struct pager_node {
     std::vector<enum mod_name> sequence;

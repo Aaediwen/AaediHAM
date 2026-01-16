@@ -20,9 +20,9 @@ static SDL_Window		*window = nullptr;
 static SDL_Renderer		*clock_renderer = nullptr;
 TTF_Font		        *Sans = nullptr;
 time_t 			        currenttime;
-ScreenFrame 	        DayMap;
-ScreenFrame 	        NightMap;
-ScreenFrame 	        CountriesMap;
+//ScreenFrame 	        DayMap;
+//ScreenFrame 	        NightMap;
+//ScreenFrame 	        CountriesMap;
 std::array<pager_node, 12> winboxes;
 std::array<SDL_Mutex*, 10> mutexes = { nullptr };
 
@@ -136,6 +136,8 @@ void panel_assignment(bool increment) {
                     break;
                 case MOD_LUNAR:
                     master_flags.lunar.panel = &panel.panel;
+                    break;
+                case MOD_RSS:
                     break;
                 case MOD_NULL:
                     break;
@@ -283,9 +285,9 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 overlays.clear();
                 debug_log << "RESIZE: Resetting Maps\n";
                 debug_log.flush();
-                DayMap.Reset();
-                NightMap.Reset();
-                CountriesMap.Reset();
+//                DayMap.Reset();
+//                NightMap.Reset();
+//                CountriesMap.Reset();
                 debug_log << "RESIZE: Clearing Screen Panels\n";
                 debug_log.flush();
                 debug_log << "RESIZE: Callsign: " << &(panels[PANEL_CALLSIGN].panel) << "\n";
@@ -494,7 +496,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 debug_log << "RESIZE: Reloading Maps and Icon assets\n";
                 debug_log.flush();
                 // recreate the map textures as well so they don't get lost
-                load_maps(clock_renderer, panels[PANEL_MAP].panel.dims);
+//                load_maps(clock_renderer, panels[PANEL_MAP].panel.dims);
                 icon_bin.reload_icons(clock_renderer);
                 debug_log << "RESIZE: Re-enabling program loops\n";
                 debug_log.flush();
@@ -933,15 +935,16 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     debug_log << "INIT: Globals Initialized\n";
 
 
-    DayMap.Reset();
-    NightMap.Reset();
-    CountriesMap.Reset();
+//    DayMap.Reset();
+//    NightMap.Reset();
+//    CountriesMap.Reset();
     mutexes[MUTEX_NIGHT_MASK] 	= SDL_CreateMutex();
     mutexes[MUTEX_RESIZE]	= SDL_CreateMutex();
     mutexes[MUTEX_CACHE]	= SDL_CreateMutex();
     mutexes[MUTEX_HTTP]		= SDL_CreateMutex();
     mutexes[MUTEX_CELESTRAK]	= SDL_CreateMutex();
     mutexes[MUTEX_WSPR]		= SDL_CreateMutex();
+    mutexes[MUTEX_CONTESTS]	= SDL_CreateMutex();
 /*    night_mask_mutex = SDL_CreateMutex();
     resize_mutex = SDL_CreateMutex();
     cache_mutex = SDL_CreateMutex();
@@ -996,9 +999,13 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         }
         currenttime=time(NULL);
         SDL_LockMutex(mutexes[MUTEX_MASTER_CLOCK]);
+        draw_overlays(*(master_flags.map.panel));
+        rss_ticker(*(master_flags.map.panel));
+        winboxes[PANEL_MAP].panel.draw_border();
         if (master_flags.clock.draw_flag) {
             debug_log << "ITTERATE: Calling Clock ("<< MOD_CLOCK <<") with panel " << &(winboxes[PANEL_CLOCK].panel) << "\n";
             draw_clock(winboxes[PANEL_CLOCK].panel, Sans);
+
             master_flags.clock.draw_flag = false;
             debug_log.flush();
         }
@@ -1063,6 +1070,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             debug_log << "ITTERATE: Calling DX Spots ("<< MOD_DXSPOT <<")with panel " << master_flags.dx_spots.panel << "\n";
             debug_log.flush();
             dx_cluster(*(master_flags.dx_spots.panel));
+
             master_flags.dx_spots.draw_flag = false;
         }
         if (master_flags.ncdxf.draw_flag) {

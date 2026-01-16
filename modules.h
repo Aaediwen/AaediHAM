@@ -16,5 +16,6 @@
 #include "modules/lunar.h"
 #include "modules/pskreporter.h"
 #include "modules/contests.h"
+#include "modules/rss.h"
 #endif
 

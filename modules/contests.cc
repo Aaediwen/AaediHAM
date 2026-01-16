@@ -101,10 +101,11 @@ int SDLCALL fetch_contests (void* data) {
      debug_log <<"CONTESTS: Fetching Spots from WA7BNM via timer\n";
      SDL_Log("Fetching contests from WA7BNM via timer");
      data_size = http_loader("https://www.contestcalendar.com/calendar.rss", (void**)&fetch_spots);
-
+     SDL_LockMutex(mutexes[MUTEX_CONTESTS]);
      if (data_size) {
           parse_contests(fetch_spots);
      }
+     SDL_UnlockMutex(mutexes[MUTEX_CONTESTS]);
      if(fetch_spots) {
           free (fetch_spots);
           fetch_spots=0;
@@ -182,21 +183,26 @@ void contest_module(ScreenFrame& panel) {
      TextRect.x=unitx/2;
      TextRect.y=2;
      panel.render_text(TextRect, Sans, panel_color, "WA7BNM Contest Calendar");
-//     TextRect.w=unitx*2;
-//     TextRect.x=unitx/2;
-//     char tempstr[16];
-//     sprintf(tempstr, "%li", contest_page[0]);
-//     panel.render_text(TextRect, Sans, panel_color, tempstr);
      TextRect.y += unity;
+     SDL_LockMutex(mutexes[MUTEX_CONTESTS]);
+
      if (!contest_feed.empty()) {
          for (const auto& contest : contest_feed) {
              if ((TextRect.y <= unity*15) && (contest_index >= contest_page[0]*15) && (contest_index<(contest_page[0]*15)+15)) {
                  TextRect.x = 2;
                  TextRect.w = unitx*10;
-                 panel.render_text(TextRect, Sans, panel_color, contest.title.c_str());
+                 if (!contest.title.empty()) {
+                      panel.render_text(TextRect, Sans, panel_color, contest.title.c_str());
+                 }
                  TextRect.x = unitx*11;
                  TextRect.w = unitx*8;
-                 panel.render_text(TextRect, Sans, panel_color, contest.description.substr(0, 32));
+                 if (!contest.description.empty()) {
+                      std::string tempdesc = contest.description;
+                      int resize_point = tempdesc.size();
+                      if (resize_point > 32) { resize_point = 32; }
+                      tempdesc.resize(resize_point);
+                      panel.render_text(TextRect, Sans, panel_color, tempdesc);
+                 }
                  TextRect.y += unity;
              }
              contest_index++;
@@ -212,5 +218,7 @@ void contest_module(ScreenFrame& panel) {
             }
          }
      }
+     SDL_UnlockMutex(mutexes[MUTEX_CONTESTS]);
+
      return;
 }

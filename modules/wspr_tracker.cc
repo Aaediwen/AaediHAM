@@ -341,6 +341,7 @@ void TrackedWSPR::draw_telemetry(ScreenFrame& map) {
     if (this->m_telemetry.empty()) { return; }
     debug_log << "WSPR: Draw telemetry on texture: " << (void*)map.texture << "\n";
     SDL_SetRenderTarget(map.GetRenderer(), map.texture);
+    SDL_SetRenderDrawBlendMode(map.GetRenderer(), SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(map.GetRenderer(), this->m_color.r, this->m_color.g, this->m_color.b, this->m_color.a);
     int index=0;
     int render_size=0;

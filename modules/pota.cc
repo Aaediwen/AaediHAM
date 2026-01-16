@@ -71,7 +71,6 @@ std::string pota_json_parser(const char* input_string) {
 }
 int SDLCALL fetch_pota (void* data) {
      (void)data;
-     SDL_Delay(5000);
      char* json_spots = 0 ;
      Uint64 data_size = 0;
      debug_log <<"POTA: Fetching Spots from pota.app via timer\n";
@@ -87,7 +86,6 @@ int SDLCALL fetch_pota (void* data) {
                json_spots=0;
           }
      }
-     SDL_Delay(5000);
      return 0;
 }
 

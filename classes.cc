@@ -163,6 +163,13 @@ SDL_Renderer* ScreenFrame::GetRenderer() {
     return renderer;
 }
 
+void ScreenFrame::SetRenderer(SDL_Renderer* source) {
+    if (source) {
+        renderer = source;
+    }
+    return;
+}
+
 void ScreenFrame::Reset() {
     if (!valid()) {
         return;
@@ -449,6 +456,7 @@ void config::write_config() {
     data["DX_Server"]["Name"] = m_dxserver.name;
     data["DX_Server"]["Port"] = m_dxserver.port;
     data["SatList"]=m_sats;
+    data["Rss"]=m_rss;
     data["WSPR"]=nlohmann::json::array();
     for (const auto& entry : m_WSPRList) {
         data["WSPR"].push_back({
@@ -473,6 +481,7 @@ void config::load_config() {
     m_PSKCall = "";
     m_DXMsg.clear();
     m_sats.clear();
+    m_rss.clear();
     m_DE={0, 0};
     m_DX={0, 0};
     m_QRZ.Secret.clear();
@@ -609,6 +618,15 @@ void config::load_config() {
                 }
             }
         }
+        if (data.contains("Rss")) {
+            if (data["Rss"].is_array()) {
+                for (const auto& item : data["Rss"]) {
+                    if (item.is_string()) {
+                        m_rss.push_back(item.get<std::string>().substr(0,255));
+                    }
+                }
+            }
+        }
     } else {
         printf ("ERROR Reading CONFIG. Defaults used\n");
 //        debug_log << "CONFIG: ERROR Reading CONFIG. Defaults used\n";
@@ -668,6 +686,10 @@ const config::ip_server_t& config::dxserver() const {
 
 const std::vector<std::string>& config::Sats() const {
     return m_sats;
+}
+
+const std::vector<std::string>& config::Rss() const {
+    return m_rss;
 }
 
 const std::string& config::qrz_key(bool refresh) {

@@ -1,0 +1,27 @@
+#include "../aaediclock.h"
+#include <libxml/parser.h>
+
+
+class rss_feed {
+    public:
+        rss_feed(std::string new_url);
+        ~rss_feed();
+        std::string next();
+        void refresh();
+
+    private:
+        std::string m_url;
+        std::vector<std::string> m_entries;
+        SDL_Mutex* m_rss_lock;
+        int fetch_state;
+        unsigned long int m_current_index;
+        void parse_rss(xmlNode* start_node);
+        void SDLCALL fetch_rss();
+        static int SDLCALL thread_launcher(void* data);
+
+
+//        void fetch_rss();
+};
+
+
+void rss_ticker(ScreenFrame& panel);

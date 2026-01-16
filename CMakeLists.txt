@@ -32,6 +32,7 @@ set(SOURCES
     modules/lunar.cc
     modules/pskreporter.cc
     modules/contests.cc
+    modules/rss.cc
 )
 
 add_executable(clock ${SOURCES})
@@ -149,6 +150,7 @@ endif()
 	find_build(SDL3_image "https://github.com/libsdl-org/SDL_image.git" release-3.2.4 sdl3_image-src/include)
 	find_build("paho-mqtt3c" "https://github.com/eclipse-paho/paho.mqtt.c.git" "master" .)
 	find_build(nlohmann_json "https://github.com/nlohmann/json.git" "master" .)
+	find_build(libxml2 "https://gitlab.gnome.org/GNOME/libxml2.git" "master" .)
 	
 	set(SGP4_LIB sgp4)
 
@@ -163,13 +165,13 @@ if(WIN32)
         )
     	target_include_directories(clock PRIVATE ${sgp4_SOURCE_DIR})
     	target_link_libraries(clock PRIVATE winhttp sgp4 SDL3::SDL3
-    	SDL3_image::SDL3_image SDL3_ttf::SDL3_ttf ${SGP4_LIB} paho-mqtt3c)
+    	SDL3_image::SDL3_image SDL3_ttf::SDL3_ttf ${SGP4_LIB} paho-mqtt3c LibXml2::LibXml2)
 
 elseif(APPLE)
     	target_link_libraries(clock PRIVATE SDL3::SDL3 SDL3_ttf::SDL3_ttf 
-	sgp4 nlohmann_json::nlohmann_json SDL3_image::SDL3_image paho-mqtt3c)
+	sgp4 nlohmann_json::nlohmann_json SDL3_image::SDL3_image paho-mqtt3c LibXml2::LibXml2)
 else()
 	target_link_libraries(clock PRIVATE SDL3::SDL3 SDL3_ttf::SDL3_ttf 
-	sgp4 nlohmann_json::nlohmann_json SDL3_image::SDL3_image paho-mqtt3c)
+	sgp4 nlohmann_json::nlohmann_json SDL3_image::SDL3_image paho-mqtt3c LibXml2::LibXml2)
 endif()
 

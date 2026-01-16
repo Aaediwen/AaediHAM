@@ -15,7 +15,7 @@
 #endif
 #include <string>
 #include <iostream>
-
+#include <algorithm>
 
 
 int read_socket(dx_socket_t fd, std::string &result) {
@@ -695,6 +695,218 @@ int fetch_data_cache(enum mod_name owner, time_t *age, Uint64 *size, void* data)
     } // do we have anything at all cached yet?
     debug_log << "CACHE: Cache miss\n";
     return (0);
+}
+
+bool tagvalid(char c) {
+    if (c < 58 && c > 47) {
+        return true;
+    }
+    if (c > 92) { c -= 32; }
+    if (c > 64  && c < 91) {
+        return true;
+    }
+    if (c==35) {
+        return true;
+    }
+    return false;
+}
+
+std::string tag_to_utf8(const std::string& tag) {
+    // re-encode HTML UTF-8 strings
+    std::string result;
+    result.clear();
+    // input sanitization, kick back the original string if it's invalid
+    if (tag.length() <4) {
+        return tag;
+    }
+    if ((tag.front() !='&') || (tag.back() !=';')) {
+        return tag;
+    }
+    if (tag[1] !='#') {
+        return tag;
+    }
+    // looks legit, let's see if it really is
+    size_t intstart = 2;
+    size_t i = intstart;
+    if (tag[intstart] == 'x' || tag[intstart] == 'X') {
+        // in hex
+        intstart++;
+        i++;
+        while (i < tag.size()-1) {
+            if (!isxdigit(static_cast<unsigned char>(tag[i]))) {
+                return tag;
+            }
+            i++;
+        }
+     } else {
+         // in decimal
+        while (i < tag.size()-1) {
+            if (!isdigit(static_cast<unsigned char>(tag[i]))) {
+                return tag;
+            }
+            i++;
+        }
+     }
+     // okay the input is a legit HTML Encoded UniCode entity. let's process it
+     Uint32 codepoint;
+     Uint8  utf8[4] = {0,0,0,0};
+     // strip off HTML characters
+     std::string substr = tag.substr(intstart, std::string::npos);
+     if (substr.back() == ';') {
+         substr.pop_back();
+     }
+     // convert to Uint32 UniCode code point
+     if (intstart == 2) {
+          codepoint = std::strtol(substr.c_str(), NULL, 10);
+     } else {
+          codepoint = std::strtol(substr.c_str(), NULL, 16);
+     }
+     // now re-encode as UTF-8 and fill the return
+//     debug_log << "HTMLDECODE: START: " << intstart << " TAG " << tag << " -- SUBSTR " << substr << " CP " << codepoint ;
+     if (codepoint < 0x7F) {
+         // 7 bit (ASCII)
+//         debug_log << " 7 bit UTF8\n";
+         utf8[0] = static_cast<Uint8>(codepoint & 0x7F);
+         result.push_back(static_cast<char>(utf8[0]));
+     } else if (codepoint < 0x7FF) {
+         // 11 bit
+//         debug_log << "HTMLDECODE:  " << codepoint << " 11 bit UTF8\n";
+         utf8[0] = static_cast<Uint8>(codepoint & 0x3F);
+         utf8[0] |= 0x80;
+         codepoint = codepoint >> 6;
+         utf8[1] = static_cast<Uint8>(codepoint & 0x1F);
+         utf8[1] |= 0xC0;
+         result.push_back(static_cast<char>(utf8[1]));
+         result.push_back(static_cast<char>(utf8[0]));
+     } else if (codepoint < 0xFFFF) {
+         // 16 bit
+//         debug_log << " 16 bit UTF8\n";
+         utf8[0] = static_cast<Uint8>(codepoint & 0x3F);
+         utf8[0] |= 0x80;
+         codepoint = codepoint >> 6;
+         utf8[1] = static_cast<Uint8>(codepoint & 0x3F);
+         utf8[1] |= 0x80;
+         codepoint = codepoint >> 6;
+         utf8[2] = static_cast<Uint8>(codepoint & 0x0F);
+         utf8[2] |= 0xE0;
+         result.push_back(static_cast<char>(utf8[2]));
+         result.push_back(static_cast<char>(utf8[1]));
+         result.push_back(static_cast<char>(utf8[0]));
+     } else {
+         // 32 bit
+//         debug_log << " 32 bit UTF8\n";
+         utf8[0] = static_cast<Uint8>(codepoint & 0x3F);
+         utf8[0] |= 0x80;
+         codepoint = codepoint >> 6;
+         utf8[1] = static_cast<Uint8>(codepoint & 0x3F);
+         utf8[1] |= 0x80;
+         codepoint = codepoint >> 6;
+         utf8[2] = static_cast<Uint8>(codepoint & 0x3F);
+         utf8[2] |= 0x80;
+         codepoint = codepoint >> 6;
+         utf8[3] = static_cast<Uint8>(codepoint & 0x07);
+         utf8[3] |= 0xF0;
+         result.push_back(static_cast<char>(utf8[3]));
+         result.push_back(static_cast<char>(utf8[2]));
+         result.push_back(static_cast<char>(utf8[1]));
+         result.push_back(static_cast<char>(utf8[0]));
+     }
+    return result;
+}
+std::vector<std::string> hits = {"p", "span", "div", "br", "em", "b", "u", "i"};
+std::string html_filter(const std::string& source) {
+    std::string working;
+    // don't strip stuff that doesn't look like a complete tag
+    if (source.empty() || (source.front() != '<') || (source.back() != '>') ) {
+        return source;
+    }
+    // tags present in RSS feeds aren't likely to be huge
+    if (source.size() > 20) {
+        return source;
+    }
+    working = source;
+    // clean up what we check for comparisons on
+    working.erase(0,1);
+    working.pop_back();
+    if (working.back() == '/') {
+        working.pop_back();
+    }
+    if (working.front() == '/') {
+        working.erase(0,1);
+    }
+    if (working.back() == ' ') {
+        working.pop_back();
+    }
+    if (working.front() == ' ') {
+        working.erase(0,1);
+    }
+    // check if it's one of a list of tags
+    std::transform(working.begin(), working.end(), working.begin(), ::tolower);
+    for (auto& tagname : hits) {
+        if (working == tagname) {
+            debug_log << "HTMLDECODE: XML STRIP: "<< working << "\n";
+//            return source;
+            return " ";
+        }
+    }
+    return source;
+}
+
+std::string htmldecode(const std::string source) {
+
+    std::string result;
+    std::string tag;
+    std::string xml;
+    result.clear();
+    tag.clear();
+    xml.clear();
+    if (source.empty()) {
+        return result;;
+    }
+    bool tag_flag = false;
+    bool xml_flag = false;
+    for (auto& c : source) {
+        if (c == '<') {
+                  // possible start of *ML tag
+                  xml_flag = true;
+                  xml.clear();
+        }
+        if (c == '>') {
+                   // possible end of *ML tag
+                   xml_flag = false;
+                   xml.push_back(c);
+//                   debug_log << "HTMLDECODE: possible XML: "<< xml << "\n";
+                   result += html_filter(xml);
+        }
+        if (!tag_flag) {
+            // not collecting a suspected tag
+            if (c != '&' ) {
+
+                if (xml_flag) {
+                    xml.push_back(c);
+                } else {
+                    if (c != '>') {
+                         result.push_back(c);
+                    }
+                }
+            } else {
+                tag.clear();
+                tag_flag = true;
+                tag.push_back(c);
+            }
+        } else {
+           // processing a suspected HTML tag
+           tag.push_back(c);
+           if (!tagvalid(c) || (tag.size() > 10)) {
+               // exit tag mode and see if we should parse this?
+               tag_flag = false;
+//               debug_log << "HTMLDECODE: "<< tag << "\n";
+               std::string tag_utf8 = tag_to_utf8(tag);
+               result += tag_utf8;
+            }
+        }
+    }
+    return result;
 }
 
 const std::string hexencode (const std::string source) {

@@ -365,7 +365,7 @@ struct GeoCoord sublunar(const time_t time) {
 }
 
 bool regen_moon_texture = false;
-bool regen_moon_image = true;
+//bool regen_moon_image = true;
 SDL_Surface* moon_image = nullptr;
 SDL_Texture* moon_texture = nullptr;
 time_t moon_surface_age = 0;
@@ -379,7 +379,7 @@ int SDLCALL regen_lunar_surface(void* data) {
 // background routine to reload the lunar images and regen the mask
 //================================================================================
    // reload moon image if needed
-    if (regen_moon_image) {
+//    if (regen_moon_image) {
         //================================================================================
         // load the base moon image from disk
         //================================================================================
@@ -450,7 +450,7 @@ int SDLCALL regen_lunar_surface(void* data) {
                 // set transparancy
                 SDL_SetSurfaceColorKey(moon_image, 1, 0);
                 regen_moon_texture = true;
-                regen_moon_image = false;
+//                regen_moon_image = false;
             }
 
             if (!moon_texture) {
@@ -476,7 +476,7 @@ int SDLCALL regen_lunar_surface(void* data) {
             debug_log << "LUNAR: Cleaning up image_surface\n";
             SDL_DestroySurface(image_surface);
         }
-    } // end reload
+//    } // end reload
     return 0;
 }
 
@@ -490,7 +490,7 @@ Uint32 SDLCALL regen_lunar_surface (void *userdata, SDL_TimerID timerID, Uint32 
           } else {
               debug_log << "Failed to Create Lunar Regen Thread\n";
           }
-          return (1000);
+          return (30000);
      } else {
           return 0;
      }
@@ -510,7 +510,7 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
         return ;
     }
     if (!moon_timer) {
-        regen_moon_image = true;
+//        regen_moon_image = true;
         moon_timer = SDL_AddTimer(10, regen_lunar_surface, NULL);
     }
     if (!panel.GetRenderer()) {
@@ -536,27 +536,35 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
     debug_log.flush();
     if (timestamp == 0) {
         timestamp = time(NULL);
-        if (timestamp - moon_surface_age > 1200) {
-            regen_moon_image = true;
-        }
-    } else {
-        regen_moon_image = true;
+//        if (timestamp - moon_surface_age > 1200) {
+//            regen_moon_image = true;
+//        }
     }
+//     else {
+//        regen_moon_image = true;
+//    }
     // get the sublunar point
     debug_log << "LUNAR: Getting Sublunar point\n";
     debug_log.flush();
     struct GeoCoord sublunar_point = sublunar(timestamp);
     SDL_LockMutex(moon_mutex);
-    debug_log << "LUNAR: locked moon mutex in parent\n";
+//    debug_log << "LUNAR: locked moon mutex in parent\n";
     debug_log.flush();
-    if (regen_moon_texture) {
-        if (moon_texture) {
-            SDL_DestroyTexture(moon_texture);
-            moon_texture = 0;
+    if (moon_image) {
+        if (regen_moon_texture) {
+            if (moon_texture) {
+                SDL_DestroyTexture(moon_texture);
+                moon_texture = 0;
+            }
+            icon_bin.set_dynamic(panel.GetRenderer(), moon_image, map_icons::ICON_MOON);
+            moon_texture = SDL_CreateTextureFromSurface(panel.GetRenderer(), moon_image);
+            regen_moon_texture = false;
         }
-        icon_bin.set_dynamic(panel.GetRenderer(), moon_image, map_icons::ICON_MOON);
-        moon_texture = SDL_CreateTextureFromSurface(panel.GetRenderer(), moon_image);
-        regen_moon_texture = false;
+    } else {
+        if (moon_timer) {
+            SDL_RemoveTimer(moon_timer);
+        }
+        moon_timer = SDL_AddTimer(10, regen_lunar_surface, NULL);
     }
     panel.Clear();
     debug_log << "LUNAR: cleared panel\n";

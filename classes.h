@@ -16,6 +16,7 @@ enum mod_name {
     MOD_WSPR		,
     MOD_LUNAR		,
     MOD_CONTESTS	,
+    MOD_RSS		,
     MOD_NULL
 };
 
@@ -50,7 +51,7 @@ class ScreenFrame {
         ScreenFrame& operator=(const ScreenFrame& source);
         bool Create (SDL_Renderer* parent, const SDL_FRect size);
         SDL_Renderer* GetRenderer();
-        void SetRenderer(SDL_Renderer* r);
+        void SetRenderer(SDL_Renderer* source);
         void Reset();
         void draw_border();
         void Clear(const SDL_Color& color = {0, 0, 0, SDL_ALPHA_OPAQUE});
@@ -85,6 +86,7 @@ public:
     void set_DX(const GeoCoord& target, const std::string msg);
     const ip_server_t& dxserver() const;
     const std::vector<std::string>& Sats() const;
+    const std::vector<std::string>& Rss() const;
     const std::string& qrz_key(bool refresh = false);
     void set_qrz_pass(const std::string& newpass);
     bool next_wspr(std::string *callsign, int *band);
@@ -98,6 +100,7 @@ public:
         std::string m_CallSign;
         std::string m_PSKCall;
         std::vector<std::string> m_sats;
+        std::vector<std::string> m_rss;
         struct GeoCoord m_DE;
         struct GeoCoord m_DX;
         std::string m_DXMsg;

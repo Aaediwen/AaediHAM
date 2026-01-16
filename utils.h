@@ -27,6 +27,7 @@ int delete_mod_cache(enum mod_name owner);
 void dump_cache();
 int add_data_cache(enum mod_name owner, const Uint64 size, const void* data);
 int fetch_data_cache(enum mod_name owner, time_t *age, Uint64 *size, void* data);
+std::string htmldecode(const std::string source);
 Uint64 http_loader(const char* source_url, void** result);
 Uint64 cache_loader(const enum mod_name owner, void** result, time_t *result_time);
 std::string url_encode(const std::string& input);
