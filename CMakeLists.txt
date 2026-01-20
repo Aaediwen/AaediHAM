@@ -50,7 +50,7 @@ endif()
 		FetchContent_Declare(
 			${symbol}
 			GIT_REPOSITORY ${path}
-			GIT_PROFRESS TRUE
+			GIT_PROGRESS TRUE
 			PREFIX ${EXTERNAL_DIR}/${symbol}
  			GIT_TAG ${tag}
 		)
