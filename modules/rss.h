@@ -26,7 +26,8 @@ class rss_feed {
         SDL_Mutex* m_rss_lock = nullptr;
         int fetch_state = 0;
         unsigned long int m_current_index = 0;
-        std::string strip_html(xmlNode* start_node);
+        std::string strip_html(const std::string& raw_html);
+        void fetch_description(const xmlNode* source);
         void parse_rss(xmlNode* start_node, enum parser_state parent_name);
         void SDLCALL fetch_rss();
         static int SDLCALL thread_launcher(void* data);

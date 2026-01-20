@@ -50,6 +50,7 @@ endif()
 		FetchContent_Declare(
 			${symbol}
 			GIT_REPOSITORY ${path}
+			GIT_PROFRESS TRUE
 			PREFIX ${EXTERNAL_DIR}/${symbol}
  			GIT_TAG ${tag}
 		)
@@ -145,11 +146,15 @@ endif()
 # ================================================================================
 # PLATFORM INDEPENDANT FETCHES
 # ================================================================================
+	set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 	find_build(SDL3 "https://github.com/libsdl-org/SDL.git" release-3.2.x .)
 	find_build(SDL3_ttf "https://github.com/libsdl-org/SDL_ttf.git" release-3.2.2 .)
 	find_build(SDL3_image "https://github.com/libsdl-org/SDL_image.git" release-3.2.4 sdl3_image-src/include)
+	set(MAHO_MQTTC_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+	set(MAHO_MQTTC_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
 	find_build("paho-mqtt3c" "https://github.com/eclipse-paho/paho.mqtt.c.git" "master" .)
 	find_build(nlohmann_json "https://github.com/nlohmann/json.git" "master" .)
+	set(LIBXML2_WITH_TESTS OFF CACHE BOOL "" FORCE)
 	find_build(libxml2 "https://gitlab.gnome.org/GNOME/libxml2.git" "master" .)
 	
 	set(SGP4_LIB sgp4)
