@@ -42,7 +42,7 @@ struct celest_coords g_celestials;
 bool headless = false;
 bool reload_flag = false;
 std::string render_engine;
-
+Sint64 max_tex_size = 0;
 struct ModuleControl {
     bool draw_flag = true;
     ScreenFrame* panel = &winboxes[PANEL_NULL].panel;
@@ -351,6 +351,12 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                     debug_log << "RESIZE: created new renderer: " << (void*)clock_renderer << "\n";
                     debug_log << "RESIZE: Using Driver : " << SDL_GetRendererName(clock_renderer) << " on " << SDL_GetCurrentVideoDriver() << "\n";
                     std::cout << "RESIZE: Using Driver : " << SDL_GetRendererName(clock_renderer) << " on " << SDL_GetCurrentVideoDriver() << "\n";
+                    SDL_PropertiesID RendererProperties = SDL_GetRendererProperties(clock_renderer);
+                    max_tex_size = SDL_GetNumberProperty(RendererProperties,SDL_PROP_RENDERER_MAX_TEXTURE_SIZE_NUMBER, 0);
+                    // debug trap
+                    max_tex_size = 2048;
+                    debug_log << "RESIZE: Renderer Max Texture Size : " << max_tex_size << "\n";
+                    std::cout << "RESIZE: Renderer Max Texture Size : " << max_tex_size << "\n";
                 }
             }
 //            for (auto& p : panels) {

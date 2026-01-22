@@ -49,6 +49,7 @@ extern std::fstream debug_log;
 //extern ScreenFrame DayMap;
 //extern ScreenFrame NightMap;
 //extern ScreenFrame CountriesMap;
+extern Sint64 max_tex_size;
 
 struct pager_node {
     std::vector<enum mod_name> sequence;

@@ -1,6 +1,7 @@
 #include "rss.h"
 #include "../utils.h"
 #include <algorithm>
+#include <iostream>
 #include <libxml/parser.h>
 #include <libxml/HTMLparser.h>
 #include <libxml/tree.h>
@@ -214,9 +215,13 @@ std::string rss_feed::next() {
 
 size_t feed_index = 0;
 SDL_Surface* ticker_surface = nullptr;
-SDL_Texture* active_ticker_texture = nullptr;
+//SDL_Texture* active_ticker_texture = nullptr;
 SDL_FRect source_rect, dest_rect;
+//, max_rect;
+SDL_Rect ticker_texture_size = {0, 0, 0, 0};
+SDL_Texture* streaming_ticker = nullptr;
 const float feed_rate = 2.0f;
+
 void rss_ticker(ScreenFrame& panel) {
      // input validation
      if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
@@ -253,19 +258,35 @@ void rss_ticker(ScreenFrame& panel) {
     // Init and clear the overlay
     SDL_FRect mapsize ;
     SDL_FRect ticker_box;
+    SDL_Rect int_ticker_box;
     mapsize.w = panel.dims.w;
     mapsize.h = panel.dims.h;
     ScreenFrame* overlay = overlays.get_overlay(panel.GetRenderer(), MOD_RSS, mapsize);
+
     overlay->Clear(SDL_Color{0,0,0,0});
     ticker_box.x = 0;
     ticker_box.y = (mapsize.h/16)*15;
-    ticker_box.w=mapsize.w;
-    ticker_box.h=(mapsize.h/16);
+    ticker_box.w = mapsize.w;
+    ticker_box.h = (mapsize.h/16);
     dest_rect.h = ticker_box.h;
     dest_rect.y = ticker_box.y;
-
+    int_ticker_box.x=static_cast<int>(ticker_box.x);
+    int_ticker_box.y=static_cast<int>(ticker_box.y);
+    int_ticker_box.h=static_cast<int>(ticker_box.h);
+    int_ticker_box.w=static_cast<int>(ticker_box.w);
+    if ((ticker_texture_size.h != int_ticker_box.h) &&(ticker_texture_size.w != int_ticker_box.w)) {
+        if (streaming_ticker) {
+            SDL_DestroyTexture(streaming_ticker);
+            streaming_ticker=nullptr;
+        }
+        streaming_ticker = SDL_CreateTexture(panel.GetRenderer(), overlay->texture->format, SDL_TEXTUREACCESS_STREAMING, int_ticker_box.w, int_ticker_box.h);
+        if (streaming_ticker) {
+            ticker_texture_size = int_ticker_box;
+        }
+    }
     // get the next headline as needed
-    if (!active_ticker_texture) {
+    if (!ticker_surface) {
+        std::cout << "RSS: Getting next headline\n";
         std::string next_text;
         // get the next ticker headline
         if (!rss_feeds.empty()) {
@@ -278,28 +299,32 @@ void rss_ticker(ScreenFrame& panel) {
         // build the text texture
         if (!next_text.empty()) {
              // surface first
-             SDL_Log (next_text.c_str());
-             ticker_surface = TTF_RenderText_Shaded(Sans, next_text.c_str(), next_text.size(), SDL_Color{255,64,64,255}, SDL_Color{0,0,0,0});
-             if (ticker_surface) {
-                   active_ticker_texture = SDL_CreateTextureFromSurface(panel.GetRenderer(), ticker_surface);
-                   if (active_ticker_texture) {
-                        // init source and dest boxes
-                        source_rect.h = ticker_surface->h;
-                        source_rect.w = 0;
-                        source_rect.x = 0;
-                        source_rect.y = 0;
-                        dest_rect.h = ticker_box.h;
-                        dest_rect.w = 0;
-                        dest_rect.x = ticker_box.w;
-                        dest_rect.y = ticker_box.y;
+//             SDL_Log (next_text.c_str());
+//             std::cout << "RSS: Rendering Headline text to surface\n";
+             ticker_surface = TTF_RenderText_Shaded(Sans, next_text.c_str(), next_text.size(), SDL_Color{128,64,64,255}, SDL_Color{0,0,0,0});
 
+             if (ticker_surface) {
+                   // init source and dest boxes
+//                   SDL_SetSurfaceColorKey(ticker_surface, 1, 0);
+                   source_rect.h = ticker_surface->h;
+                   source_rect.w = 0;
+                   source_rect.x = 0;
+                   source_rect.y = 0;
+                   dest_rect.h = ticker_box.h;
+                   dest_rect.w = 0;
+//                   dest_rect.x = ticker_surface->w;
+                   dest_rect.x = ticker_box.w;
+                   dest_rect.y = 0;
+             }  else {
+                        debug_log << "RSS: Unable to create Ticker Surface: "<< SDL_GetError()<< "\n";
                    }
-             }
+
         }
     }
 
     // bail if there isn't an avtive headline at this point
-    if (!active_ticker_texture) {
+    if (!ticker_surface) {
+         std::cout << "RSS: No Ticker text to render\n";
          return;
     }
 
@@ -308,9 +333,40 @@ void rss_ticker(ScreenFrame& panel) {
     SDL_SetRenderDrawColor (panel.GetRenderer(), 255,128,128,128);
     SDL_RenderFillRect(panel.GetRenderer(), &ticker_box);
 
-    if (active_ticker_texture) {
+    if (ticker_surface) {
          // we have an active headline here
-         SDL_RenderTexture(panel.GetRenderer(), active_ticker_texture, &source_rect, &dest_rect);
+//         std::cout << "RSS: Attempting to render headline to overlay\n";
+         SDL_Surface* texture_surface;
+         SDL_Rect int_source_box;
+         int_source_box.x = static_cast<int>(source_rect.x);
+         int_source_box.y = static_cast<int>(source_rect.y);
+         int_source_box.h = static_cast<int>(source_rect.h);
+         int_source_box.w = static_cast<int>(source_rect.w);
+//         SDL_Rect int_dest_box;
+//         int_dest_box.x = static_cast<int>(dest_rect.x);
+//         int_dest_box.y = static_cast<int>(dest_rect.y);
+//         int_dest_box.h = static_cast<int>(dest_rect.h);
+//         int_dest_box.w = static_cast<int>(dest_rect.w);
+
+         if (streaming_ticker) {
+//              std::cout << "RSS: Locking Streaming Texture\n";
+              if (SDL_LockTextureToSurface(streaming_ticker, NULL, &texture_surface)) {
+                   SDL_ClearSurface(texture_surface, 0, 0, 0, 0);
+                   if (SDL_BlitSurfaceScaled(ticker_surface, &int_source_box, texture_surface, NULL, SDL_SCALEMODE_NEAREST)) {
+//                      std::cout << "RSS: Blitted Texture " << int_source_box.x << "," <<int_source_box.w << " " <<int_dest_box.x << ", " << int_dest_box.w << "\n";
+                   }
+                   SDL_UnlockTexture(streaming_ticker);
+//                   std::cout << "RSS: UnLocked Streaming Texture --- rendering\n";
+                   if (SDL_RenderTexture(panel.GetRenderer(), streaming_ticker, NULL, &dest_rect)) {
+//                        std::cout << "RSS: Rendered to Overlay Surface: " << SDL_GetError() << "\n";
+                   } else {
+                       std::cout << "RSS: Unable to render to Overlay Surface: " << SDL_GetError() << "\n";
+                   }
+              } else {
+                   std::cout << "RSS: Unable to lock Overlay Surface: " << SDL_GetError() << "\n";
+              }
+         }
+         // update the scroller
          // scroll output left
          if (dest_rect.x >0) {
              dest_rect.x -= feed_rate;
@@ -325,14 +381,8 @@ void rss_ticker(ScreenFrame& panel) {
          }
          // calculate source string width
          source_rect.w = ticker_surface->w - source_rect.x;
-//         if (source_rect.w > dest_rect.w) {
-//              source_rect.w = dest_rect.w;
-//         }
          // calculate dest string width
          dest_rect.w = ticker_box.w - dest_rect.x ;
-//         if (dest_rect.w > source_rect.w) {
-//             dest_rect.w = source_rect.w;
-//         }
          if (dest_rect.w > source_rect.w) {
              dest_rect.w = source_rect.w;
          } else {
@@ -340,13 +390,13 @@ void rss_ticker(ScreenFrame& panel) {
          }
          // nuke the headline to load the next
          if ((dest_rect.x == 0) && (source_rect.w ==0)) {
-              SDL_DestroyTexture(active_ticker_texture);
               SDL_DestroySurface(ticker_surface);
-              active_ticker_texture = nullptr;
               ticker_surface = nullptr;
          }
 
 
+    } else {
+        std::cout << "Scroller seems to be missing the ticker_surface\n";
     }
      return;
 }
