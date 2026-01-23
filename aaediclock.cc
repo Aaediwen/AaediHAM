@@ -37,7 +37,15 @@ Uint16 interrupt_counter = 0;
 struct regen_mask_args* night_mask_args = nullptr;
 map_overlay overlays;
 map_icons icon_bin;
-std::fstream debug_log;
+//std::ostream& debug_log;
+#ifdef CLOCK_DEBUG
+static std::ofstream logfile("clock_debug.log");
+std::ostream& debug_log = logfile;
+#else
+static nullbuf nb;
+static std::ostream nullout(&nb);
+std::ostream& debug_log = nullout;
+#endif
 struct celest_coords g_celestials;
 bool headless = false;
 bool reload_flag = false;
@@ -64,6 +72,7 @@ struct {
     ModuleControl lunar;
     ModuleControl psk;
     ModuleControl contests;
+    ModuleControl rss;
 } static master_flags;
 
 
@@ -85,6 +94,7 @@ void panel_assignment(bool increment) {
             master_flags.lunar.panel	=	&(winboxes[PANEL_NULL].panel);
             master_flags.psk.panel	=	&(winboxes[PANEL_NULL].panel);
             master_flags.contests.panel = 	&(winboxes[PANEL_NULL].panel);
+            master_flags.rss.panel	=	&(winboxes[PANEL_NULL].panel);
     for (auto& panel : winboxes) {
         if (panel.sequence.size()) {
             if (increment) {
@@ -138,6 +148,7 @@ void panel_assignment(bool increment) {
                     master_flags.lunar.panel = &panel.panel;
                     break;
                 case MOD_RSS:
+                    master_flags.rss.panel = &panel.panel;
                     break;
                 case MOD_NULL:
                     break;
@@ -208,6 +219,7 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
         if ((interrupt_counter % 2)==0) {	// .2 seconds
             master_flags.clock.draw_flag = true;
         }
+        master_flags.rss.draw_flag = true;
 //        debug_log << "FLAG_TIMER: Master flag timer done.\n";
         SDL_UnlockMutex(mutexes[MUTEX_MASTER_CLOCK]);
         return (interval);
@@ -215,7 +227,6 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
         return 0;
     }
 }
-
 
 void resize_panels(std::array<pager_node, 12>& panels) {
         int win_x;
@@ -243,21 +254,22 @@ void resize_panels(std::array<pager_node, 12>& panels) {
             SDL_LockMutex(mutexes[MUTEX_NIGHT_MASK]);
 
 
-            master_flags.callsign.draw_flag = false;
-            master_flags.de.draw_flag = false;
-            master_flags.dx.draw_flag = false;
-            master_flags.pota.draw_flag = false;
-            master_flags.sat_tracker.draw_flag = false;
-            master_flags.dx_spots.draw_flag = false;
-            master_flags.map.draw_flag = false;
-            master_flags.ncdxf.draw_flag = false;
-            master_flags.kindex.draw_flag = false;
-            master_flags.clock.draw_flag = false;
-            master_flags.solar.draw_flag = false;
-            master_flags.wspr.draw_flag = false;
-            master_flags.lunar.draw_flag = false;
-            master_flags.psk.draw_flag = false;
-            master_flags.contests.draw_flag = false;
+            master_flags.callsign.draw_flag 	= 	false;
+            master_flags.de.draw_flag 		= 	false;
+            master_flags.dx.draw_flag 		= 	false;
+            master_flags.pota.draw_flag 	= 	false;
+            master_flags.sat_tracker.draw_flag 	= 	false;
+            master_flags.dx_spots.draw_flag 	=	false;
+            master_flags.map.draw_flag 		= 	false;
+            master_flags.ncdxf.draw_flag 	= 	false;
+            master_flags.kindex.draw_flag 	= 	false;
+            master_flags.clock.draw_flag 	= 	false;
+            master_flags.solar.draw_flag 	= 	false;
+            master_flags.wspr.draw_flag 	= 	false;
+            master_flags.lunar.draw_flag 	= 	false;
+            master_flags.psk.draw_flag 		= 	false;
+            master_flags.contests.draw_flag 	= 	false;
+            master_flags.rss.draw_flag 		=	false;
 
             master_flags.map.panel      	=       nullptr;
             master_flags.sat_tracker.panel      =       nullptr;
@@ -274,6 +286,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
             master_flags.lunar.panel    	=       nullptr;
             master_flags.psk.panel    		=       nullptr;
             master_flags.contests.panel		=	nullptr;
+            master_flags.rss.panel		=	nullptr;
 
             debug_log << "RESIZE: Destroying old surfaces\n";
             debug_log.flush();
@@ -351,10 +364,11 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                     debug_log << "RESIZE: created new renderer: " << (void*)clock_renderer << "\n";
                     debug_log << "RESIZE: Using Driver : " << SDL_GetRendererName(clock_renderer) << " on " << SDL_GetCurrentVideoDriver() << "\n";
                     std::cout << "RESIZE: Using Driver : " << SDL_GetRendererName(clock_renderer) << " on " << SDL_GetCurrentVideoDriver() << "\n";
+                    // we need this to prevent exceeding the system's max texture size
                     SDL_PropertiesID RendererProperties = SDL_GetRendererProperties(clock_renderer);
                     max_tex_size = SDL_GetNumberProperty(RendererProperties,SDL_PROP_RENDERER_MAX_TEXTURE_SIZE_NUMBER, 0);
                     // debug trap
-                    max_tex_size = 2048;
+//                    max_tex_size = 2048;
                     debug_log << "RESIZE: Renderer Max Texture Size : " << max_tex_size << "\n";
                     std::cout << "RESIZE: Renderer Max Texture Size : " << max_tex_size << "\n";
                 }
@@ -507,20 +521,21 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 debug_log << "RESIZE: Re-enabling program loops\n";
                 debug_log.flush();
                 // re-enable the rest of the program
-                master_flags.callsign.draw_flag = true;
-                master_flags.de.draw_flag = true;
-                master_flags.dx.draw_flag = true;
-                master_flags.pota.draw_flag = true;
-                master_flags.sat_tracker.draw_flag = true;
-                master_flags.dx_spots.draw_flag = true;
-                master_flags.ncdxf.draw_flag = true;
-                master_flags.map.draw_flag = true;
-                master_flags.clock.draw_flag = true;
-                master_flags.solar.draw_flag = true;
-                master_flags.wspr.draw_flag = true;
-                master_flags.lunar.draw_flag = true;
-                master_flags.psk.draw_flag = true;
-                master_flags.contests.draw_flag = true;
+                master_flags.callsign.draw_flag 	= 	true;
+                master_flags.de.draw_flag 		= 	true;
+                master_flags.dx.draw_flag 		= 	true;
+                master_flags.pota.draw_flag 		= 	true;
+                master_flags.sat_tracker.draw_flag 	= 	true;
+                master_flags.dx_spots.draw_flag 	= 	true;
+                master_flags.ncdxf.draw_flag 		= 	true;
+                master_flags.map.draw_flag 		= 	true;
+                master_flags.clock.draw_flag 		= 	true;
+                master_flags.solar.draw_flag 		= 	true;
+                master_flags.wspr.draw_flag 		= 	true;
+                master_flags.lunar.draw_flag 		= 	true;
+                master_flags.psk.draw_flag 		= 	true;
+                master_flags.contests.draw_flag 	= 	true;
+                master_flags.rss.draw_flag 		= 	true;
 
                 flag_timer = SDL_AddTimer(100, master_clock, &master_flags);
                 debug_log << "RESIZE: Window resize complete\n";
@@ -599,19 +614,19 @@ std::string FindFont(const char* fontname) {
 
 
     struct ::LOGFONTA font_criteria;
-    font_criteria.lfHeight = 0;
-    font_criteria.lfWidth = 0;
-    font_criteria.lfEscapement = 0;
-    font_criteria.lfOrientation = 0;
-    font_criteria.lfWeight = FW_NORMAL;
-    font_criteria.lfItalic = FALSE;
-    font_criteria.lfUnderline = FALSE;
-    font_criteria.lfStrikeOut = FALSE;
-    font_criteria.lfCharSet = DEFAULT_CHARSET;
-    font_criteria.lfOutPrecision = OUT_DEFAULT_PRECIS;
-    font_criteria.lfClipPrecision = CLIP_DEFAULT_PRECIS;
-    font_criteria.lfQuality = DEFAULT_QUALITY;
-    font_criteria.lfPitchAndFamily = DEFAULT_PITCH & FF_DONTCARE;
+    font_criteria.lfHeight 		= 	0;
+    font_criteria.lfWidth 		= 	0;
+    font_criteria.lfEscapement 		= 	0;
+    font_criteria.lfOrientation 	= 	0;
+    font_criteria.lfWeight 		= 	FW_NORMAL;
+    font_criteria.lfItalic 		= 	FALSE;
+    font_criteria.lfUnderline 		= 	FALSE;
+    font_criteria.lfStrikeOut 		= 	FALSE;
+    font_criteria.lfCharSet 		= 	DEFAULT_CHARSET;
+    font_criteria.lfOutPrecision 	= 	OUT_DEFAULT_PRECIS;
+    font_criteria.lfClipPrecision 	= 	CLIP_DEFAULT_PRECIS;
+    font_criteria.lfQuality 		= 	DEFAULT_QUALITY;
+    font_criteria.lfPitchAndFamily 	= 	DEFAULT_PITCH & FF_DONTCARE;
     strncpy_s(font_criteria.lfFaceName, fontname, LF_FACESIZE);
     std::string facename;
     EnumFontFamiliesExA(GetDC(NULL), &font_criteria, WinFontCallback, reinterpret_cast<LPARAM>(&facename), 0);
@@ -711,6 +726,7 @@ int window_init(int x, int y) {
         master_flags.wspr.draw_flag		= true;
         master_flags.lunar.draw_flag		= true;
         master_flags.contests.draw_flag 	= true;
+        master_flags.rss.draw_flag		= true;
         if (!flag_timer) {
             flag_timer = SDL_AddTimer(100, master_clock, &master_flags);
         }
@@ -721,11 +737,10 @@ int window_init(int x, int y) {
 
 int window_destroy() {
     debug_log << "EXIT: Exiting Normally.\n\n";
-    psk_cleanup();
-    SDL_DestroyWindow(window);
     SDL_Quit();
     return 0;
 }
+
 std::string outfile;
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     // initialize required subsystems
@@ -746,12 +761,12 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     _CrtSetReportFile(_CRT_ERROR, hLogFile);
 #endif
 #endif
-    debug_log.open("clock_debug.log", std::fstream::out);
+//    debug_log.open("clock_debug.log", std::fstream::out);
 #else
 #ifdef _WIN32
-    debug_log.open ("NUL", std::fstream::out);
+//    debug_log.open ("NUL", std::fstream::out);
 #else
-    debug_log.open ("/dev/null", std::fstream::out);
+//    debug_log.open ("/dev/null", std::fstream::out);
 #endif
 #endif
     debug_log << "------------------------ NEW RUN ------------\n";
@@ -941,9 +956,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     debug_log << "INIT: Globals Initialized\n";
 
 
-//    DayMap.Reset();
-//    NightMap.Reset();
-//    CountriesMap.Reset();
     mutexes[MUTEX_NIGHT_MASK] 	= SDL_CreateMutex();
     mutexes[MUTEX_RESIZE]	= SDL_CreateMutex();
     mutexes[MUTEX_CACHE]	= SDL_CreateMutex();
@@ -951,10 +963,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     mutexes[MUTEX_CELESTRAK]	= SDL_CreateMutex();
     mutexes[MUTEX_WSPR]		= SDL_CreateMutex();
     mutexes[MUTEX_CONTESTS]	= SDL_CreateMutex();
-/*    night_mask_mutex = SDL_CreateMutex();
-    resize_mutex = SDL_CreateMutex();
-    cache_mutex = SDL_CreateMutex();
-    http_mutex = SDL_CreateMutex(); */
+
     night_mask_args = (struct regen_mask_args*)malloc(sizeof(struct regen_mask_args));
     map_timer = 0;
     debug_log << "INIT: Map Variables Initialized\n";
@@ -1006,13 +1015,17 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         currenttime=time(NULL);
         SDL_LockMutex(mutexes[MUTEX_MASTER_CLOCK]);
         draw_overlays(*(master_flags.map.panel));
-        rss_ticker(*(master_flags.map.panel));
         winboxes[PANEL_MAP].panel.draw_border();
         if (master_flags.clock.draw_flag) {
             debug_log << "ITTERATE: Calling Clock ("<< MOD_CLOCK <<") with panel " << &(winboxes[PANEL_CLOCK].panel) << "\n";
             draw_clock(winboxes[PANEL_CLOCK].panel, Sans);
-
             master_flags.clock.draw_flag = false;
+            debug_log.flush();
+        }
+        if (master_flags.rss.draw_flag) {
+            debug_log << "ITTERATE: Calling Rss ("<< MOD_RSS <<") with panel " << master_flags.map.panel << "\n";
+            rss_ticker(*(master_flags.map.panel));
+            master_flags.rss.draw_flag = false;
             debug_log.flush();
         }
         if (master_flags.callsign.draw_flag) {
@@ -1135,12 +1148,80 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     (void)appstate;
     (void)result;
+    debug_log << "EXIT: Killing System Timers.\n\n";
+    if (flag_timer) {
+        SDL_RemoveTimer(flag_timer);
+        flag_timer = 0;
+    }
+    if (map_timer) {
+        SDL_RemoveTimer(map_timer);
+        map_timer = 0;
+    }
     free (night_mask_args);
     night_mask_args=nullptr;
-    SDL_RemoveTimer(map_timer);
-    map_timer = 0;
-    SDL_DestroyMutex(mutexes[MUTEX_NIGHT_MASK]);
-//    night_mask_mutex = nullptr;
+    debug_log << "EXIT: Disabling Draw flags and panels.\n\n";
+    master_flags.callsign.draw_flag     =       false;
+    master_flags.de.draw_flag           =       false;
+    master_flags.dx.draw_flag           =       false;
+    master_flags.pota.draw_flag         =       false;
+    master_flags.sat_tracker.draw_flag  =       false;
+    master_flags.dx_spots.draw_flag     =       false;
+    master_flags.map.draw_flag          =       false;
+    master_flags.ncdxf.draw_flag        =       false;
+    master_flags.kindex.draw_flag       =       false;
+    master_flags.clock.draw_flag        =       false;
+    master_flags.solar.draw_flag        =       false;
+    master_flags.wspr.draw_flag         =       false;
+    master_flags.lunar.draw_flag        =       false;
+    master_flags.psk.draw_flag          =       false;
+    master_flags.contests.draw_flag     =       false;
+    master_flags.rss.draw_flag          =       false;
+    master_flags.map.panel              =       nullptr;
+    master_flags.sat_tracker.panel      =       nullptr;
+    master_flags.dx_spots.panel         =       nullptr;
+    master_flags.callsign.panel         =       nullptr;
+    master_flags.de.panel               =       nullptr;
+    master_flags.dx.panel               =       nullptr;
+    master_flags.pota.panel             =       nullptr;
+    master_flags.ncdxf.panel            =       nullptr;
+    master_flags.clock.panel            =       nullptr;
+    master_flags.kindex.panel           =       nullptr;
+    master_flags.solar.panel            =       nullptr;
+    master_flags.wspr.panel             =       nullptr;
+    master_flags.lunar.panel            =       nullptr;
+    master_flags.psk.panel              =       nullptr;
+    master_flags.contests.panel         =       nullptr;
+    master_flags.rss.panel              =       nullptr;
+    debug_log << "EXIT: Cleaning Mutexes.\n\n";
+    for (SDL_Mutex*& mtx : mutexes) {
+        if (mtx) {
+            SDL_LockMutex(mtx);
+            SDL_UnlockMutex(mtx);
+            SDL_DestroyMutex(mtx);
+            mtx = nullptr;
+        }
+    }
+    debug_log << "EXIT: Cleaning SDL Panels.\n\n";
+    overlays.clear();
+    DayMap.Reset();
+    NightMap.Reset();
+    CountriesMap.Reset();
+    winboxes[PANEL_CALLSIGN].panel.Reset();
+    winboxes[PANEL_NULL].panel.Reset();
+    winboxes[PANEL_DE].panel.Reset();
+    winboxes[PANEL_DX].panel.Reset();
+    winboxes[PANEL_CLOCK].panel.Reset();
+    winboxes[PANEL_FLEXBOX1].panel.Reset();
+    winboxes[PANEL_FLEXBOX2].panel.Reset();
+    winboxes[PANEL_FLEXBOX3].panel.Reset();
+    winboxes[PANEL_FLEXBOX4].panel.Reset();
+    winboxes[PANEL_FLEXBOX5].panel.Reset();
+    winboxes[PANEL_MAP].panel.Reset();
+    debug_log << "EXIT: PSKreporter Cleanup.\n\n";
+    psk_cleanup();
+    debug_log << "EXIT: Destroying Window.\n\n";
+    debug_log.flush();
+
     /* SDL will clean up the window/renderer for us. */
 }
 

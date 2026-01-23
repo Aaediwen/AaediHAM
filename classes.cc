@@ -60,6 +60,7 @@ ScreenFrame& ScreenFrame::operator=(ScreenFrame&& source) noexcept {	// move ove
 ScreenFrame::ScreenFrame(const ScreenFrame& source) {			// copy to new
     if (valid() && source.valid()) {
         dims = source.dims;
+        panel_dims_check();
         renderer = source.renderer;
         surface=nullptr;
         texture=nullptr;
@@ -90,6 +91,7 @@ ScreenFrame& ScreenFrame::operator=(const ScreenFrame& source) {	// copy with ov
          if (valid() && source.valid()) {
            this->Reset();
            dims = source.dims;
+           panel_dims_check();
            renderer = source.renderer;
            surface=nullptr;
            texture=nullptr;
@@ -115,6 +117,23 @@ ScreenFrame& ScreenFrame::operator=(const ScreenFrame& source) {	// copy with ov
      return *this;
 }
 
+void ScreenFrame::panel_dims_check() {
+    // prevent a texture size overflow if we ask for a texture larger than hardware supports
+    if (max_tex_size < 10) {
+        // if max size < 10, then it's invalid and we interpret as no limit. leave dims alone
+        return;
+    }
+    if (dims.w > max_tex_size) {
+        SDL_Log("Texture size limited by rendering engine or hardware");
+        dims.w = max_tex_size;
+    }
+    if (dims.h > max_tex_size) {
+        SDL_Log("Texture size limited by rendering engine or hardware");
+        dims.h = max_tex_size;
+    }
+    return;
+}
+
 
 bool ScreenFrame::Create (SDL_Renderer* parent, const SDL_FRect size) {
     if (!valid()) {
@@ -125,8 +144,10 @@ bool ScreenFrame::Create (SDL_Renderer* parent, const SDL_FRect size) {
         return false;
     }
     dims=size;
-    int h = static_cast<int>(size.h);
-    int w = static_cast<int>(size.w);
+    // limit panel dims to hardware max texture size if present
+    panel_dims_check();
+    int h = static_cast<int>(dims.h);
+    int w = static_cast<int>(dims.w);
     if (w * h <= 0) {
         debug_log << "SCREENFRAME: Invalid Created Texture size! Returning FALSE (NULL TEXTURE)\n";
         Reset();

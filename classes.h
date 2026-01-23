@@ -35,10 +35,16 @@ enum panel_names {
 };
 #define MAGIC_SCREENFRAME  0x5343524E4652414E
 
+struct nullbuffer : std::streambuf {
+    int overflow(int c) override { return c; }
+};
+
+
 class ScreenFrame {
     private:
         const uint64_t	    magic = MAGIC_SCREENFRAME;
         SDL_Renderer*       renderer;
+        void panel_dims_check();
     public:
         SDL_Surface*        surface;
         SDL_Texture*        texture;

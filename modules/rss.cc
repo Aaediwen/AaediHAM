@@ -220,7 +220,7 @@ SDL_FRect source_rect, dest_rect;
 //, max_rect;
 SDL_Rect ticker_texture_size = {0, 0, 0, 0};
 SDL_Texture* streaming_ticker = nullptr;
-const float feed_rate = 2.0f;
+const float feed_rate = 20.0f;
 
 void rss_ticker(ScreenFrame& panel) {
      // input validation
@@ -274,6 +274,7 @@ void rss_ticker(ScreenFrame& panel) {
     int_ticker_box.y=static_cast<int>(ticker_box.y);
     int_ticker_box.h=static_cast<int>(ticker_box.h);
     int_ticker_box.w=static_cast<int>(ticker_box.w);
+    const float feed_rate = ticker_box.w/100;
     if ((ticker_texture_size.h != int_ticker_box.h) &&(ticker_texture_size.w != int_ticker_box.w)) {
         if (streaming_ticker) {
             SDL_DestroyTexture(streaming_ticker);

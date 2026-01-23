@@ -44,7 +44,7 @@ extern std::array<SDL_Mutex*, 10> mutexes;
 //extern SDL_Mutex* http_mutex;
 extern SDL_TimerID map_timer;
 extern TTF_Font* Sans;
-extern std::fstream debug_log;
+extern std::ostream& debug_log;
 
 //extern ScreenFrame DayMap;
 //extern ScreenFrame NightMap;
