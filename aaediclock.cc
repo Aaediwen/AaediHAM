@@ -1020,18 +1020,21 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             debug_log << "ITTERATE: Calling Clock ("<< MOD_CLOCK <<") with panel " << &(winboxes[PANEL_CLOCK].panel) << "\n";
             draw_clock(winboxes[PANEL_CLOCK].panel, Sans);
             master_flags.clock.draw_flag = false;
+            debug_log << "ITTERATE: Module Timer Clock -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             debug_log.flush();
         }
         if (master_flags.rss.draw_flag) {
             debug_log << "ITTERATE: Calling Rss ("<< MOD_RSS <<") with panel " << master_flags.map.panel << "\n";
             rss_ticker(*(master_flags.map.panel));
             master_flags.rss.draw_flag = false;
+            debug_log << "ITTERATE: Module Timer RSS -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             debug_log.flush();
         }
         if (master_flags.callsign.draw_flag) {
             debug_log << "ITTERATE: Calling Callsign ("<< MOD_CALL <<")with panel " << master_flags.callsign.panel << "\n";
             draw_callsign(*(master_flags.callsign.panel), Sans, clockconfig.CallSign().c_str());
             master_flags.callsign.draw_flag = false;
+            debug_log << "ITTERATE: Module Timer Callsign -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             debug_log.flush();
         }
 
@@ -1040,30 +1043,35 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             draw_map(*(master_flags.map.panel));
             winboxes[PANEL_MAP].panel.draw_border();
             master_flags.map.draw_flag = false;
+            debug_log << "ITTERATE: Module Timer Map -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             debug_log.flush();
         }
         if (master_flags.de.draw_flag) {
             debug_log << "ITTERATE: Calling DE ("<< MOD_DE <<")with panel " << master_flags.de.panel << "\n";
             draw_de_dx(*(master_flags.de.panel), Sans, clockconfig.DE().latitude, clockconfig.DE().longitude, 1);
             master_flags.de.draw_flag = false;
+            debug_log << "ITTERATE: Module Timer DE -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             debug_log.flush();
         }
         if (master_flags.dx.draw_flag) {
             debug_log << "ITTERATE: Calling DX ("<< MOD_DX <<")with panel " << master_flags.dx.panel << "\n";
             draw_de_dx(*(master_flags.dx.panel), Sans, clockconfig.DX().latitude, clockconfig.DX().longitude, 0);
             master_flags.dx.draw_flag = false;
+            debug_log << "ITTERATE: Module Timer DX -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             debug_log.flush();
         }
         if (master_flags.pota.draw_flag) {
             debug_log << "ITTERATE: Calling POTA ("<< MOD_POTA <<")with panel " << master_flags.pota.panel << "\n";
             pota_spots(*(master_flags.pota.panel), Sans);
             master_flags.pota.draw_flag = false;
+            debug_log << "ITTERATE: Module Timer POTA -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             debug_log.flush();
         }
         if (master_flags.lunar.draw_flag) {
             debug_log << "ITTERATE: Calling Lunar ("<< MOD_LUNAR <<")with panel " << master_flags.lunar.panel << "\n";
             debug_log.flush();
             lunar_module(*(master_flags.lunar.panel));
+            debug_log << "ITTERATE: Module Timer LUNAR -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             master_flags.lunar.draw_flag = false;
 
         }
@@ -1071,6 +1079,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             debug_log << "ITTERATE: Calling Kindex ("<< MOD_KINDEX <<")with panel " << master_flags.kindex.panel << "\n";
             debug_log.flush();
             k_index_chart (*(master_flags.kindex.panel));
+            debug_log << "ITTERATE: Module Timer Kindex -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             master_flags.kindex.draw_flag = false;
         }
         if (master_flags.contests.draw_flag) {
@@ -1078,31 +1087,34 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             debug_log.flush();
              contest_module (*(master_flags.contests.panel));
             master_flags.contests.draw_flag = false;
+            debug_log << "ITTERATE: Module Timer Contests -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
         }
         if (master_flags.sat_tracker.draw_flag) {
             debug_log << "ITTERATE: Calling Sat Tracker ("<< MOD_SAT <<")with panel " << master_flags.sat_tracker.panel << "\n";
             debug_log.flush();
             sat_tracker (*(master_flags.sat_tracker.panel), Sans, winboxes[PANEL_MAP].panel);
             master_flags.sat_tracker.draw_flag = false;
+            debug_log << "ITTERATE: Module Timer Sat Tracker -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
         }
         if (master_flags.dx_spots.draw_flag) {
             debug_log << "ITTERATE: Calling DX Spots ("<< MOD_DXSPOT <<")with panel " << master_flags.dx_spots.panel << "\n";
             debug_log.flush();
             dx_cluster(*(master_flags.dx_spots.panel));
-
+            debug_log << "ITTERATE: Module Timer DX Spots -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             master_flags.dx_spots.draw_flag = false;
         }
         if (master_flags.ncdxf.draw_flag) {
             debug_log << "ITTERATE: Calling NCDXF ("<< MOD_NCDXF <<")with panel " << master_flags.ncdxf.panel << "\n";
             debug_log.flush();
             ncdxf_module(*(master_flags.ncdxf.panel));
-
+            debug_log << "ITTERATE: Module Timer NCDXF -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             master_flags.ncdxf.draw_flag = false;
         }
         if (master_flags.solar.draw_flag) {
             debug_log << "ITTERATE: Calling SDO ("<< MOD_SOLAR <<")with panel " << master_flags.solar.panel << "\n";
             debug_log.flush();
             sdo_image(*(master_flags.solar.panel));
+            debug_log << "ITTERATE: Module Timer SDO -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             master_flags.solar.draw_flag = false;
         }
         if (master_flags.wspr.draw_flag) {
@@ -1110,12 +1122,14 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             debug_log.flush();
             wspr_tracker (*(master_flags.wspr.panel), winboxes[PANEL_MAP].panel);
             master_flags.wspr.draw_flag = false;
+            debug_log << "ITTERATE: Module Timer WSPR -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
         }
         if (master_flags.psk.draw_flag) {
             debug_log << "ITTERATE: Calling PSK Reporter ("<< MOD_PSK <<")with panel " << master_flags.psk.panel << "\n";
             debug_log.flush();
             psk_reporter(*(master_flags.psk.panel));
             master_flags.psk.draw_flag = false;
+            debug_log << "ITTERATE: Module Timer PSK Reporter -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
         }
         winboxes[PANEL_CALLSIGN].panel.present();
         winboxes[PANEL_CLOCK].panel.present();

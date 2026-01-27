@@ -276,7 +276,7 @@ void pota_spots(ScreenFrame& panel, TTF_Font* font) {
     if (clock_mouse_event.mod_owner == MOD_POTA) {
      clock_mouse_event.mod_owner = MOD_NULL;
     }
-    debug_log << "POTA Complete\n";
+    debug_log << "POTA: Complete\n";
     debug_log.flush();
     return;
 }
