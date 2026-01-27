@@ -10,7 +10,10 @@ void ltrim(std::string &s) {
     s.erase(s.begin(), it);
 }
 int last_ms =0;
+int module_id=1000;
 std::vector<std::string> itterate_called_modules;
+std::vector<int>module_times[30];
+std::string module_names[30];
 void handle_itterate (std::string& line) {
   size_t label_start, label_stop;
   std::string substr;
@@ -18,20 +21,32 @@ void handle_itterate (std::string& line) {
     substr = line.substr(label_start+1, (label_stop - label_start));
     if (substr.find("Calling ") != std::string::npos) {
         itterate_called_modules.push_back(substr);
+         size_t ms_start = substr.find("(");
+         size_t ms_stop = substr.find(")");
+         if (ms_start != std::string::npos) {
+             module_id = std::stoi(substr.substr(ms_start+1,(ms_stop - ms_start-1)));
+             module_names[module_id]=substr.substr(0,ms_stop);
+         }
+
   } else if (substr.find("Module Timer") != std::string::npos) {
         int ms = 0;
         size_t ms_start = substr.find_first_of("0123456789");
         ms = std::stoi(substr.substr(ms_start));
         int mod_ms = ms - last_ms;
         substr += " -- "+ std::to_string(mod_ms) + "ms";
-        itterate_called_modules.push_back(substr);
+ //       itterate_called_modules.push_back(substr);
         last_ms = ms;
+        if (module_id <30) {
+            module_times[module_id].push_back(ms);
+            module_id = 1000;
+        }
+
 
   } else if (substr.find("Took") != std::string::npos) {
       int ms = 0;
       size_t ms_start = substr.find_first_of("0123456789");
       ms = std::stoi(substr.substr(ms_start));
-      if (ms > 100) {
+/*      if (ms > 100) {
            wmove(main_window, 25,2);
            substr = line.substr(label_start+2, std::string::npos);
            wclrtoeol(main_window);
@@ -43,12 +58,57 @@ void handle_itterate (std::string& line) {
              wclrtoeol(main_window);
              wmove(main_window, module_index,2);
              wprintw(main_window, module_line.c_str());
+             size_t ms_start = module_line.find("(");
+             size_t ms_stop = module_line.find(")");
+             if (ms_start != std::string::npos) {
+               module_id = std::stoi(module_line.substr(ms_start+1,(ms_stop - ms_start-1)));
+               int sum = 0;;
+               if (module_id < 30) {
+                   for (int& foo: module_times[module_id]) {
+                     sum += foo;
+                   }
+
+                   wmove (main_window, module_index, COLS-15);
+                   std::string sizestring(std::to_string(module_times[module_id].size()));
+                   wprintw(main_window, sizestring.c_str());
+                   wmove (main_window, module_index, COLS-10);
+                   std::string tempstring(std::to_string(sum/module_times[module_id].size()));
+                   wprintw(main_window, tempstring.c_str());
+               }
+               module_id=1000;
+              }
              module_index++;
           }
+          while (module_index < (LINES-5)) {
           wmove(main_window, module_index,2);
-          wprintw(main_window, "                                                           ");
+          wclrtoeol(main_window);
+          module_index++;
+          }
+      }
+      */
+      int module_index = 26;
+      for (int c = 0 ; c < 30 ; c++) {
+           if (!(module_times[c].empty())) {
+               int sum = 0;
+               std::string tempstring;
+               wmove (main_window, module_index,2);
+//               tempstring = std::to_string(c);
+               tempstring = module_names[c];
+               wprintw(main_window, tempstring.c_str());
+               wmove (main_window, module_index,50);
+               tempstring = std::to_string(module_times[c].size());
+               wprintw(main_window, tempstring.c_str());
+               wmove (main_window, module_index,60);
+               for (int& foo: module_times[c]) {
+                     sum += foo;
+               }
+               tempstring = std::to_string(sum/module_times[c].size());
+               wprintw(main_window, tempstring.c_str());
+               module_index++;
+           }
       }
       itterate_called_modules.clear();
+
       refresh();
   }
   return;
@@ -120,6 +180,7 @@ int main (int argc, char* argv[]) {
       typeline = 5;
     }  else if (header == "RESIZE") {
     handle_resize(linestring);
+
       typeline = 6;
     }  else if (header == "INIT") {
       typeline = 7;
@@ -167,6 +228,7 @@ int main (int argc, char* argv[]) {
       typeline = 2;
       ignore_line = true;
     }
+//    ignore_line = true;
     if (!ignore_line) {
          wmove (main_window, typeline,2);
          wclrtoeol(main_window);
@@ -175,6 +237,7 @@ int main (int argc, char* argv[]) {
          refresh();
     }
     commandkey = getch();
+    wborder(main_window, 0,0,0,0,0,0,0,0);
     flushinp();
   }
   endwin();
