@@ -9,6 +9,7 @@ void ltrim(std::string &s) {
         [](unsigned char c){ return !std::isspace(c); });
     s.erase(s.begin(), it);
 }
+int last_ms =0;
 std::vector<std::string> itterate_called_modules;
 void handle_itterate (std::string& line) {
   size_t label_start, label_stop;
@@ -17,6 +18,15 @@ void handle_itterate (std::string& line) {
     substr = line.substr(label_start+1, (label_stop - label_start));
     if (substr.find("Calling ") != std::string::npos) {
         itterate_called_modules.push_back(substr);
+  } else if (substr.find("Module Timer") != std::string::npos) {
+        int ms = 0;
+        size_t ms_start = substr.find_first_of("0123456789");
+        ms = std::stoi(substr.substr(ms_start));
+        int mod_ms = ms - last_ms;
+        substr += " -- "+ std::to_string(mod_ms) + "ms";
+        itterate_called_modules.push_back(substr);
+        last_ms = ms;
+
   } else if (substr.find("Took") != std::string::npos) {
       int ms = 0;
       size_t ms_start = substr.find_first_of("0123456789");

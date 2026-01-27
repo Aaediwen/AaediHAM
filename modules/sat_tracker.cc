@@ -501,7 +501,12 @@ std::string sat_json_parser(const char* input_string) {
             } else {
                 debug_log << "\n";
             }
-            cache_stream.write(reinterpret_cast<const char*>(&new_cache), sizeof(new_cache));
+            if (new_cache.draw) {
+                // trying this to only cache ones we want to draw
+                // I had been keeping the ignored ones in the cache to use in later code
+                // but this seems to take too long on a pi, trying removing the hidden sats
+                cache_stream.write(reinterpret_cast<const char*>(&new_cache), sizeof(new_cache));
+            }
         } else { break; }
     }
     return (cache_stream.str());
@@ -626,22 +631,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
         }
     }
     if (reload_flag) {	// fetch new
-/*        std::ostringstream cache_stream;
 
-        data_size=0;
-        if (data_size) {
-            debug_log << "SAT TRACKER: Fetched New Sat data\n";
-            std::string blob = sat_json_parser(amateur_tle);
-            debug_log << "SAT TRACKER: caching "<< blob.length() << " Bytes of Sat Data\n";
-            add_data_cache(MOD_SAT, blob.length(), (void*)blob.data());
-            data_size = blob.length();
-            tle_raw.clear();
-            tle_raw.str(blob);
-            if (amateur_tle) {
-                free(amateur_tle);
-                amateur_tle=0;
-            }
-        } // we got input data */
     } else {	// use cache[D
         tle_raw.clear();
         std::string sanitized(amateur_tle, data_size);
