@@ -31,7 +31,8 @@ void handle_itterate (std::string& line) {
   } else if (substr.find("Module Timer") != std::string::npos) {
         int ms = 0;
         size_t ms_start = substr.find_first_of("0123456789");
-        ms = std::stoi(substr.substr(ms_start));
+        size_t ms_stop = substr.find(" ",ms_start);
+        ms = std::stoi(substr.substr(ms_start, (ms_stop - ms_start)));
         int mod_ms = ms - last_ms;
         substr += " -- "+ std::to_string(mod_ms) + "ms";
  //       itterate_called_modules.push_back(substr);
@@ -95,15 +96,16 @@ void handle_itterate (std::string& line) {
 //               tempstring = std::to_string(c);
                tempstring = module_names[c];
                wprintw(main_window, tempstring.c_str());
-               wmove (main_window, module_index,50);
+               wmove (main_window, module_index,40);
                tempstring = std::to_string(module_times[c].size());
                wprintw(main_window, tempstring.c_str());
-               wmove (main_window, module_index,60);
+               wmove (main_window, module_index,50);
                for (int& foo: module_times[c]) {
                      sum += foo;
                }
                tempstring = std::to_string(sum/module_times[c].size());
                wprintw(main_window, tempstring.c_str());
+               sum = 0;
                module_index++;
            }
       }
