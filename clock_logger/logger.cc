@@ -4,90 +4,56 @@
 #include <vector>
 #include <ncurses.h>
 #define main_window stdscr
+
 void ltrim(std::string &s) {
     auto it = std::find_if(s.begin(), s.end(),
         [](unsigned char c){ return !std::isspace(c); });
     s.erase(s.begin(), it);
 }
+
 int last_ms =0;
 int module_id=1000;
 std::vector<std::string> itterate_called_modules;
 std::vector<int>module_times[30];
 std::string module_names[30];
-void handle_itterate (std::string& line) {
-  size_t label_start, label_stop;
-  std::string substr;
-  label_start=line.find(":");
-    substr = line.substr(label_start+1, (label_stop - label_start));
-    if (substr.find("Calling ") != std::string::npos) {
-        itterate_called_modules.push_back(substr);
-         size_t ms_start = substr.find("(");
-         size_t ms_stop = substr.find(")");
-         if (ms_start != std::string::npos) {
-             module_id = std::stoi(substr.substr(ms_start+1,(ms_stop - ms_start-1)));
-             module_names[module_id]=substr.substr(0,ms_stop);
+
+void handle_itterate (const std::string& line) {
+   if (line.find("Calling ") != std::string::npos) {
+       size_t id_start = line.find("(");
+       size_t id_stop = line.find(")");
+       if (id_start != std::string::npos) {
+         if (id_stop != std::string::npos) {
+            if (id_stop > id_start) {
+               size_t id_len = id_stop - id_start;
+               std::string id_string = line.substr(id_start+1, id_len-1);
+               module_id = std::stoi(id_string);
+               itterate_called_modules.push_back(line);
+               module_names[module_id] = line.substr(0, id_stop);
+//               wmove(main_window, 25, 25);
+//               wprintw(main_window, id_string.c_str());
+            }
          }
-
-  } else if (substr.find("Module Timer") != std::string::npos) {
-        int ms = 0;
-        size_t ms_start = substr.find_first_of("0123456789");
-        size_t ms_stop = substr.find(" ",ms_start);
-        ms = std::stoi(substr.substr(ms_start, (ms_stop - ms_start)));
-        int mod_ms = ms - last_ms;
-        substr += " -- "+ std::to_string(mod_ms) + "ms";
- //       itterate_called_modules.push_back(substr);
-        last_ms = ms;
-        if (module_id <30) {
-            module_times[module_id].push_back(ms);
-            module_id = 1000;
+       }
+   }  else if (line.find("Module Timer") != std::string::npos) {
+       // ITTERATE: Module Timer RSS -- 21 MIlliseconds
+        int aggrigate_ms = 0;
+        int module_ms =0;
+        size_t ms_start = line.find_first_of("0123456789");
+        size_t ms_stop = line.find(" ",ms_start);
+        if (ms_start != std::string::npos) {
+            if (ms_stop != std::string::npos) {
+                aggrigate_ms = std::stoi(line.substr(ms_start, (ms_stop - ms_start)));
+                module_ms = aggrigate_ms - last_ms;
+                if (module_id < 30) {
+                     module_times[module_id].push_back(module_ms);
+                }
+                last_ms = aggrigate_ms;
+            }
         }
-
-
-  } else if (substr.find("Took") != std::string::npos) {
-      int ms = 0;
-      size_t ms_start = substr.find_first_of("0123456789");
-      ms = std::stoi(substr.substr(ms_start));
-/*      if (ms > 100) {
-           wmove(main_window, 25,2);
-           substr = line.substr(label_start+2, std::string::npos);
-           wclrtoeol(main_window);
-           wmove(main_window, 25,2);
-           wprintw(main_window, substr.c_str());
-           int module_index = 26;
-           for (auto& module_line : itterate_called_modules) {
-             wmove(main_window, module_index,2);
-             wclrtoeol(main_window);
-             wmove(main_window, module_index,2);
-             wprintw(main_window, module_line.c_str());
-             size_t ms_start = module_line.find("(");
-             size_t ms_stop = module_line.find(")");
-             if (ms_start != std::string::npos) {
-               module_id = std::stoi(module_line.substr(ms_start+1,(ms_stop - ms_start-1)));
-               int sum = 0;;
-               if (module_id < 30) {
-                   for (int& foo: module_times[module_id]) {
-                     sum += foo;
-                   }
-
-                   wmove (main_window, module_index, COLS-15);
-                   std::string sizestring(std::to_string(module_times[module_id].size()));
-                   wprintw(main_window, sizestring.c_str());
-                   wmove (main_window, module_index, COLS-10);
-                   std::string tempstring(std::to_string(sum/module_times[module_id].size()));
-                   wprintw(main_window, tempstring.c_str());
-               }
-               module_id=1000;
-              }
-             module_index++;
-          }
-          while (module_index < (LINES-5)) {
-          wmove(main_window, module_index,2);
-          wclrtoeol(main_window);
-          module_index++;
-          }
-      }
-      */
+   }  else if (line.find("Took") != std::string::npos) {
       int module_index = 26;
+      last_ms =0;
+      module_id = 1000;
       for (int c = 0 ; c < 30 ; c++) {
            if (!(module_times[c].empty())) {
                int sum = 0;
@@ -110,20 +76,26 @@ void handle_itterate (std::string& line) {
            }
       }
       itterate_called_modules.clear();
-
       refresh();
-  }
+   }
   return;
 }
+
+struct panel_info {
+   std::string name;
+   std::string size;
+   std::string dims;
+   std::string pointer;
+};
 
 void handle_resize(std::string& line) {
   size_t label_start, label_stop;
   std::string substr;
-  label_start=line.find(":");
+  label_start=line.find("RESIZE");
   label_stop = line.find(":", label_start+1);
   substr = line.substr(label_start+1, (label_stop - label_start));
   wmove(main_window, LINES-6,2);
-  std::cout << substr.c_str() << "\n";
+//  std::cout << substr.c_str() << "\n";
   if (substr.find("Driver") != std::string::npos) {
       wmove(main_window, LINES-5,2);
       substr = line.substr(label_start+2, std::string::npos);
@@ -143,6 +115,8 @@ void handle_resize(std::string& line) {
       substr = line.substr(label_start+2, std::string::npos);
       wprintw(main_window, substr.c_str());
       refresh();
+  } else if (substr.find("SCREENFRAME:") != std::string::npos) {
+
   }
   return;
 }
@@ -174,15 +148,16 @@ int main (int argc, char* argv[]) {
     int typeline =0;
     ltrim(header);
     if (header == "ITTERATE") {
-      handle_itterate(linestring);
+      handle_itterate(linestring.substr(header_stop, std::string::npos));
       typeline = 3;
+      ignore_line=true;
     } else if (header == "RSS") {
       typeline = 4;
     }  else if (header == "SCREENFRAME") {
       typeline = 5;
     }  else if (header == "RESIZE") {
-    handle_resize(linestring);
-
+      handle_resize(linestring);
+      ignore_line=true;
       typeline = 6;
     }  else if (header == "INIT") {
       typeline = 7;
@@ -190,6 +165,7 @@ int main (int argc, char* argv[]) {
       typeline = 8;
     }   else if (header == "LUNAR") {
       typeline = 9;
+      ignore_line=true;
     }  else if (header == "CLOCK") {
       typeline = 10;
     }else if (header == "SAT TRACKER") {
@@ -202,8 +178,10 @@ int main (int argc, char* argv[]) {
       typeline = 12;
     }else if (header == "CACHE") {
       typeline = 13;
+      ignore_line=true;
     }else if (header == "MAP") {
       typeline = 14;
+      ignore_line=true;
     } else if (header == "OVERLAY") {
       typeline = 15;
       ignore_line = true;
@@ -215,6 +193,7 @@ int main (int argc, char* argv[]) {
       ignore_line = true;
     } else if (header == "KINDEX") {
       typeline = 18;
+      ignore_line=true;
     } else if (header == "SOLAR") {
       typeline = 19;
       ignore_line = true;
@@ -224,13 +203,11 @@ int main (int argc, char* argv[]) {
       typeline = LINES-3;
     } else if (header == "EXIT") {
       typeline = LINES-2;
-    }
-
-    else {
+    } else {
       typeline = 2;
       ignore_line = true;
     }
-//    ignore_line = true;
+    ignore_line = true;
     if (!ignore_line) {
          wmove (main_window, typeline,2);
          wclrtoeol(main_window);
