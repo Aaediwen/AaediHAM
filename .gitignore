@@ -15,3 +15,9 @@ out/
 images/screenshot.jpg
 .vs/
 ttf_test/
+clock_logger/.fuse_hidden00000e9000000002
+clock_logger/a.out
+clock_logger/log.txt
+clock_logger/push_debug.txt
+*.old
+modules/*.old
