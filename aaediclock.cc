@@ -1141,7 +1141,6 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         winboxes[PANEL_FLEXBOX3].panel.present();
         winboxes[PANEL_FLEXBOX4].panel.present();
         winboxes[PANEL_FLEXBOX5].panel.present();
-        int foo = 5*5;
         SDL_UnlockMutex(mutexes[MUTEX_MASTER_CLOCK]);
         SDL_RenderPresent(clock_renderer);
         if (headless && (!outfile.empty())) {
