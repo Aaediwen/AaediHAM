@@ -384,7 +384,12 @@ int SDLCALL regen_lunar_surface(void* data) {
         // load the base moon image from disk
         //================================================================================
         float x, y;
-        SDL_Surface* image_surface = IMG_Load("images/PIA14011.jpg");
+        SDL_Surface* image_load = IMG_Load("images/PIA14011.jpg");
+        SDL_Surface* image_surface = nullptr;;
+        if (image_load) {
+            image_surface = SDL_ScaleSurface(image_load, 512, 512, SDL_SCALEMODE_LINEAR);
+            SDL_DestroySurface(image_load);
+        }
         SDL_LockMutex(moon_mutex);
         static int bpp = 4;
         double surf_size_kb;
