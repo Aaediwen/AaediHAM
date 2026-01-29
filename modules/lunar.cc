@@ -372,7 +372,7 @@ time_t moon_surface_age = 0;
 SDL_Renderer* old_moon_renderer = nullptr;
 SDL_Mutex* moon_mutex = 0;
 SDL_TimerID moon_timer = 0;
-
+int moon_max_dims = 0;
 int SDLCALL regen_lunar_surface(void* data) {
     (void)data;
 //================================================================================
@@ -385,12 +385,19 @@ int SDLCALL regen_lunar_surface(void* data) {
         //================================================================================
         float x, y;
         SDL_Surface* image_load = IMG_Load("images/PIA14011.jpg");
-        SDL_Surface* image_surface = nullptr;;
+        SDL_Surface* image_surface = nullptr;
+        SDL_LockMutex(moon_mutex);
         if (image_load) {
-            image_surface = SDL_ScaleSurface(image_load, 512, 512, SDL_SCALEMODE_LINEAR);
+            if (moon_max_dims > image_load->w) {
+               moon_max_dims = image_load->w;
+            }
+            if (moon_max_dims <=0) {
+               moon_max_dims = image_load->w;
+            }
+            image_surface = SDL_ScaleSurface(image_load, moon_max_dims, moon_max_dims, SDL_SCALEMODE_LINEAR);
             SDL_DestroySurface(image_load);
         }
-        SDL_LockMutex(moon_mutex);
+
         static int bpp = 4;
         double surf_size_kb;
         double tex_size_kb;
@@ -515,13 +522,21 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
         SDL_Log("Lunar Call during resize event!");
         return ;
     }
-    if (!moon_timer) {
-//        regen_moon_image = true;
-        moon_timer = SDL_AddTimer(10, regen_lunar_surface, NULL);
-    }
+
     if (!panel.GetRenderer()) {
         debug_log << "LUNAR: Missing Renderer!\n";
         return ;
+    }
+    if (!moon_timer) {
+        int max_w = panel.dims.w;
+        int max_h = panel.dims.h;
+        SDL_GetCurrentRenderOutputSize(panel.GetRenderer(), &max_w, &max_h);
+        moon_max_dims = max_h;
+        if (max_w > max_h) {
+            moon_max_dims = max_h;
+        }
+        moon_max_dims /=4;
+        moon_timer = SDL_AddTimer(10, regen_lunar_surface, NULL);
     }
     if (!panel.texture) {
         debug_log << "LUNAR: Missing PANEL!\n";
@@ -549,7 +564,11 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
     debug_log.flush();
     struct GeoCoord sublunar_point = sublunar(timestamp);
     SDL_LockMutex(moon_mutex);
+
     debug_log << "LUNAR: locked moon mutex in parent -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
+    if ((SDL_GetTicks() - StartTicks) > 200) {
+       moon_max_dims -= 10;
+    }
 //    debug_log << "LUNAR: locked moon mutex in parent\n";
     debug_log.flush();
     if (moon_image) {
