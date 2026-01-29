@@ -456,7 +456,7 @@ int add_pin(struct map_pin* new_pin) {
     struct map_pin* current_pin;
 
     if (!new_pin || new_pin->owner < 0 || new_pin->owner > MOD_NULL) {
-        debug_log << "MAP PIN: Attempt to add Bad PIN Skipping!\n";
+        debug_log << "MAP_PIN: Attempt to add Bad PIN Skipping!\n";
         return 0;
     }
     // make the new pin slot
@@ -472,7 +472,7 @@ int add_pin(struct map_pin* new_pin) {
         empty_pin=map_pins;
     }
     if (!empty_pin) {
-        debug_log << "MAP PIN: Add ALLOC ERROR! Skipping!\n";
+        debug_log << "MAP_PIN: Add ALLOC ERROR! Skipping!\n";
         return (0);
     }
     // copy the pin into place
@@ -499,7 +499,7 @@ int add_pin(struct map_pin* new_pin) {
 int delete_owner_pins(enum mod_name owner) {
     // delete all map pins owned by a module
     if (owner > MOD_NULL || owner < 0) {
-        debug_log << "MAP PIN: Attempt to Delete for bad module ID " << owner << "!\n";
+        debug_log << "MAP_PIN: Attempt to Delete for bad module ID " << owner << "!\n";
         return 0;
     }
     struct map_pin* current_pin;
@@ -511,7 +511,7 @@ int delete_owner_pins(enum mod_name owner) {
         last_pin=0;
         while (current_pin) {
             if (!current_pin) {
-                debug_log << "MAP PIN: Delete -- Null current_pin!\n";
+                debug_log << "MAP_PIN: Delete -- Null current_pin!\n";
                 break;
             }
 
@@ -666,7 +666,7 @@ int fetch_data_cache(enum mod_name owner, time_t *age, Uint64 *size, void* data)
     // function to check for and return locally cached web data
     if (!age || !size) {
         SDL_Log("VERY BAD Data Cache call! No return values!");
-        debug_log << "VERY BAD Data Cache call! No return values!\n";
+        debug_log << "CACHE: VERY BAD Data Cache call! No return values!\n";
         return 0;
     }
     if (data_cache) {

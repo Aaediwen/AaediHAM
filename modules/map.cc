@@ -149,20 +149,20 @@ void regen_mask (SDL_Surface* source, SDL_Surface* dest, const SDL_FRect& panel_
     if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
         SDL_UnlockMutex(mutexes[MUTEX_RESIZE]) ;
     } else {
-        debug_log << "MAP REGEN: Regen Mask During Resize\n";
+        debug_log << "MAP_REGEN: Regen Mask During Resize\n";
         return ;
     }
     if (!source) {
-        debug_log << "MAP REGEN: Mask regen with invalid source\n";
+        debug_log << "MAP_REGEN: Mask regen with invalid source\n";
         return;
     }
     if (!dest) {
-        debug_log << "MAP REGEN: Mask regen with invalid dest\n";
+        debug_log << "MAP_REGEN: Mask regen with invalid dest\n";
         return;
     }
     //get current time
     const time_t nowtime = time(nullptr);
-    debug_log << "MAP REGEN: Regenerating Night Mask at "<< nowtime << "\n";
+    debug_log << "MAP_REGEN: Regenerating Night Mask at "<< nowtime << "\n";
     struct tm utc;
 #ifdef _WIN32
     gmtime_s(&utc, &nowtime);
@@ -214,7 +214,7 @@ void regen_mask (SDL_Surface* source, SDL_Surface* dest, const SDL_FRect& panel_
 
         }
     }
-    debug_log << "MAP REGEN: Night Mask Regen Complete\n";
+    debug_log << "MAP_REGEN: Night Mask Regen Complete\n";
     SDL_UnlockMutex(mutexes[MUTEX_NIGHT_MASK]);    /// MUTEX LOCK
     return;
 }
@@ -233,7 +233,7 @@ Uint32 SDLCALL regen_mask_timer (void *userdata, SDL_TimerID timerID, Uint32 int
           if (thread) {
               SDL_DetachThread(thread);
           } else {
-              debug_log << "Failed to Create Map Mask Regen Thread\n";
+              debug_log << "MAP: Failed to Create Map Mask Regen Thread\n";
           }
 
         return (30000);

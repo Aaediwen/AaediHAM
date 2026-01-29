@@ -395,7 +395,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 panel_dims.h = win_y / 8.0f;
 
                 SDL_ClearError();
-                debug_log << "RESIZE Creating Callsign Texture -- ";
+                debug_log << "RESIZE: Creating Callsign Texture -- ";
                 if (!panels[PANEL_CALLSIGN].panel.Create(clock_renderer, panel_dims)) {
                     printf("Error Creating callsign tex: %s\n", SDL_GetError());
                 }
@@ -406,7 +406,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 panel_dims.w = (win_x / 6.0f) * 2.0f;
                 panel_dims.h = win_y / 8.0f;
                 SDL_ClearError();
-                debug_log << "RESIZE Creating Clock Texture -- ";
+                debug_log << "RESIZE: Creating Clock Texture -- ";
                 if (!panels[PANEL_CLOCK].panel.Create(clock_renderer, panel_dims)) {
                     printf("Error Creating Clock: %s\n", SDL_GetError());
                 }
@@ -417,7 +417,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 panel_dims.w = (win_x / 6.0f) * 5.0f;
                 panel_dims.h = (win_y / 4.0f) * 3.0f;
                 SDL_ClearError();
-                debug_log << "RESIZE Creating Map Texture -- ";
+                debug_log << "RESIZE: Creating Map Texture -- ";
                 if (!panels[PANEL_MAP].panel.Create(clock_renderer, panel_dims)) {
                     printf("Error Creating MAP: %s\n", SDL_GetError());
                 }
@@ -428,7 +428,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 panel_dims.w = win_x / 6.0f;
                 panel_dims.h = win_y / 4.0f;
                 SDL_ClearError();
-                debug_log << "RESIZE Creating DE Texture -- ";
+                debug_log << "RESIZE: Creating DE Texture -- ";
                 if (!panels[PANEL_DE].panel.Create(clock_renderer, panel_dims)) {
                     printf("Error Creating DE: %s\n", SDL_GetError());
                 }
@@ -439,7 +439,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 panel_dims.w = win_x / 6.0f;
                 panel_dims.h = win_y / 4.0f;
                 SDL_ClearError();
-                debug_log << "RESIZE Creating DX Texture -- ";
+                debug_log << "RESIZE: Creating DX Texture -- ";
                 if (!panels[PANEL_DX].panel.Create(clock_renderer, panel_dims)) {
                     printf("Error Creating DX tex: %s\n", SDL_GetError());
                 }
@@ -450,7 +450,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 panel_dims.w = win_x / 6.0f;
                 panel_dims.h = win_y / 4.0f;
                 SDL_ClearError();
-                debug_log << "RESIZE Creating Flex5 Texture -- ";
+                debug_log << "RESIZE: Creating Flex5 Texture -- ";
                 if (!panels[PANEL_FLEXBOX5].panel.Create(clock_renderer, panel_dims)) {
                     printf("Error Creating corner tex: %s\n", SDL_GetError());
                 }
@@ -462,7 +462,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 panel_dims.w = (win_x / 6.0f);
                 panel_dims.h = win_y / 4.0f;
                 SDL_ClearError();
-                debug_log << "RESIZE Creating Flex1 Texture -- ";
+                debug_log << "RESIZE: Creating Flex1 Texture -- ";
                 if (!panels[PANEL_FLEXBOX1].panel.Create(clock_renderer, panel_dims)) {
                     printf("Error Creating Rowbox1 tex: %s\n", SDL_GetError());
                 }
@@ -473,7 +473,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 panel_dims.w = (win_x / 6.0f);
                 panel_dims.h = win_y / 4.0f;
                 SDL_ClearError();
-                debug_log << "RESIZE Creating Flex2 Texture -- ";
+                debug_log << "RESIZE: Creating Flex2 Texture -- ";
                 if (!panels[PANEL_FLEXBOX2].panel.Create(clock_renderer, panel_dims)) {
                     printf("Error Creating Rowbox2 tex: %s\n", SDL_GetError());
                 }
@@ -484,7 +484,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 panel_dims.w = (win_x / 6.0f);
                 panel_dims.h = win_y / 4.0f;
                 SDL_ClearError();
-                debug_log << "RESIZE Creating Flex3 Texture -- ";
+                debug_log << "RESIZE: Creating Flex3 Texture -- ";
                 if (!panels[PANEL_FLEXBOX3].panel.Create(clock_renderer, panel_dims)) {
                     printf("Error Creating Rowbox3 tex: %s\n", SDL_GetError());
                 }
@@ -495,7 +495,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 panel_dims.w = (win_x / 6.0f);
                 panel_dims.h = win_y / 4.0f;
                 SDL_ClearError();
-                debug_log << "RESIZE Creating Flex4 Texture -- ";
+                debug_log << "RESIZE: Creating Flex4 Texture -- ";
                 if (!panels[PANEL_FLEXBOX4].panel.Create(clock_renderer, panel_dims)) {
                     printf("Error Creating Rowbox4 tex: %s\n", SDL_GetError());
                 }
@@ -506,7 +506,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 panel_dims.w = 100.0f;
                 panel_dims.h = 100.0f;
                 SDL_ClearError();
-                debug_log << "RESIZE Creating NULL Texture -- ";
+                debug_log << "RESIZE: Creating NULL Texture -- ";
                 if (!panels[PANEL_NULL].panel.Create(clock_renderer, panel_dims)) {
                     printf("Error Creating nullframe tex: %s\n", SDL_GetError());
                 }

@@ -48,16 +48,16 @@ SDL_Surface* gen_moon_phase_mask(SDL_FRect size) {
         return (nullptr);
     }
     if (size.w < 1.0 || size.h < 1.0) {
-        debug_log << "MOON: Invalid MASK DIMS\n";
+        debug_log << "LUNAR: Invalid MASK DIMS\n";
         return (nullptr);
     }
     SDL_Surface* result = nullptr;
     if (moon_illumination.timestamp) {
         // moon_illumination global is valid
         result = SDL_CreateSurface(static_cast<int>(size.w), static_cast<int>(size.h), SDL_PIXELFORMAT_RGBA32);
-        debug_log << "MOON: Illumination Percent\t  " << moon_illumination.fraction *100 << "\n";
-        debug_log << "MOON: Illumination Angle\t  " << moon_illumination.angle << "\n";
-        debug_log << "MOON: Timestamp\t  " << moon_illumination.timestamp << "\n";
+        debug_log << "LUNAR: Illumination Percent\t  " << moon_illumination.fraction *100 << "\n";
+        debug_log << "LUNAR: Illumination Angle\t  " << moon_illumination.angle << "\n";
+        debug_log << "LUNAR: Timestamp\t  " << moon_illumination.timestamp << "\n";
         if (result) {
             // we were able to create the target surface
             // now to render the mask to it
@@ -134,9 +134,9 @@ SDL_Surface* gen_moon_phase_mask(SDL_FRect size) {
                     memcpy((alpha_pixels + dest_pixel_index), &dst_pixel_val, dest_bpp);
                 }
              }
-             debug_log << "MOON: Done Creating Moon Phase Alpha mask \n";
+             debug_log << "LUNAR: Done Creating Moon Phase Alpha mask \n";
         } else {
-             debug_log << "MOON: Error Creating Moon Phase Alpha mask: " << SDL_GetError() << "\n";
+             debug_log << "LUNAR: Error Creating Moon Phase Alpha mask: " << SDL_GetError() << "\n";
              SDL_Log ("No MOON MASK!");
              return (nullptr);
         }
@@ -309,8 +309,8 @@ struct GeoCoord sublunar(const time_t time) {
     debug_log << "LUNAR: M0\t" << M0 << "\tM0_rad:\t" << M0_rad << "\n";
     debug_log << "LUNAR: F\t" << F << "\tF_rad:\t" << F_rad << "\n";
     debug_log << "LUNAR: i\t" << i << "\ti_rad:\t" << i_rad << "\n";
-    debug_log << "illumination: "<< moon_illumination.fraction << "\n";
-    debug_log << "Time: "<< time;
+    debug_log << "LUNAR: illumination: "<< moon_illumination.fraction << "\n";
+    debug_log << "LUNAR: Time: "<< time;
 
     //Meeus 46.5 P 316
     double RA_Delta = g_celestials.sun.RA - RA_rad;
@@ -444,7 +444,7 @@ int SDLCALL regen_lunar_surface(void* data) {
                     SDL_DestroySurface(moon_mask);
                 } else {
                     // missing phase, no phase mask to show
-                    debug_log << "We have no MOON MASK in the parent!\n";
+                    debug_log << "LUNAR: We have no MOON MASK in the parent!\n";
                     SDL_Log ("We have no MOON MASK in the parent!");
                 }
                 // set transparancy
@@ -460,7 +460,7 @@ int SDLCALL regen_lunar_surface(void* data) {
             //================================================================================
             // Something went wrong loading the image from disk or creating the new SDL_Surface
             //================================================================================
-            debug_log << "LUNAR Missing Moon image or image surface\n";
+            debug_log << "LUNAR: Missing Moon image or image surface\n";
             if (image_surface) {
                 debug_log << "LUNAR: Loaded image from BMP\n";
             }
@@ -488,7 +488,7 @@ Uint32 SDLCALL regen_lunar_surface (void *userdata, SDL_TimerID timerID, Uint32 
           if (thread) {
               SDL_DetachThread(thread);
           } else {
-              debug_log << "Failed to Create Lunar Regen Thread\n";
+              debug_log << "LUNAR: Failed to Create Lunar Regen Thread\n";
           }
           return (30000);
      } else {

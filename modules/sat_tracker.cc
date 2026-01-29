@@ -24,7 +24,7 @@ void TrackedSatellite::new_tracking(const std::string& source_name, const std::s
     try {
        new_sgp4  = new libsgp4::SGP4(*new_sat_tle);
     } catch (std::exception& e) {
-        debug_log << "SAT: SGP4 Exception "<< e.what() << "Regenerating " << source_name << "\n";
+        debug_log << "SAT_TRACKER: SGP4 Exception "<< e.what() << "Regenerating " << source_name << "\n";
         delete(new_sat_tle);
         throw;
     }
@@ -100,7 +100,7 @@ TrackedSatellite& TrackedSatellite::operator=(const TrackedSatellite& source) { 
         try {
            new_sgp4  = new libsgp4::SGP4(*new_sat_tle);
         } catch (std::exception& e) {
-            debug_log << "SAT: SGP4 Exception "<< e.what() << "Assigning " << source.name << "\n";
+            debug_log << "SAT_TRACKER: SGP4 Exception "<< e.what() << "Assigning " << source.name << "\n";
             delete(new_sat_tle);
             throw;
         }
@@ -285,16 +285,16 @@ void TrackedSatellite::draw_telemetry(ScreenFrame& map) {
     // draw the satellite's telemetry track on the map
     if (this->telemetry.empty()) { return; }
     if (!map.GetRenderer()) {
-        debug_log << "SAT: Missing Renderer!\n";
+        debug_log << "SAT_TRACKER: Missing Renderer!\n";
         return;
     }
     if (!map.texture) {
-        debug_log << "SAT: Missing PANEL!\n";
+        debug_log << "SAT_TRACKER: Missing PANEL!\n";
         return;
     }
 
 
-    debug_log << "SAT TRACKER: Draw telemetry on texture: " << (void*)map.texture << "\n";
+    debug_log << "SAT_TRACKER: Draw telemetry on texture: " << (void*)map.texture << "\n";
     SDL_SetRenderTarget(map.GetRenderer(), map.texture);
     SDL_SetRenderDrawColor(map.GetRenderer(), this->color.r, this->color.g, this->color.b, this->color.a);
     SDL_FPoint* SDLPoints = (SDL_FPoint*)malloc(sizeof(SDL_FPoint)*this->telemetry.size());
@@ -360,15 +360,15 @@ void pass_tracker(ScreenFrame& panel, TrackedSatellite& sat) {
         return;
     }
         if (!Sans) {
-        debug_log << "SAT: No font defined\n";
+        debug_log << "SAT_TRACKER: No font defined\n";
         return;
     }
     if (!panel.GetRenderer()) {
-        debug_log << "SAT: Missing Renderer!\n";
+        debug_log << "SAT_TRACKER: Missing Renderer!\n";
         return;
     }
     if (!panel.texture) {
-        debug_log << "SAT: Missing PANEL!\n";
+        debug_log << "SAT_TRACKER: Missing PANEL!\n";
         return;
     }
 
@@ -488,7 +488,7 @@ std::string sat_json_parser(const char* input_string) {
             trackcols.r -= 20;
             trackcols.g += 20;
             trackcols.b += 10;
-            debug_log << "SAT TRACKER: Processing: " << new_cache.name << " ";
+            debug_log << "SAT_TRACKER: Processing: " << new_cache.name << " ";
             for (const std::string& stropt : clockconfig.Sats()) {
                 instring = new_cache.name;
                 if (instring.compare(0,stropt.length(),stropt)==0) {
@@ -523,15 +523,15 @@ int SDLCALL fetch_celestrak(void* data) {
   char* amateur_tle = 0 ;
   Uint64 data_size;
         SDL_Log ("Fetching Satellite telemetry from Celestrak");
-        debug_log << "SAT TRACKER: Fetching Satellite telemetry from Celestrak\n";
+        debug_log << "SAT_TRACKER: Fetching Satellite telemetry from Celestrak\n";
         data_size = http_loader("https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle", (void**)&amateur_tle);   //
 //        data_size = http_loader("http://maincoon.aaediwen/celestrak.txt",  (void**)&amateur_tle);
         SDL_LockMutex(mutexes[MUTEX_CELESTRAK]);
         satlist.clear();
         if (data_size) {
-            debug_log << "SAT TRACKER: Fetched New Sat data\n";
+            debug_log << "SAT_TRACKER: Fetched New Sat data\n";
             std::string blob = sat_json_parser(amateur_tle);
-            debug_log << "SAT TRACKER: caching "<< blob.length() << " Bytes of Sat Data\n";
+            debug_log << "SAT_TRACKER: caching "<< blob.length() << " Bytes of Sat Data\n";
             add_data_cache(MOD_SAT, blob.length(), (void*)blob.data());
             satlist.clear();
             if (amateur_tle) {
@@ -556,7 +556,7 @@ Uint32 SDLCALL fetch_celestrak (void *userdata, SDL_TimerID timerID, Uint32 inte
           if (thread) {
               SDL_DetachThread(thread);
           } else {
-              debug_log << "Failed to Create Sat Data Fetch Thread\n";
+              debug_log << "SAT_TRACKER: Failed to Create Sat Data Fetch Thread\n";
           }
 //          interval = 3600000 ;
 //          if (result) {
@@ -604,15 +604,15 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
         return;
     }
     if (!font) {
-        debug_log << "SAT: No font defined\n";
+        debug_log << "SAT_TRACKER: No font defined\n";
         return;
     }
     if (!panel.GetRenderer()) {
-        debug_log << "SAT: Missing Renderer!\n";
+        debug_log << "SAT_TRACKER: Missing Renderer!\n";
         return;
     }
     if (!panel.texture) {
-        debug_log << "SAT: Missing PANEL!\n";
+        debug_log << "SAT_TRACKER: Missing PANEL!\n";
         return;
     }
 
@@ -640,7 +640,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
             free(amateur_tle);
             amateur_tle=0;
         }
-        debug_log <<"SAT TRACKER: Using "<< data_size << " Bytes of Cached Data!\n";
+        debug_log <<"SAT_TRACKER: Using "<< data_size << " Bytes of Cached Data!\n";
     }
 
     // clear the box
@@ -661,9 +661,9 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
     TextRect.y += ((panel.dims.h/11)+(panel.dims.h/150));
 
     if (data_size) {
-        debug_log << "SAT TRACKER: We have tracking data: "<< data_size << " Bytes";
+        debug_log << "SAT_TRACKER: We have tracking data: "<< data_size << " Bytes";
     } else {
-        debug_log <<"Tracking Data Fetch Error!\n";
+        debug_log <<"SAT_TRACKER: Tracking Data Fetch Error!\n";
         TextRect.w=panel.dims.w-10;
         TextRect.h=panel.dims.h/11;
         TextRect.x=5;
@@ -684,7 +684,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
         temp.line2[69]=0;
         // read the TLE for a sat
         // is it one we want to show?
-        debug_log << "SAT TRACKER: Read Sat " << temp.name << " with draw=" << temp.draw << "\n";
+        debug_log << "SAT_TRACKER: Read Sat " << temp.name << " with draw=" << temp.draw << "\n";
         bool draw_flag=temp.draw;
         // check if the sat exists in satlist
         TrackedSatellite *nextsat = nullptr;
@@ -701,21 +701,21 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
             }
 
             if (nextsat) {
-                debug_log << "SAT TRACKER: Found NextSat: " << temp.name << "\n";
+                debug_log << "SAT_TRACKER: Found NextSat: " << temp.name << "\n";
                 if (reload_flag) {
                     nextsat->new_tracking(name, line1, line2);
                     nextsat->gen_telemetry(30, obs);
                     redraw_flag = true;
                 }
             } else {
-                debug_log << "SAT TRACKER:Creating New Sat entry with:\nSAT_TRACKER: "
+                debug_log << "SAT_TRACKER:Creating New Sat entry with:\nSAT_TRACKER: "
                           << temp.name << "\nSAT_TRACKER: "
                           << temp.line1 << "\nSAT TRACKER: "
                           << temp.line2 << "\n";
                 try {
                     nextsat = new TrackedSatellite(temp.name, temp.line1, temp.line2);
                     nextsat->color=temp.color;
-                    debug_log << "SAT TRACKER: Regenerate track for " << temp.name << "\n";
+                    debug_log << "SAT_TRACKER: Regenerate track for " << temp.name << "\n";
                     if (nextsat->gen_telemetry(30, obs)) {
                         satlist.push_back(std::move(*nextsat));
                         delete (nextsat);
@@ -725,7 +725,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
                 } catch (const std::exception& e){
                     SDL_Log ("Failed to create Satellite tracking entry for %s\n%s", temp.name, e.what());
                     debug_log << "SAT_TRACKER: Failed to create Satellite tracking entry for " << temp.name
-                              << "\nSAT TRACKER: " << e.what() << "\n";
+                              << "\nSAT_TRACKER: " << e.what() << "\n";
                 }
             }
             SDL_UnlockMutex(mutexes[MUTEX_CELESTRAK]);
@@ -774,13 +774,13 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
             sat_pin.lat     =               sat_loc.x;
             sat_pin.lon     =               sat_loc.y;
             sat_pin.icon    =               icon_bin.get_icon(map_icons::ICON_SAT);
-            debug_log << "SAT TRACKER: got pin " <<  sat_pin.icon << "\n";
+            debug_log << "SAT_TRACKER: got pin " <<  sat_pin.icon << "\n";
             sat_pin.color   =               Sat.color;;
             sat_pin.tooltip[0]      =               0;
             add_pin(&sat_pin);
         }
 
-        debug_log << "SAT TRACKER: Loaded "<< satlist.size() << " SATS\n";
+        debug_log << "SAT_TRACKER: Loaded "<< satlist.size() << " SATS\n";
     } else {
         panel.render_text(SDL_FRect {panel.dims.w/20, panel.dims.h/4, (panel.dims.w/10)*8, panel.dims.h/10}, font, {128,128,0,255}, "NO SELECTED SATS");
     }
