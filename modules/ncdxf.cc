@@ -73,7 +73,7 @@ void ncdxf_module(ScreenFrame& panel) {
         }
         // frequency
         sprintf(tempstr, "%4.3f", beacon_freqs[i]);
-        debug_log <<"NCDXF: " << tempstr << "\n";
+//        debug_log <<"NCDXF: " << tempstr << "\n";
         panel.render_text(TextBox, Sans, {128,128,64,0}, tempstr);
         // station callsign
         TextBox.x = (panel.dims.w/3)*2;

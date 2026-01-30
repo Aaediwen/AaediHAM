@@ -202,7 +202,7 @@ void TrackedWSPR::wspr_live_update() {
           // process raw new entries
         // update caches
         debug_log << "WSPR: Got new data from web\n";
-        std::string data(reinterpret_cast<const char*>(http_buffer), data_size);
+        std::string data(reinterpret_cast<const char*>(http_buffer), static_cast<size_t>(data_size));
         std::istringstream stringbuffer(data);
         SDL_LockMutex(mutexes[MUTEX_WSPR]);
         load_new_telemetry(stringbuffer);
@@ -273,7 +273,7 @@ bool TrackedWSPR::gen_telemetry() {
     std::string telemetry_str;
     if (data_size) {
         // check for this WSPR station in cache and use it if found
-        std::string data(reinterpret_cast<const char*>(data_buffer), data_size);
+        std::string data(reinterpret_cast<const char*>(data_buffer), static_cast<size_t>(data_size));
         use_cache = check_cache(data, telemetry_str);
 	if (data_buffer) {
 	    free (data_buffer);
@@ -310,7 +310,7 @@ bool TrackedWSPR::gen_telemetry() {
 time_t TrackedWSPR::telemetry_age() {
     time_t result = 0;
     SDL_LockMutex(mutexes[MUTEX_WSPR]);
-    if (m_telemetry.empty()) {
+    if (!m_telemetry.empty()) {
         result = m_telemetry.back().timestamp;
     }
     return result;

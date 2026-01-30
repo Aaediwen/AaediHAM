@@ -634,7 +634,7 @@ void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
 
     } else {	// use cache[D
         tle_raw.clear();
-        std::string sanitized(amateur_tle, data_size);
+        std::string sanitized(amateur_tle, static_cast<size_t>(data_size));
         tle_raw.str(sanitized);
         if (amateur_tle) {
             free(amateur_tle);

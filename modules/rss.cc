@@ -94,7 +94,7 @@ std::string rss_feed::strip_html(const std::string& raw_html) {
      }
      result = raw_html;
           // attempt to parse HTML
-     htmlDocPtr htmldoc = htmlReadMemory(raw_html.c_str(), raw_html.size(), NULL, "UTF-8", 0);
+     htmlDocPtr htmldoc = htmlReadMemory(raw_html.c_str(), static_cast<int>(raw_html.size()), NULL, "UTF-8", 0);
      if (htmldoc) {
           // extract the content
           xmlChar* xml_content = xmlNodeGetContent(xmlDocGetRootElement(htmldoc));
@@ -160,7 +160,7 @@ void rss_feed::fetch_rss() {
      data_size = http_loader(m_url.c_str(), (void**)&raw_xml);
      if (data_size > 50) {
           debug_log << "RSS: Calling XML ReadMemory\n";
-          xml_tree = xmlReadMemory(raw_xml, data_size, nullptr, nullptr, 0);
+          xml_tree = xmlReadMemory(raw_xml, static_cast<int>(data_size), nullptr, nullptr, 0);
           if (!xml_tree) {
                debug_log << "RSS: Failed to parse RSS Feed XML\n";
           } else {
@@ -220,7 +220,7 @@ SDL_FRect source_rect, dest_rect;
 //, max_rect;
 SDL_Rect ticker_texture_size = {0, 0, 0, 0};
 SDL_Texture* streaming_ticker = nullptr;
-const float feed_rate = 20.0f;
+float feed_rate = 20.0f;
 
 void rss_ticker(ScreenFrame& panel) {
      // input validation
@@ -274,7 +274,7 @@ void rss_ticker(ScreenFrame& panel) {
     int_ticker_box.y=static_cast<int>(ticker_box.y);
     int_ticker_box.h=static_cast<int>(ticker_box.h);
     int_ticker_box.w=static_cast<int>(ticker_box.w);
-    const float feed_rate = ticker_box.w/100;
+    feed_rate = ticker_box.w/100;
     if ((ticker_texture_size.h != int_ticker_box.h) &&(ticker_texture_size.w != int_ticker_box.w)) {
         if (streaming_ticker) {
             SDL_DestroyTexture(streaming_ticker);
@@ -307,7 +307,7 @@ void rss_ticker(ScreenFrame& panel) {
              if (ticker_surface) {
                    // init source and dest boxes
 //                   SDL_SetSurfaceColorKey(ticker_surface, 1, 0);
-                   source_rect.h = ticker_surface->h;
+                   source_rect.h = static_cast<float>(ticker_surface->h);
                    source_rect.w = 0;
                    source_rect.x = 0;
                    source_rect.y = 0;
@@ -377,7 +377,7 @@ void rss_ticker(ScreenFrame& panel) {
          if (dest_rect.x == 0 && (source_rect.x < ticker_surface->w)) {
               source_rect.x += feed_rate;
               if (source_rect.x > ticker_surface->w) {
-                   source_rect.x = ticker_surface->w;
+                   source_rect.x = static_cast<float>(ticker_surface->w);
               }
          }
          // calculate source string width

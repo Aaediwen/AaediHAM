@@ -42,7 +42,7 @@ map_icons icon_bin;
 static std::ofstream logfile("clock_debug.log");
 std::ostream& debug_log = logfile;
 #else
-static nullbuf nb;
+static nullbuffer nb;
 static std::ostream nullout(&nb);
 std::ostream& debug_log = nullout;
 #endif

@@ -249,7 +249,7 @@ void k_index_chart (ScreenFrame& panel) {
         }
     } else {
         debug_log << "KINDEX: Cache size: " << data_size << "\n";
-        merged.assign(k_index_list, data_size);
+        merged.assign(k_index_list, static_cast<size_t>(data_size));
         if (k_index_list) {
           free (k_index_list);
           k_index_list = 0;

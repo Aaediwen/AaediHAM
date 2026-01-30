@@ -88,7 +88,7 @@ void sdo_image(ScreenFrame& panel, time_t timestamp) {
         if (refresh_icon_flag || !icon_bin.get_icon(map_icons::ICON_SUN) ) {
             data_size = cache_loader(MOD_SOLAR, (void**)&raw_image, &cache_time);
             if (data_size > 10) {
-                SDL_IOStream *imgdata = SDL_IOFromConstMem((void*)raw_image, data_size);
+                SDL_IOStream *imgdata = SDL_IOFromConstMem((void*)raw_image, static_cast<size_t>(data_size));
                 SDL_Surface* temp = IMG_Load_IO(imgdata, true);
                 // preconvert this in software because older versions of OpenGL can't handle it
                 SDO_Surface = SDL_ConvertSurface(temp, SDL_PIXELFORMAT_RGBA32);

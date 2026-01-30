@@ -647,10 +647,10 @@ int add_data_cache(enum mod_name owner, const Uint64 size, const void* data) {
     empty_locker->owner = owner;
     empty_locker->fetch_time=time(NULL);
     empty_locker->size = size;
-    empty_locker->data = malloc(size+1);
+    empty_locker->data = malloc(static_cast<size_t>(size)+1);
     if (empty_locker->data && data) {
-        memset(empty_locker->data, 0, size + 1);
-        memcpy(empty_locker->data, data, size);
+        memset(empty_locker->data, 0, static_cast<size_t>(size) + 1);
+        memcpy(empty_locker->data, data, static_cast<size_t>(size));
         ((char*)empty_locker->data)[size] = '\0';
     } else {
         SDL_UnlockMutex(mutexes[MUTEX_CACHE]);
@@ -683,7 +683,7 @@ int fetch_data_cache(enum mod_name owner, time_t *age, Uint64 *size, void* data)
                 memcpy(age, &(current->fetch_time), sizeof(time_t));
                 memcpy(size, &(current->size), sizeof(Uint64));
                 if ((data != NULL) && (current->data != NULL)) {
-                    memcpy(data, current->data, current->size);
+                    memcpy(data, current->data, static_cast<size_t>(current->size));
                     debug_log << "CACHE: returning " << current->size << " bytes\n";
                 }
                 SDL_UnlockMutex(mutexes[MUTEX_CACHE]);
@@ -1248,10 +1248,10 @@ Uint64 cache_loader(const enum mod_name owner, void** result, time_t *result_tim
     if (fetch_data_cache(owner, result_time, &cache_size, NULL)) {
          // cache hit
 //        SDL_Log("Fetching %i Bytes from cache", cache_size);
-        char *temp = (char*)realloc(*result, cache_size+1);
+        char *temp = (char*)realloc(*result, static_cast<size_t>(cache_size)+1);
         if (temp) {
             *result = (void*)temp;
-            memset(*result, 0, cache_size + 1);
+            memset(*result, 0, static_cast<size_t>(cache_size) + 1);
             cache_success = fetch_data_cache(owner, result_time, &cache_size, *result);
             if (cache_success) {
                 debug_log << "CACHE: Got from Cache "<< cache_size <<" Bytes\n";

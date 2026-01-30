@@ -198,7 +198,7 @@ void contest_module(ScreenFrame& panel) {
                  TextRect.w = unitx*8;
                  if (!contest.description.empty()) {
                       std::string tempdesc = contest.description;
-                      int resize_point = tempdesc.size();
+                      size_t resize_point = tempdesc.size();
                       if (resize_point > 32) { resize_point = 32; }
                       tempdesc.resize(resize_point);
                       panel.render_text(TextRect, Sans, panel_color, tempdesc);

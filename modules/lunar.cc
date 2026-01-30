@@ -528,8 +528,8 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
         return ;
     }
     if (!moon_timer) {
-        int max_w = panel.dims.w;
-        int max_h = panel.dims.h;
+        int max_w = static_cast<int>(panel.dims.w);
+        int max_h = static_cast<int>(panel.dims.h);
         SDL_GetCurrentRenderOutputSize(panel.GetRenderer(), &max_w, &max_h);
         moon_max_dims = max_h;
         if (max_w > max_h) {
@@ -546,7 +546,7 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
         SDL_Log ("Click event in Lunar module at %f, %f", clock_mouse_event.mod_cords.x, clock_mouse_event.mod_cords.y);
         clock_mouse_event.mod_owner = MOD_NULL;
     }
-    debug_log << "LUNAR: Getting panel units -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
+//    debug_log << "LUNAR: Getting panel units -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
 //    debug_log << "LUNAR: getting panel units\n";
     debug_log.flush();
     debug_log << "LUNAR: panel_dims "<< panel.dims.w << " " << panel.dims.h<< "\n";
@@ -559,7 +559,7 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
         timestamp = time(NULL);
     }
     // get the sublunar point
-    debug_log << "LUNAR: Getting Sublunar point -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
+//    debug_log << "LUNAR: Getting Sublunar point -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
 //    debug_log << "LUNAR: Getting Sublunar point\n";
     debug_log.flush();
     struct GeoCoord sublunar_point = sublunar(timestamp);
@@ -588,14 +588,14 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
         moon_timer = SDL_AddTimer(10, regen_lunar_surface, NULL);
     }
     panel.Clear();
-    debug_log << "LUNAR: cleared panel -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
+//    debug_log << "LUNAR: cleared panel -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
 //    debug_log << "LUNAR: cleared panel\n";
     debug_log.flush();
     SDL_Color lunar_text_color = SDL_Color{ 255,200,200,0 };
     SDL_Color lunar_shadow_color = SDL_Color{ 32,32,32,0 };
     float offsetx=unitx/10;
     float offsety=unity/10;
-    debug_log << "LUNAR: apply the moon image to the panel -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
+//    debug_log << "LUNAR: apply the moon image to the panel -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
     if (moon_texture) {
         // apply the moon image to the panel
         SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
@@ -603,7 +603,7 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
     } else {
         panel.render_text(SDL_FRect{unitx,unity*3,unitx*15,unity*2}, Sans, lunar_text_color, "MISSING MOON TEXTURE");
     }
-    debug_log << "LUNAR: apply text overlays -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
+//    debug_log << "LUNAR: apply text overlays -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
     // apply text overlays
     char boxtext[64];
     sprintf (boxtext, "Ill: %2.2f", (moon_illumination.fraction*100));
@@ -642,7 +642,7 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
     panel.render_text(SDL_FRect{(unitx*10)+offsetx,(unity*19)+offsety,unitx*8,unity}, Sans, lunar_shadow_color, boxtext);
     panel.render_text(SDL_FRect{unitx*10,unity*19,unitx*8,unity}, Sans, lunar_text_color, boxtext);
 //    SDL_Log (boxtext);
-    debug_log << "LUNAR: submit map pin -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
+//    debug_log << "LUNAR: submit map pin -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
     // submit the map pin
     struct map_pin moon_pin;
     moon_pin.owner=MOD_LUNAR;

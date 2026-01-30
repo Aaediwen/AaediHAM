@@ -21,3 +21,5 @@ clock_logger/log.txt
 clock_logger/push_debug.txt
 *.old
 modules/*.old
+CMakeSettings.json
+WinBuild/

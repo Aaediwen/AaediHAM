@@ -125,11 +125,11 @@ void ScreenFrame::panel_dims_check() {
     }
     if (dims.w > max_tex_size) {
         SDL_Log("Texture size limited by rendering engine or hardware");
-        dims.w = max_tex_size;
+        dims.w = static_cast<float>(max_tex_size);
     }
     if (dims.h > max_tex_size) {
         SDL_Log("Texture size limited by rendering engine or hardware");
-        dims.h = max_tex_size;
+        dims.h = static_cast<float>(max_tex_size);
     }
     return;
 }

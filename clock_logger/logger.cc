@@ -47,6 +47,9 @@ void handle_itterate (const std::string& line) {
                 if (module_id < 30) {
                      module_times[module_id].push_back(module_ms);
                 }
+                if (module_times[module_id].size() > 50) {
+                    module_times[module_id].erase(module_times[module_id].begin());
+                }
                 last_ms = aggrigate_ms;
             }
         }
