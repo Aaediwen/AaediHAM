@@ -1,0 +1,53 @@
+
+     "CallSign": "N0CALL",             
+     "PSKCall": "N0CALL",             
+     "DE": {                          
+         "Latitude": 32.978,
+         "Longitude": -67.495
+     },
+     "DX": {                          
+         "Latitude": 0.0,
+         "Longitude": 0.0
+     },
+     "QRZ": [                        
+         10,                       
+         10,                       
+         10,                       
+         10,                       
+         10,
+         10,
+         10,
+         10,
+         10
+     ],
+     "SatList": [                  
+         "LES-5",                  
+         "NOAA 15",
+         "ISS (ZARYA)",
+         "COSMOS 2409",
+         "NOAA 18"
+     ],
+     "Rss": [                      
+         "https://www.k0nr.com/wordpress/feed/",
+         "http://www.arrl.org/arrl.rss",
+         "https://www.iaru.org/feed/",
+         "https://qrper.com/feed/",
+         "https://www.amateurlogic.tv/blog/?feed=rss2",
+         "https://www.jpole-antenna.com/feed/",
+         "https://hamradiofornontechies.com/feed/"
+     ],
+     "DX_Server": {                
+         "Name": "dxfun.com",
+         "Port": 8000
+     },
+     "WSPR": [                     
+         {
+             "callsign": "KY4EOD",
+             "band": 14
+         },
+         {
+             "callsign": "KQ4SIZ",
+             "band": 28
+         }
+     ]
+}
