@@ -7,7 +7,7 @@ This is my attempt at re-implementing the idea behind HamClock from Clear Sky In
 ---
 NEWS UPDATE 
 
-In light of recent news, I want to specifically post my respects for WB0OEW, whose work has inspired me to take on this project.  Originally I had not planned to replace his work as I hoped he would continue for many years to come. It turns out this is not to be the case, so my goals and intentions for this project will likely shift.  So far, I expect this is now the only maintained project of its kind.  There are other programs who do a piece of it here or there, but I believe at this point that this project may be the most appropriate replacement for Elwood's HAMClock currently avaliable.
+In light of recent news, I want to specifically post my respects for Elwood Downey, WB0OEW, whose work has inspired me to take on this project.  Originally I had not planned to replace his work as I hoped he would continue for many years to come. It turns out this is not to be the case, so my goals and intentions for this project will likely shift.  So far, I expect this is now the only maintained project of its kind.  There are other programs who do a piece of it here or there, but I believe at this point that this project may be the most appropriate replacement for Elwood's HAMClock currently avaliable.
 
 ---
   
