@@ -59,6 +59,15 @@ The program now requires a config file (aaediclock_config.json) in the Current D
           "COSMOS 2409",
           "NOAA 18"
      ],
+    "Rss": [                                            //Optional -- RSS Feed sources for ticker
+          "https://www.k0nr.com/wordpress/feed/",
+          "http://www.arrl.org/arrl.rss",
+          "https://www.iaru.org/feed/",
+          "https://qrper.com/feed/",
+          "https://www.amateurlogic.tv/blog/?feed=rss2",
+          "https://www.jpole-antenna.com/feed/",
+          "https://hamradiofornontechies.com/feed/"
+     ],
      "DX_Server": {                  // Telnet server to use for DX Spots
           "Name": "dxfun.com",
           "Port": 8000
@@ -107,6 +116,9 @@ The program now requires a config file (aaediclock_config.json) in the Current D
 - **Eclipse Paho C Client Library**
   - https://github.com/eclipse-paho/paho.mqtt.c/
   - Used for Handling the MQTT stream from PSK Reporter
+- **LibXML2**
+  -  https://gitlab.gnome.org/GNOME/libxml2.git
+  -  Used for parsing RSS Feeds
  
 ---
 
