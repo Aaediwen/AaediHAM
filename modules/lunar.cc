@@ -391,7 +391,7 @@ int SDLCALL regen_lunar_surface(void* data) {
             if (moon_max_dims > image_load->w) {
                moon_max_dims = image_load->w;
             }
-            if (moon_max_dims <=0) {
+            if (moon_max_dims <=100) {
                moon_max_dims = image_load->w;
             }
             image_surface = SDL_ScaleSurface(image_load, moon_max_dims, moon_max_dims, SDL_SCALEMODE_LINEAR);
@@ -568,6 +568,9 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
     debug_log << "LUNAR: locked moon mutex in parent -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
     if ((SDL_GetTicks() - StartTicks) > 200) {
        moon_max_dims -= 10;
+       if (moon_max_dims < 100) {
+           moon_max_dims = 100;
+       }
     }
 //    debug_log << "LUNAR: locked moon mutex in parent\n";
     debug_log.flush();
