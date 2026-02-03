@@ -722,6 +722,7 @@ const std::string& config::qrz_key(bool refresh) {
 
 map_overlay::map_overlay () {
     index = 0;
+    zorder = 0;
     return;
 }
 
@@ -739,6 +740,7 @@ void map_overlay::clear() {
     }
     overlay_list.clear();
     index = 0;
+    zorder = 0;
     return;
 }
 ScreenFrame* map_overlay::get_overlay(SDL_Renderer* renderer, enum mod_name owner, SDL_FRect dims) {
@@ -786,6 +788,10 @@ bool map_overlay::overlay_check(enum mod_name owner) {
         }
     }
     return false;
+}
+
+void map_overlay::set_zorder(Uint8 priority) {
+    zorder = priority;
 }
 
 ScreenFrame* map_overlay::next_overlay() {

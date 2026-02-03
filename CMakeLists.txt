@@ -33,6 +33,7 @@ set(SOURCES
     modules/pskreporter.cc
     modules/contests.cc
     modules/rss.cc
+    modules/aurora.cc
 )
 
 add_executable(clock ${SOURCES})

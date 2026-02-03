@@ -150,6 +150,8 @@ void panel_assignment(bool increment) {
                 case MOD_RSS:
                     master_flags.rss.panel = &panel.panel;
                     break;
+                case MOD_AURORA:
+                    break;
                 case MOD_NULL:
                     break;
             }
@@ -1063,6 +1065,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         if (master_flags.pota.draw_flag) {
             debug_log << "ITTERATE: Calling POTA ("<< MOD_POTA <<")with panel " << master_flags.pota.panel << "\n";
             pota_spots(*(master_flags.pota.panel), Sans);
+            aurora_spots(*(master_flags.map.panel));
             master_flags.pota.draw_flag = false;
             debug_log << "ITTERATE: Module Timer POTA -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             debug_log.flush();
