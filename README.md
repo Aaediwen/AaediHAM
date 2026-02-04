@@ -10,8 +10,16 @@ NEWS UPDATE
 In light of recent news, I want to specifically post my respects for Elwood Downey, WB0OEW, whose work has inspired me to take on this project.  Originally I had not planned to replace his work as I hoped he would continue for many years to come. It turns out this is not to be the case, so my goals and intentions for this project will likely shift.  So far, I expect this is now the only maintained project of its kind.  There are other programs who do a piece of it here or there, but I believe at this point that this project may be the most appropriate replacement for Elwood's HAMClock currently avaliable.
 
 ---
-  
-The program now requires a config file (aaediclock_config.json) in the Current Directory. 
+## Command Line Options
+| Argument        |Example                                | Action                                                                  |
+|-----------------|---------------------------------------|-------------------------------------------------------------------------|
+| **`--headless`**  | `./clock --headless --output=out.jpg` | Run in a headless mode with graphical output redirected to a disk file  |
+| **`--fullscreen`**| `./clock --fullscreen`                | Start the program in fullscreen mode                                    |
+| **`--renderer`**  | `./clock --renderer=software`         | set the SDL renderer to use. renderer=help or renderer=list will show a list of avaliable rendering engines|
+| **`--geometry`**  | `./clock --geometry=1920x1080`        | Resolution of the output from `--headless`, or the starting window resolution in a GUI environment|
+| **`--output`**    | `./clock --headless --output=out.jpg` | Output file path for `--headless`                                         |
+| **`--QRZ_Pass`**  | `./clock --QRZ_Pass=mypassword`       | Set the password to use for QRZ.com and exit (uses the Callsign for UserName)    |
+| **`--help`**      | `./clock --help`                      | This usage text                                                         |
 
 ---
 
@@ -28,7 +36,7 @@ The program now requires a config file (aaediclock_config.json) in the Current D
 
 ---
 ## Config File Format
-
+The program now requires a config file (aaediclock_config.json) in the Current Directory. 
 ```jsonc
 {
      "CallSign": "N0CALL",             // your callsign here
@@ -185,10 +193,14 @@ The program now requires a config file (aaediclock_config.json) in the Current D
   - https://www.contestcalendar.com/calendar.rss
   - Current Contest Schedule
   - downloaded every few hours at runtime
+- **NOAA SWPC OVATION Aurora forecast**
+  - https://services.swpc.noaa.gov/json/ovation_aurora_latest.json
+  - Current Aurora forecast data
+  - Downloaded every 30 minutes at runtime
 
  ---
  ## Build Instructions:
-
+CMake will attempt to fetch the direct dependancies as listed above. However, it may be up to the user to fetch sub depenancies not included in the CMakeLists for that library.  
  **Linux:**
  ```bash
       cd <source tree>
