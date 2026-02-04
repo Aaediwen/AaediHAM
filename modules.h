@@ -17,5 +17,6 @@
 #include "modules/pskreporter.h"
 #include "modules/contests.h"
 #include "modules/rss.h"
+#include "modules/aurora.h"
 #endif
 

@@ -35,20 +35,14 @@ enum mutex_name {
     MUTEX_MASTER_CLOCK	,
     MUTEX_CELESTRAK	,
     MUTEX_WSPR		,
-    MUTEX_CONTESTS
+    MUTEX_CONTESTS	,
+    MUTEX_AURORA
 };
 extern std::array<SDL_Mutex*, 10> mutexes;
-//extern SDL_Mutex* night_mask_mutex;
-//extern SDL_Mutex* resize_mutex;
-//extern SDL_Mutex* cache_mutex;
-//extern SDL_Mutex* http_mutex;
 extern SDL_TimerID map_timer;
 extern TTF_Font* Sans;
 extern std::ostream& debug_log;
 
-//extern ScreenFrame DayMap;
-//extern ScreenFrame NightMap;
-//extern ScreenFrame CountriesMap;
 extern Sint64 max_tex_size;
 
 struct pager_node {

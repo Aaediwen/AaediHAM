@@ -15,29 +15,28 @@
 #include <fontconfig/fontconfig.h>
 #endif
 
-
+// system globals
 static SDL_Window		*window = nullptr;
 static SDL_Renderer		*clock_renderer = nullptr;
 TTF_Font		        *Sans = nullptr;
 time_t 			        currenttime;
-//ScreenFrame 	        DayMap;
-//ScreenFrame 	        NightMap;
-//ScreenFrame 	        CountriesMap;
-std::array<pager_node, 12> winboxes;
-std::array<SDL_Mutex*, 10> mutexes = { nullptr };
 
-struct internal_mouse_event clock_mouse_event;
+std::array<pager_node, 12> winboxes;		// module panels shown to the user
+std::array<SDL_Mutex*, 10> mutexes = { nullptr };	// thread mutexes
 
-struct map_pin 		    *map_pins;
-struct data_blob	    *data_cache;
-config 		            clockconfig;
+struct internal_mouse_event clock_mouse_event;	// internal mouse event bucket
+
+struct map_pin 		    *map_pins;		// list of map pins
+struct data_blob	    *data_cache;	// main system cache
+config 		            clockconfig;	// system configuratiom
 
 SDL_TimerID map_timer = 0;
 Uint16 interrupt_counter = 0;
 struct regen_mask_args* night_mask_args = nullptr;
-map_overlay overlays;
-map_icons icon_bin;
-//std::ostream& debug_log;
+map_overlay overlays;				// map overlays
+map_icons icon_bin;				// program icons
+
+// set up the debug log to either a file or null depending on build type
 #ifdef CLOCK_DEBUG
 static std::ofstream logfile("clock_debug.log");
 std::ostream& debug_log = logfile;
@@ -46,11 +45,16 @@ static nullbuffer nb;
 static std::ostream nullout(&nb);
 std::ostream& debug_log = nullout;
 #endif
-struct celest_coords g_celestials;
-bool headless = false;
+
+struct celest_coords g_celestials;		// sun and moon state
+bool headless = false;				// are we running headless?
 bool reload_flag = false;
-std::string render_engine;
-Sint64 max_tex_size = 0;
+std::string render_engine;			// what render engine are we using?
+Sint64 max_tex_size = 0;			// max texture size supported by the renderer
+
+// control flags for the modules
+// does it trigger this frame?
+// and to what panel?
 struct ModuleControl {
     bool draw_flag = true;
     ScreenFrame* panel = &winboxes[PANEL_NULL].panel;
@@ -73,34 +77,41 @@ struct {
     ModuleControl psk;
     ModuleControl contests;
     ModuleControl rss;
+    ModuleControl aurora;
 } static master_flags;
 
 
 SDL_TimerID flag_timer = 0;
 
 void panel_assignment(bool increment) {
-            master_flags.map.panel	=	&(winboxes[PANEL_MAP].panel);
-            master_flags.sat_tracker.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.dx_spots.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.callsign.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.de.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.dx.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.pota.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.ncdxf.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.clock.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.kindex.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.solar.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.wspr.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.lunar.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.psk.panel	=	&(winboxes[PANEL_NULL].panel);
-            master_flags.contests.panel = 	&(winboxes[PANEL_NULL].panel);
-            master_flags.rss.panel	=	&(winboxes[PANEL_NULL].panel);
+    // function to assign panels to the modules
+    // default them all to the NULL panel
+        master_flags.map.panel		=	&(winboxes[PANEL_MAP].panel);
+        master_flags.sat_tracker.panel	=	&(winboxes[PANEL_NULL].panel);
+        master_flags.dx_spots.panel	=	&(winboxes[PANEL_NULL].panel);
+        master_flags.callsign.panel	=	&(winboxes[PANEL_NULL].panel);
+        master_flags.de.panel		=	&(winboxes[PANEL_NULL].panel);
+        master_flags.dx.panel		=	&(winboxes[PANEL_NULL].panel);
+        master_flags.pota.panel		=	&(winboxes[PANEL_NULL].panel);
+        master_flags.ncdxf.panel	=	&(winboxes[PANEL_NULL].panel);
+        master_flags.clock.panel	=	&(winboxes[PANEL_NULL].panel);
+        master_flags.kindex.panel	=	&(winboxes[PANEL_NULL].panel);
+        master_flags.solar.panel	=	&(winboxes[PANEL_NULL].panel);
+        master_flags.wspr.panel		=	&(winboxes[PANEL_NULL].panel);
+        master_flags.lunar.panel	=	&(winboxes[PANEL_NULL].panel);
+        master_flags.psk.panel		=	&(winboxes[PANEL_NULL].panel);
+        master_flags.contests.panel 	= 	&(winboxes[PANEL_NULL].panel);
+        master_flags.rss.panel		=	&(winboxes[PANEL_NULL].panel);
+        master_flags.aurora.panel	=	&(winboxes[PANEL_NULL].panel);
+        // step through each screen panel
     for (auto& panel : winboxes) {
         if (panel.sequence.size()) {
+            // optionally increment the panel to the next module in its list
             if (increment) {
                 panel.index++;
                 if (panel.index >= panel.sequence.size()) { panel.index = 0 ; }
             }
+            // assign the correct module to the panel
             switch (panel.sequence[panel.index]) {
                 case MOD_MAP:
                     master_flags.map.panel = &panel.panel;
@@ -150,6 +161,9 @@ void panel_assignment(bool increment) {
                 case MOD_RSS:
                     master_flags.rss.panel = &panel.panel;
                     break;
+                case MOD_AURORA:
+                    master_flags.aurora.panel = &panel.panel;
+                    break;
                 case MOD_NULL:
                     break;
             }
@@ -160,6 +174,7 @@ void panel_assignment(bool increment) {
 
 Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interval) {
 //    SDL_Log ("FLAG TIMER: In Master flag timer\n");
+// master clock to trigger each module
     (void) userdata;
     interrupt_counter++;
 
@@ -181,7 +196,7 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
         }
 
         if ((interrupt_counter % 170)==0) {	// 17 seconds
-
+            master_flags.aurora.draw_flag = true;
         }
 
 
@@ -270,6 +285,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
             master_flags.psk.draw_flag 		= 	false;
             master_flags.contests.draw_flag 	= 	false;
             master_flags.rss.draw_flag 		=	false;
+            master_flags.aurora.draw_flag	=	false;
 
             master_flags.map.panel      	=       nullptr;
             master_flags.sat_tracker.panel      =       nullptr;
@@ -287,6 +303,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
             master_flags.psk.panel    		=       nullptr;
             master_flags.contests.panel		=	nullptr;
             master_flags.rss.panel		=	nullptr;
+            master_flags.aurora.panel		=	nullptr;
 
             debug_log << "RESIZE: Destroying old surfaces\n";
             debug_log.flush();
@@ -296,56 +313,45 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 debug_log << "RESIZE: Clearing Overlays\n";
                 std::cout.flush();
                 overlays.clear();
-                debug_log << "RESIZE: Resetting Maps\n";
-                debug_log.flush();
-//                DayMap.Reset();
-//                NightMap.Reset();
-//                CountriesMap.Reset();
                 debug_log << "RESIZE: Clearing Screen Panels\n";
                 debug_log.flush();
-                debug_log << "RESIZE: Callsign: " << &(panels[PANEL_CALLSIGN].panel) << "\n";
-                debug_log.flush();
+//                debug_log << "RESIZE: Callsign: " << &(panels[PANEL_CALLSIGN].panel) << "\n";
+//                debug_log.flush();
                 panels[PANEL_CALLSIGN].panel.Reset();
-
-                debug_log << "RESIZE: Null: " << &(panels[PANEL_NULL].panel) << "\n";
-                debug_log.flush();
+//                debug_log << "RESIZE: Null: " << &(panels[PANEL_NULL].panel) << "\n";
+//                debug_log.flush();
                 panels[PANEL_NULL].panel.Reset();
-                debug_log << "RESIZE: DE: " << &(panels[PANEL_DE].panel) << "\n";
-                debug_log.flush();
+//                debug_log << "RESIZE: DE: " << &(panels[PANEL_DE].panel) << "\n";
+//                debug_log.flush();
                 panels[PANEL_DE].panel.Reset();
-                debug_log << "RESIZE: DX: " << &(panels[PANEL_DX].panel) << "\n";
-                debug_log.flush();
+//                debug_log << "RESIZE: DX: " << &(panels[PANEL_DX].panel) << "\n";
+//                debug_log.flush();
                 panels[PANEL_DX].panel.Reset();
-                debug_log << "RESIZE: Clock: " << &(panels[PANEL_CLOCK].panel) << "\n";
-                debug_log.flush();
+//                debug_log << "RESIZE: Clock: " << &(panels[PANEL_CLOCK].panel) << "\n";
+//                debug_log.flush();
                 panels[PANEL_CLOCK].panel.Reset();
-                debug_log << "RESIZE: Flex1: " << &(panels[PANEL_FLEXBOX1].panel) << "\n";
-                debug_log.flush();
+//                debug_log << "RESIZE: Flex1: " << &(panels[PANEL_FLEXBOX1].panel) << "\n";
+//                debug_log.flush();
                 panels[PANEL_FLEXBOX1].panel.Reset();
-                debug_log << "RESIZE: Flex2: " << &(panels[PANEL_FLEXBOX2].panel) << "\n";
-                debug_log.flush();
+//                debug_log << "RESIZE: Flex2: " << &(panels[PANEL_FLEXBOX2].panel) << "\n";
+//                debug_log.flush();
                 panels[PANEL_FLEXBOX2].panel.Reset();
-                debug_log << "RESIZE: Flex3: " << &(panels[PANEL_FLEXBOX3].panel) << "\n";
-                debug_log.flush();
+//                debug_log << "RESIZE: Flex3: " << &(panels[PANEL_FLEXBOX3].panel) << "\n";
+//                debug_log.flush();
                 panels[PANEL_FLEXBOX3].panel.Reset();
-                debug_log << "RESIZE: Flex4: " << &(panels[PANEL_FLEXBOX4].panel) << "\n";
-                debug_log.flush();
+//                debug_log << "RESIZE: Flex4: " << &(panels[PANEL_FLEXBOX4].panel) << "\n";
+//                debug_log.flush();
                 panels[PANEL_FLEXBOX4].panel.Reset();
-
-                debug_log << "RESIZE: Flex5: " << &(panels[PANEL_FLEXBOX5].panel) << "\n";
-                debug_log.flush();
+//                debug_log << "RESIZE: Flex5: " << &(panels[PANEL_FLEXBOX5].panel) << "\n";
+//                debug_log.flush();
                 panels[PANEL_FLEXBOX5].panel.Reset();
-                debug_log << "RESIZE: Map: " << &(panels[PANEL_MAP].panel) << "\n";
-                debug_log.flush();
+//                debug_log << "RESIZE: Map: " << &(panels[PANEL_MAP].panel) << "\n";
+//                debug_log.flush();
                 panels[PANEL_MAP].panel.Reset();
                 debug_log.flush();
 
-
                 SDL_SetRenderTarget(clock_renderer, nullptr);
-                debug_log << "RESIZE: Flushing and finishing pending renderer ops before destroy\n";
 
-
-//                SDL_DestroyRenderer(clock_renderer);
             } else {
 
                 // create a new renderer
@@ -373,9 +379,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                     std::cout << "RESIZE: Renderer Max Texture Size : " << max_tex_size << "\n";
                 }
             }
-//            for (auto& p : panels) {
-//                p.panel.SetRenderer(clock_renderer);
-//            }
+            // clear the window at its new size
             SDL_GetCurrentRenderOutputSize(clock_renderer, &win_x, &win_y);
             printf("Resizing Window to %i X %i\n", win_x, win_y);
             debug_log << "RESIZE: Resizing Window to " << win_x << " X " << win_y << "\n";
@@ -383,7 +387,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
             SDL_SetRenderDrawColor(clock_renderer, 0, 0, 0, 0);
             SDL_RenderClear(clock_renderer);
             SDL_RenderPresent(clock_renderer);
-
+            // recreate the screen panels
             if ((win_x > 10) && (win_y > 10)) {
                 SDL_FRect panel_dims;
                 debug_log << "RESIZE: Creating New surfaces\n";
@@ -515,8 +519,6 @@ void resize_panels(std::array<pager_node, 12>& panels) {
 
                 debug_log << "RESIZE: Reloading Maps and Icon assets\n";
                 debug_log.flush();
-                // recreate the map textures as well so they don't get lost
-//                load_maps(clock_renderer, panels[PANEL_MAP].panel.dims);
                 icon_bin.reload_icons(clock_renderer);
                 debug_log << "RESIZE: Re-enabling program loops\n";
                 debug_log.flush();
@@ -536,7 +538,8 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 master_flags.psk.draw_flag 		= 	true;
                 master_flags.contests.draw_flag 	= 	true;
                 master_flags.rss.draw_flag 		= 	true;
-
+                master_flags.aurora.draw_flag		=	true;
+                // enable the masin system clock
                 flag_timer = SDL_AddTimer(100, master_clock, &master_flags);
                 debug_log << "RESIZE: Window resize complete\n";
                 debug_log.flush();
@@ -558,6 +561,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
 
 
 #ifdef _WIN32
+// Windows Font search callback
 extern "C" int CALLBACK WinFontCallback(const LOGFONT * lpelfe, const TEXTMETRIC * lpntme, DWORD FontType, LPARAM lParam) {
     (void)FontType;
     (void)lpntme;
@@ -581,10 +585,11 @@ extern "C" int CALLBACK WinFontCallback(const LOGFONT * lpelfe, const TEXTMETRIC
 #endif
 
 std::string FindFont(const char* fontname) {
-
+    // routine to find a suitable font on the system
     std::string path;
     path.clear();
 #ifndef _WIN32
+    // POSIX FontConfig method
     FcInit();
     FcPattern* pat = FcNameParse((const FcChar8*)fontname);	// generate a FontConfig pattern class for "sans"
     FcBool checksubs = FcConfigSubstitute(NULL, pat, FcMatchPattern);	// pattern match the font name
@@ -612,7 +617,7 @@ std::string FindFont(const char* fontname) {
     FcFini();
 #else
 
-
+    // Windows Registry search
     struct ::LOGFONTA font_criteria;
     font_criteria.lfHeight 		= 	0;
     font_criteria.lfWidth 		= 	0;
@@ -630,7 +635,6 @@ std::string FindFont(const char* fontname) {
     strncpy_s(font_criteria.lfFaceName, fontname, LF_FACESIZE);
     std::string facename;
     EnumFontFamiliesExA(GetDC(NULL), &font_criteria, WinFontCallback, reinterpret_cast<LPARAM>(&facename), 0);
-
 
     HKEY hKey;
     LONG result = RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Fonts", 0, KEY_READ, &hKey );
@@ -650,7 +654,7 @@ std::string FindFont(const char* fontname) {
     BYTE valueData[256];
     DWORD valueNameSize, valueDataSize, valueType;
     std::string fontFilename;
-    for (DWORD i = 0; ; ++i) {                              // hunt through teh registry for the indicated font
+    for (DWORD i = 0; ; ++i) {                              // hunt through the registry for the indicated font
         valueNameSize = sizeof(valueName);
         valueDataSize = sizeof(valueData);
         result = RegEnumValueA( hKey, i, valueName, &valueNameSize, nullptr, &valueType, valueData, &valueDataSize ); // read the next registry key
@@ -670,8 +674,6 @@ std::string FindFont(const char* fontname) {
         GetWindowsDirectoryA(winDir, MAX_PATH);
         path = std::string(winDir) + "\\Fonts\\" + fontFilename;
     }
-
-
 
     RegCloseKey(hKey);
 #endif
@@ -727,6 +729,7 @@ int window_init(int x, int y) {
         master_flags.lunar.draw_flag		= true;
         master_flags.contests.draw_flag 	= true;
         master_flags.rss.draw_flag		= true;
+        master_flags.aurora.draw_flag		= true;
         if (!flag_timer) {
             flag_timer = SDL_AddTimer(100, master_clock, &master_flags);
         }
@@ -773,6 +776,9 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     bool fs_start = false;
     outfile.clear();
     render_engine.clear();
+
+    // command line parser
+    //-----------------------------------------------
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--headless") {
@@ -906,7 +912,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
             // end lunar test code
         }
     }
-
+// end command line parser
+//-----------------------------------------------------
     if (!(SDL_InitSubSystem(SDL_INIT_VIDEO))) {
         SDL_Log("Unable to initialize SDL: %s", SDL_GetError());
         debug_log << "INIT: Unable to initialize SDL:" << SDL_GetError() << "\n";
@@ -937,7 +944,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     winboxes[PANEL_FLEXBOX4].panel.Reset();
     winboxes[PANEL_NULL].panel.Reset();
     winboxes[PANEL_FLEXBOX5].panel.Reset();
-
+    // eventually I want to make this user definable
     winboxes[PANEL_MAP].sequence.push_back(MOD_MAP);
     winboxes[PANEL_CALLSIGN].sequence.push_back(MOD_CALL);
     winboxes[PANEL_CLOCK].sequence.push_back(MOD_CLOCK);
@@ -953,6 +960,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     winboxes[PANEL_FLEXBOX5].sequence.push_back(MOD_SOLAR);
     winboxes[PANEL_FLEXBOX5].sequence.push_back(MOD_WSPR);
     winboxes[PANEL_FLEXBOX5].sequence.push_back(MOD_LUNAR);
+    // end panel assignment
     debug_log << "INIT: Globals Initialized\n";
 
 
@@ -963,6 +971,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     mutexes[MUTEX_CELESTRAK]	= SDL_CreateMutex();
     mutexes[MUTEX_WSPR]		= SDL_CreateMutex();
     mutexes[MUTEX_CONTESTS]	= SDL_CreateMutex();
+    mutexes[MUTEX_AURORA]	= SDL_CreateMutex();
 
     night_mask_args = (struct regen_mask_args*)malloc(sizeof(struct regen_mask_args));
     map_timer = 0;
@@ -1037,7 +1046,6 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             debug_log << "ITTERATE: Module Timer Callsign -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             debug_log.flush();
         }
-
         if (master_flags.map.draw_flag) {
             debug_log << "ITTERATE: Calling Map ("<< MOD_MAP <<")with panel " << master_flags.map.panel << "\n";
             draw_map(*(master_flags.map.panel));
@@ -1060,9 +1068,17 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             debug_log << "ITTERATE: Module Timer DX -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             debug_log.flush();
         }
+        if (master_flags.aurora.draw_flag) {
+            debug_log << "ITTERATE: Calling AURORA ("<< MOD_AURORA <<")with panel " << master_flags.map.panel << "\n";
+            aurora_spots(*(master_flags.map.panel));
+            master_flags.aurora.draw_flag = false;
+            debug_log << "ITTERATE: Module Timer AURORA -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
+            debug_log.flush();
+        }
         if (master_flags.pota.draw_flag) {
             debug_log << "ITTERATE: Calling POTA ("<< MOD_POTA <<")with panel " << master_flags.pota.panel << "\n";
             pota_spots(*(master_flags.pota.panel), Sans);
+            aurora_spots(*(master_flags.map.panel));
             master_flags.pota.draw_flag = false;
             debug_log << "ITTERATE: Module Timer POTA -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             debug_log.flush();
@@ -1206,6 +1222,7 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     master_flags.psk.panel              =       nullptr;
     master_flags.contests.panel         =       nullptr;
     master_flags.rss.panel              =       nullptr;
+    master_flags.aurora.panel		= 	nullptr;
     debug_log << "EXIT: Cleaning Mutexes.\n\n";
     for (SDL_Mutex*& mtx : mutexes) {
         if (mtx) {

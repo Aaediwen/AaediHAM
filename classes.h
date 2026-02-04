@@ -17,6 +17,7 @@ enum mod_name {
     MOD_LUNAR		,
     MOD_CONTESTS	,
     MOD_RSS		,
+    MOD_AURORA		,
     MOD_NULL
 };
 
@@ -130,12 +131,14 @@ class map_overlay {
             enum mod_name owner;
         };
         std::vector<struct transparancy> overlay_list;
+        Uint8 zorder;
         Uint16 index;
     public:
         map_overlay();
         ~map_overlay();
         ScreenFrame* get_overlay(SDL_Renderer* renderer, enum mod_name owner, SDL_FRect dims); // return existing if present, or create a new and retu
         bool overlay_check(enum mod_name owner);        // check if a overlay exists
+        void set_zorder(Uint8 priority);
         void remove_overlay(enum mod_name owner); // remove any overlay owned by owner
         ScreenFrame* next_overlay();   // somehow get or use a read-only itterator through overlay_list
         void reset_index();
