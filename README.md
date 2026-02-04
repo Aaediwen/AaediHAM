@@ -92,7 +92,7 @@ The program now requires a config file (aaediclock_config.json) in the Current D
   - https://github.com/nlohmann/json
   - Used for JSON Parsing and generation
   - in Config file, POTA, K-index, and PSK Reporter modules
-- SDL3
+- **SDL3 -- Sam Lantinga**
   - https://wiki.libsdl.org/SDL3/FrontPage
   - Primary graphics and event library
 - **SDL3-TTF**
