@@ -29,6 +29,7 @@ class aaediclock_host_api {
         virtual void AaediHAM_GraphicsDrawText(const char* string, const aaediclock_Color color, const aaediclock_FRect dims) = 0;
         virtual void AaediHAM_GraphicsClear(const aaediclock_Color& color = {0, 0, 0, 255}) = 0;
         virtual const char* AaediHAM_ConfigGetCall() = 0;
+        virtual void AaediHAM_LogDebug(const char* string) = 0;
         const uint32_t API_VERSION = 0001;
     private:
 

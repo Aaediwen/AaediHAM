@@ -46,7 +46,7 @@ extern Sint64 max_tex_size;
 
 struct pager_node {
     std::vector<enum mod_name> sequence;
-    std::vector<PluginModule*> plugin_sequence;
+    std::vector<int> plugin_sequence;
     ScreenFrame panel;
     unsigned int index=0;
     unsigned int plugin_index = 0;

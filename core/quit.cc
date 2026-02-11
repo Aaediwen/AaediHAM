@@ -27,7 +27,7 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     debug_log << "EXIT: Disabling Draw flags and panels.\n\n";
     for (struct PluginModule& plugin : loaded_plugins ) {
         plugin.draw_flag = false;
-        plugin.host_api.panel = nullptr;
+//        plugin.host_api->panel = nullptr;
         unregister_module(&plugin);
     }
     master_flags.callsign.draw_flag     =       false;

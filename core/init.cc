@@ -7,6 +7,7 @@
 #else
 #include <fontconfig/fontconfig.h>
 #endif
+#include <fstream>
 #include "aaediclock.h"
 #include "core/core.h"
 #include "core/panels.h"
@@ -19,8 +20,10 @@ TTF_Font* 			Sans;
 
 std::array<SDL_Mutex*, 10> 	mutexes;
 std::array<pager_node, 12> 	winboxes;
-std::ostream& 			debug_log;
 internal_mouse_event 		clock_mouse_event;
+
+struct ModuleList master_flags;                   // set in init, used in panels. due for replacement
+
 
 
 Sint64 				max_tex_size;
@@ -28,7 +31,14 @@ struct regen_mask_args* 	night_mask_args;
 SDL_TimerID 			map_timer	=	0;
 std::vector<PluginModule> 	loaded_plugins;
 
-
+#ifdef CLOCK_DEBUG
+    static std::ofstream logfile("clock_debug.log");
+    std::ostream& debug_log = logfile;
+#else
+    static nullbuffer nb;
+    static std::ostream nullout(&nb);
+    std::ostream& debug_log = nullout;
+#endif
 SDL_Rect 			default_size;
 std::string 			outfile;
 
@@ -371,9 +381,9 @@ namespace AaediClock_Init {
         register_module("plugins/libcallsign_plugin.so");
     #endif
         loaded_plugins[0].position = 0;     // for testing try both in the callsign box
-        loaded_plugins[0].position = 0;
-        winboxes[loaded_plugins[0].position].plugin_sequence.push_back(&loaded_plugins[0]);
-        winboxes[loaded_plugins[1].position].plugin_sequence.push_back(&loaded_plugins[1]);
+        loaded_plugins[1].position = 0;
+        winboxes[loaded_plugins[0].position].plugin_sequence.push_back(loaded_plugins[0].id);
+        winboxes[loaded_plugins[1].position].plugin_sequence.push_back(loaded_plugins[1].id);
         return(SDL_APP_CONTINUE);
     }
 }
@@ -398,6 +408,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 #endif
 #endif
 #endif
+
     debug_log << "------------------------ NEW RUN ------------\n";
     SDL_AppResult init_result;
     init_result = AaediClock_Init::cmd_line_parser(argc, argv);

@@ -46,13 +46,13 @@ void ncdxf_plugin::plugin_exit() const {
 }
 
 void ncdxf_plugin::plugin_main(const aaediclock_FRect& dims) const {
-    std::cout << "In Plugin main\n";
+    std::cout << "In Plugin ncdxf main\n";
     time_t time_now=time(NULL);
     aaediclock_FRect TextBox;
     if (!host_api) {
         return;
     }
-    std::cout << "Plugin calling host clear\n";
+//    std::cout << "Plugin calling host clear\n";
     host_api->AaediHAM_GraphicsClear();
 
     // Header
@@ -60,7 +60,7 @@ void ncdxf_plugin::plugin_main(const aaediclock_FRect& dims) const {
     TextBox.y = dims.h/20;
     TextBox.h = dims.h/15;
     TextBox.w = dims.w - dims.w/10;
-    std::cout << "Plugin calling host text write\n";
+//    std::cout << "Plugin calling host text write\n";
     host_api->AaediHAM_GraphicsDrawText("NCDXF BEACONS", {128,0,64,0}, TextBox);
     char tempstr[64];
     TextBox.y += dims.h/10;
@@ -78,26 +78,26 @@ void ncdxf_plugin::plugin_main(const aaediclock_FRect& dims) const {
         // frequency
         sprintf(tempstr, "%4.3f", beacon_freqs[i]);
 //        debug_log <<"NCDXF: " << tempstr << "\n";
-        std::cout << "Plugin calling host text write\n";
+//        std::cout << "Plugin calling host text write\n";
         host_api->AaediHAM_GraphicsDrawText(tempstr, {128,128,64,0}, TextBox);
         // station callsign
         TextBox.x = (dims.w/3)*2;
         sprintf(tempstr, "%s", beacons[beacon_offset].call);
-        std::cout << "Plugin calling host text write\n";
+//        std::cout << "Plugin calling host text write\n";
         host_api->AaediHAM_GraphicsDrawText(tempstr, {128,128,64,0}, TextBox);
         // station location
         TextBox.y += dims.h/15.0f;
         TextBox.x = dims.w/20.0f;
         TextBox.w = (dims.w * .75f) - dims.w/20.0f;
         sprintf(tempstr, "%s", beacons[beacon_offset].location.c_str());
-        std::cout << "Plugin calling host text write\n";
+//        std::cout << "Plugin calling host text write\n";
         host_api->AaediHAM_GraphicsDrawText(tempstr, {64,64,32,0}, TextBox);
         // next line!
         TextBox.y += dims.h/10;
         TextBox.x = dims.w/20;
         TextBox.w = (dims.w/3) - (dims.w/20);
     }
-    std::cout << "Plugin complete. returning\n";
+//    std::cout << "Plugin complete. returning\n";
     return;
 }
 

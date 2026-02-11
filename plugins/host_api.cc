@@ -7,10 +7,17 @@
 //std::vector<PluginModule> loaded_plugins;
 
 bool unregister_module (struct PluginModule* module) {
-    if (module->destroy) {
-        module->destroy(module->plugin);
-        module->destroy = nullptr;
+    if (!module) {
+        return false;
+    }
+    if (module->plugin) {
+        if (module->destroy) {
+            module->destroy(module->plugin);
+        }
         module->plugin = nullptr;
+    }
+    if (module->destroy) {
+        module->destroy = nullptr;
     }
     if (module->create) {
         module->create = nullptr;
@@ -23,13 +30,23 @@ bool unregister_module (struct PluginModule* module) {
 #endif
         module->library = nullptr;
     }
+    if (module->host_api) {
+        module->host_api->panel = nullptr;
+        delete (module->host_api);
+        module->host_api = nullptr;
+    }
     module->name.clear();
     return true;
 }
 
 
+void HostAPI::AaediHAM_LogDebug (const char* string) {
+    debug_log << string;
+    return;
+}
+
 void HostAPI::AaediHAM_GraphicsDrawText (const char* string, const aaediclock_Color color, const aaediclock_FRect dims) {
-    SDL_Log("Attempting Plugin Text write");
+//    SDL_Log("Attempting Plugin Text write");
     SDL_FRect textbox;
     textbox.x = dims.x;
     textbox.y = dims.y;
@@ -46,7 +63,7 @@ void HostAPI::AaediHAM_GraphicsDrawText (const char* string, const aaediclock_Co
 }
 
 void HostAPI::AaediHAM_GraphicsClear(const aaediclock_Color& color) {
-    SDL_Log("Attempting Plugin Panel Clear");
+//    SDL_Log("Attempting Plugin Panel Clear");
     SDL_Color textcolor;
     textcolor.r = color.r;
     textcolor.g = color.g;
@@ -130,17 +147,20 @@ bool register_module(const std::string& module_lib) {
     }
     // get the plugin name
     new_plugin.name = new_plugin.plugin->getName();
-    new_plugin.plugin->set_host(&new_plugin.host_api);
-    // init panel
-    new_plugin.host_api.panel = nullptr;
+
     // assign an ID
     if (loaded_plugins.empty()) {
-        new_plugin.id = 1;
+        new_plugin.id = 0;
     } else {
-        new_plugin.id = loaded_plugins.back().id + 1;
+        new_plugin.id = loaded_plugins.size();
     }
     // make it official
     loaded_plugins.push_back(new_plugin);
+    loaded_plugins.back().host_api = new(HostAPI);
+    // init panel
+    loaded_plugins.back().host_api->panel = nullptr;
+    loaded_plugins.back().plugin->set_host((loaded_plugins.back().host_api));
+
     std::cout << "Loaded symbols from "<< module_lib << "\n";
     return true;
 }

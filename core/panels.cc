@@ -1,6 +1,7 @@
 #include "aaediclock.h"
 #include "panels.h"
 #include "core/core.h"
+//#include "plugins/host_api.h"
 std::string render_engine;
 Uint16 interrupt_counter = 0;
 
@@ -8,90 +9,103 @@ Uint16 interrupt_counter = 0;
 void panel_assignment(bool increment) {
     // function to assign panels to the modules
     // default them all to the NULL panel
-        for (struct PluginModule& plugin : loaded_plugins ) {
-            plugin.draw_flag = false;
-            plugin.host_api.panel = &(winboxes[PANEL_NULL].panel);
+    for (struct PluginModule& plugin : loaded_plugins ) {
+        plugin.draw_flag = false;
+        plugin.host_api->panel = &(winboxes[PANEL_NULL].panel);
+    }
+    master_flags.map.panel          =       &(winboxes[PANEL_MAP].panel);
+    master_flags.sat_tracker.panel  =       &(winboxes[PANEL_NULL].panel);
+    master_flags.dx_spots.panel     =       &(winboxes[PANEL_NULL].panel);
+    master_flags.callsign.panel     =       &(winboxes[PANEL_NULL].panel);
+    master_flags.de.panel           =       &(winboxes[PANEL_NULL].panel);
+    master_flags.dx.panel           =       &(winboxes[PANEL_NULL].panel);
+    master_flags.pota.panel         =       &(winboxes[PANEL_NULL].panel);
+    master_flags.ncdxf.panel        =       &(winboxes[PANEL_NULL].panel);
+    master_flags.clock.panel        =       &(winboxes[PANEL_NULL].panel);
+    master_flags.kindex.panel       =       &(winboxes[PANEL_NULL].panel);
+    master_flags.solar.panel        =       &(winboxes[PANEL_NULL].panel);
+    master_flags.wspr.panel         =       &(winboxes[PANEL_NULL].panel);
+    master_flags.lunar.panel        =       &(winboxes[PANEL_NULL].panel);
+    master_flags.psk.panel          =       &(winboxes[PANEL_NULL].panel);
+    master_flags.contests.panel     =       &(winboxes[PANEL_NULL].panel);
+    master_flags.rss.panel          =       &(winboxes[PANEL_NULL].panel);
+    master_flags.aurora.panel       =       &(winboxes[PANEL_NULL].panel);
+    // step through each screen panel
+    for (auto& panel : winboxes) {
+        //increment plugin counter
+        if (panel.plugin_sequence.size()) {
+            if(increment) {
+                panel.plugin_index++;
+                if (panel.plugin_index >= panel.plugin_sequence.size()) { panel.plugin_index = 0 ; }
+            }
         }
-        master_flags.map.panel          =       &(winboxes[PANEL_MAP].panel);
-        master_flags.sat_tracker.panel  =       &(winboxes[PANEL_NULL].panel);
-        master_flags.dx_spots.panel     =       &(winboxes[PANEL_NULL].panel);
-        master_flags.callsign.panel     =       &(winboxes[PANEL_NULL].panel);
-        master_flags.de.panel           =       &(winboxes[PANEL_NULL].panel);
-        master_flags.dx.panel           =       &(winboxes[PANEL_NULL].panel);
-        master_flags.pota.panel         =       &(winboxes[PANEL_NULL].panel);
-        master_flags.ncdxf.panel        =       &(winboxes[PANEL_NULL].panel);
-        master_flags.clock.panel        =       &(winboxes[PANEL_NULL].panel);
-        master_flags.kindex.panel       =       &(winboxes[PANEL_NULL].panel);
-        master_flags.solar.panel        =       &(winboxes[PANEL_NULL].panel);
-        master_flags.wspr.panel         =       &(winboxes[PANEL_NULL].panel);
-        master_flags.lunar.panel        =       &(winboxes[PANEL_NULL].panel);
-        master_flags.psk.panel          =       &(winboxes[PANEL_NULL].panel);
-        master_flags.contests.panel     =       &(winboxes[PANEL_NULL].panel);
-        master_flags.rss.panel          =       &(winboxes[PANEL_NULL].panel);
-        master_flags.aurora.panel       =       &(winboxes[PANEL_NULL].panel);
-        // step through each screen panel
-        for (auto& panel : winboxes) {
-            if (panel.sequence.size()) {
-                // optionally increment the panel to the next module in its list
-                if (increment) {
-                    panel.index++;
-                    if (panel.index >= panel.sequence.size()) { panel.index = 0 ; }
-
-                    panel.plugin_index++;
-                    if (panel.plugin_index >= panel.plugin_sequence.size()) { panel.plugin_index = 0 ; }
-                }
-                // assign the correct module to the panel
-           switch (panel.sequence[panel.index]) {
+        // assign plugin
+        if ((!loaded_plugins.empty()) && (!panel.plugin_sequence.empty())) {
+            if (panel.plugin_index < panel.plugin_sequence.size()) {
+                loaded_plugins[panel.plugin_sequence[panel.plugin_index]].host_api->panel = &panel.panel;
+                debug_log << "MOD PAGER: Index:"<< panel.plugin_index << "\tseq size:" << panel.plugin_sequence.size() <<"\tseq id:" << panel.plugin_sequence[panel.plugin_index] << "\n";
+                debug_log << "MOD PAGER: Setting Plugin: "<< loaded_plugins[panel.plugin_sequence[panel.plugin_index]].name << "to panel " << &panel.panel << "\n";
+            }
+        }
+        // increment module counter
+        if (panel.sequence.size()) {
+            // optionally increment the panel to the next module in its list
+            if (increment) {
+                panel.index++;
+                if (panel.index >= panel.sequence.size()) { panel.index = 0 ; }
+            }
+            // assign the correct module to the panel
+            switch (panel.sequence[panel.index]) {
                 case MOD_MAP:
                     master_flags.map.panel = &panel.panel;
                     break;
                 case MOD_DE:
-//                    master_flags.de.panel = &panel.panel;
+                    master_flags.de.panel = &panel.panel;
                     break;
                 case MOD_DX:
-//                    master_flags.dx.panel = &panel.panel;
+                    master_flags.dx.panel = &panel.panel;
                     break;
                 case MOD_CLOCK:
-//                    master_flags.clock.panel = &panel.panel;
+                    master_flags.clock.panel = &panel.panel;
                     break;
                 case MOD_CALL:
-//                    master_flags.callsign.panel = &panel.panel;
+//                  master_flags.callsign.panel = &panel.panel;
                     break;
                 case MOD_POTA:
-//                    master_flags.pota.panel = &panel.panel;
+                    master_flags.pota.panel = &panel.panel;
                     break;
                 case MOD_PSK:
-//                    master_flags.psk.panel = &panel.panel;
+                    master_flags.psk.panel = &panel.panel;
                     break;
                 case MOD_SAT:
-//                    master_flags.sat_tracker.panel = &panel.panel;
+                    master_flags.sat_tracker.panel = &panel.panel;
                     break;
                 case MOD_DXSPOT:
-//                    master_flags.dx_spots.panel = &panel.panel;
+                    master_flags.dx_spots.panel = &panel.panel;
                     break;
                 case MOD_KINDEX:
-//                    master_flags.kindex.panel = &panel.panel;
+                    master_flags.kindex.panel = &panel.panel;
                     break;
                 case MOD_CONTESTS:
-//                    master_flags.contests.panel = &panel.panel;
+                    master_flags.contests.panel = &panel.panel;
                     break;
                 case MOD_NCDXF:
 //                    master_flags.ncdxf.panel = &panel.panel;
                     break;
                 case MOD_SOLAR:
-//                    master_flags.solar.panel = &panel.panel;
+                    master_flags.solar.panel = &panel.panel;
                     break;
                 case MOD_WSPR:
-//                    master_flags.wspr.panel = &panel.panel;
+                    master_flags.wspr.panel = &panel.panel;
                     break;
                 case MOD_LUNAR:
-//                    master_flags.lunar.panel = &panel.panel;
+                    master_flags.lunar.panel = &panel.panel;
                     break;
                 case MOD_RSS:
-//                    master_flags.rss.panel = &panel.panel;
+                    master_flags.rss.panel = &panel.panel;
                     break;
                 case MOD_AURORA:
-//                    master_flags.aurora.panel = &panel.panel;
+                    master_flags.aurora.panel = &panel.panel;
                     break;
                 case MOD_NULL:
                     break;
@@ -105,7 +119,7 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
 // master clock to trigger each module
     (void) userdata;
     interrupt_counter++;
-
+//    std::cout << "FLAG_TIMER: In Master Flag Timer "<< interrupt_counter << "\t" << timerID << "\n";
     if (interrupt_counter > 4800) {
         interrupt_counter = 0;
     }
@@ -197,7 +211,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
             SDL_LockMutex(mutexes[MUTEX_NIGHT_MASK]);
             for (struct PluginModule& plugin : loaded_plugins ) {
                 plugin.draw_flag = false;
-                plugin.host_api.panel = nullptr;
+                plugin.host_api->panel = nullptr;
             }
 
             master_flags.callsign.draw_flag     =       false;
@@ -218,7 +232,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
             master_flags.rss.draw_flag          =       false;
             master_flags.aurora.draw_flag       =       false;
 
-           master_flags.map.panel              =       nullptr;
+            master_flags.map.panel              =       nullptr;
             master_flags.sat_tracker.panel      =       nullptr;
             master_flags.dx_spots.panel         =       nullptr;
             master_flags.callsign.panel         =       nullptr;

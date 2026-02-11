@@ -53,19 +53,24 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             debug_log.flush();
         }
         if (master_flags.callsign.draw_flag) {
-            debug_log << "ITTERATE: Calling Callsign ("<< MOD_CALL <<")with panel " << master_flags.callsign.panel << "\n";
+            debug_log << "ITTERATE: Calling Callsign ("<< MOD_CALL <<")with panel " <<  loaded_plugins[1].host_api->panel << "\n";
 //            draw_callsign(*(master_flags.callsign.panel), Sans, clockconfig.CallSign().c_str());
             aaediclock_FRect module_dims;
-            module_dims.w = master_flags.callsign.panel->dims.w;
-            module_dims.h = master_flags.callsign.panel->dims.h;
-            module_dims.x = master_flags.callsign.panel->dims.x;
-            module_dims.y = master_flags.callsign.panel->dims.y;
-            SDL_Log ("Attempting to correct plugin panel settings");
-            loaded_plugins[1].host_api.panel = &(winboxes[loaded_plugins[1].position].panel);
+
+            module_dims.w = loaded_plugins[1].host_api->panel->dims.w;
+            module_dims.h = loaded_plugins[1].host_api->panel->dims.h;
+            module_dims.x = loaded_plugins[1].host_api->panel->dims.x;
+            module_dims.y = loaded_plugins[1].host_api->panel->dims.y;
+//            module_dims.w = master_flags.callsign.panel->dims.w;
+//            module_dims.h = master_flags.callsign.panel->dims.h;
+//            module_dims.x = master_flags.callsign.panel->dims.x;
+//            module_dims.y = master_flags.callsign.panel->dims.y;
+//            SDL_Log ("Attempting to correct plugin panel settings");
+//            loaded_plugins[1].host_api.panel = &(winboxes[loaded_plugins[1].position].panel);
 
             //loaded_plugins[1].host_api.panel = master_flags.callsign.panel;
-            SDL_Log ("Attempting to call plugin main");
-            loaded_plugins[1].plugin->set_host(&(loaded_plugins[1].host_api));
+//            SDL_Log ("Attempting to call plugin main");
+//            loaded_plugins[1].plugin->set_host(&(loaded_plugins[1].host_api));
             loaded_plugins[1].plugin->plugin_main(module_dims);
             master_flags.callsign.draw_flag = false;
             debug_log << "ITTERATE: Module Timer Callsign -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
@@ -145,20 +150,24 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             master_flags.dx_spots.draw_flag = false;
         }
         if (master_flags.ncdxf.draw_flag) {
-            debug_log << "ITTERATE: Calling NCDXF ("<< MOD_NCDXF <<")with panel " << master_flags.ncdxf.panel << "\n";
+            debug_log << "ITTERATE: Calling NCDXF ("<< MOD_NCDXF <<")with panel " <<  loaded_plugins[0].host_api->panel << "\n";
             debug_log.flush();
 //            ncdxf_module(*(master_flags.ncdxf.panel));
             aaediclock_FRect module_dims;
-            module_dims.w = master_flags.ncdxf.panel->dims.w;
-            module_dims.h = master_flags.ncdxf.panel->dims.h;
-            module_dims.x = master_flags.ncdxf.panel->dims.x;
-            module_dims.y = master_flags.ncdxf.panel->dims.y;
+//            module_dims.w = master_flags.ncdxf.panel->dims.w;
+//            module_dims.h = master_flags.ncdxf.panel->dims.h;
+//            module_dims.x = master_flags.ncdxf.panel->dims.x;
+//            module_dims.y = master_flags.ncdxf.panel->dims.y;
+            module_dims.w = loaded_plugins[0].host_api->panel->dims.w;
+            module_dims.h = loaded_plugins[0].host_api->panel->dims.h;
+            module_dims.x = loaded_plugins[0].host_api->panel->dims.x;
+            module_dims.y = loaded_plugins[0].host_api->panel->dims.y;
             SDL_Log ("Attempting to correct plugin panel settings");
-            winboxes[loaded_plugins[0].position].panel;
-            loaded_plugins[0].host_api.panel = &(winboxes[loaded_plugins[0].position].panel);
+//            winboxes[loaded_plugins[0].position].panel;
+//            loaded_plugins[0].host_api.panel = &(winboxes[loaded_plugins[0].position].panel);
 //            loaded_plugins[0].host_api.panel = master_flags.ncdxf.panel;
             SDL_Log ("Attempting to call plugin main");
-            loaded_plugins[0].plugin->set_host(&(loaded_plugins[0].host_api));
+//            loaded_plugins[0].plugin->set_host(&(loaded_plugins[0].host_api));
             loaded_plugins[0].plugin->plugin_main(module_dims);
             debug_log << "ITTERATE: Module Timer NCDXF -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             master_flags.ncdxf.draw_flag = false;

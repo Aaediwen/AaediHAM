@@ -11,6 +11,7 @@ class HostAPI final : public aaediclock_host_api {
           void AaediHAM_GraphicsClear(const aaediclock_Color& color = {0, 0, 0, 255}) override;
 
           const char* AaediHAM_ConfigGetCall() override;
+          void AaediHAM_LogDebug(const char* string);
           ScreenFrame*	panel = nullptr;
 };
 
@@ -27,7 +28,7 @@ struct PluginModule {
     bool                        draw_flag 				= 	false;		// trigger plugin this frame?
     int				id 					=	0;		// plugin numeric ID
     int				position				=	0;		// panel ID to use
-    HostAPI			host_api;							// plugin host API instance
+    HostAPI*			host_api;							// plugin host API instance
     std::string                 name;								// plugin description
 };
 
