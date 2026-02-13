@@ -376,14 +376,20 @@ namespace AaediClock_Init {
     #ifdef _WIN32
         register_module("plugins\\ncdxf_plugin.dll");
         register_module("plugins\\callsign_plugin.dll");
+        register_module("plugins\\clock_plugin.dll");
     #else
         register_module("plugins/libncdxf_plugin.so");
         register_module("plugins/libcallsign_plugin.so");
+        register_module("plugins/libclock_plugin.so");
     #endif
         loaded_plugins[0].position = 0;     // for testing try both in the callsign box
         loaded_plugins[1].position = 0;
-        winboxes[loaded_plugins[0].position].plugin_sequence.push_back(loaded_plugins[0].id);
-        winboxes[loaded_plugins[1].position].plugin_sequence.push_back(loaded_plugins[1].id);
+        loaded_plugins[2].position = 1;
+        for (auto& plugin : loaded_plugins) {
+            winboxes[plugin.position].plugin_sequence.push_back(plugin.id);
+        }
+//        winboxes[loaded_plugins[0].position].plugin_sequence.push_back(loaded_plugins[0].id);
+//        winboxes[loaded_plugins[1].position].plugin_sequence.push_back(loaded_plugins[1].id);
         return(SDL_APP_CONTINUE);
     }
 }

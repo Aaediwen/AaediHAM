@@ -3,12 +3,6 @@
 #include <string>
 #include "plugin_api.h"
 
-#ifdef _WIN32
-#define DllExport __declspec(dllexport)
-#else
-#define DLLExport
-#endif
-
 struct beacon {
     char call[10];
     std::string location;

@@ -40,7 +40,14 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         winboxes[PANEL_MAP].panel.draw_border();
         if (master_flags.clock.draw_flag) {
             debug_log << "ITTERATE: Calling Clock ("<< MOD_CLOCK <<") with panel " << &(winboxes[PANEL_CLOCK].panel) << "\n";
-            draw_clock(winboxes[PANEL_CLOCK].panel, Sans);
+//            draw_clock(winboxes[PANEL_CLOCK].panel, Sans);
+            aaediclock_FRect module_dims;
+
+            module_dims.w = loaded_plugins[2].host_api->panel->dims.w;
+            module_dims.h = loaded_plugins[2].host_api->panel->dims.h;
+            module_dims.x = loaded_plugins[2].host_api->panel->dims.x;
+            module_dims.y = loaded_plugins[2].host_api->panel->dims.y;
+            loaded_plugins[2].plugin->plugin_main(module_dims);
             master_flags.clock.draw_flag = false;
             debug_log << "ITTERATE: Module Timer Clock -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             debug_log.flush();

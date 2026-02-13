@@ -66,7 +66,7 @@ void panel_assignment(bool increment) {
                     master_flags.dx.panel = &panel.panel;
                     break;
                 case MOD_CLOCK:
-                    master_flags.clock.panel = &panel.panel;
+//                    master_flags.clock.panel = &panel.panel;
                     break;
                 case MOD_CALL:
 //                  master_flags.callsign.panel = &panel.panel;
@@ -260,38 +260,16 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 overlays.clear();
                 debug_log << "RESIZE: Clearing Screen Panels\n";
                 debug_log.flush();
-//                debug_log << "RESIZE: Callsign: " << &(panels[PANEL_CALLSIGN].panel) << "\n";
-//                debug_log.flush();
                 panels[PANEL_CALLSIGN].panel.Reset();
-//                debug_log << "RESIZE: Null: " << &(panels[PANEL_NULL].panel) << "\n";
-//                debug_log.flush();
                 panels[PANEL_NULL].panel.Reset();
-//                debug_log << "RESIZE: DE: " << &(panels[PANEL_DE].panel) << "\n";
-//                debug_log.flush();
                 panels[PANEL_DE].panel.Reset();
-//                debug_log << "RESIZE: DX: " << &(panels[PANEL_DX].panel) << "\n";
-//                debug_log.flush();
                 panels[PANEL_DX].panel.Reset();
-//                debug_log << "RESIZE: Clock: " << &(panels[PANEL_CLOCK].panel) << "\n";
-//                debug_log.flush();
                panels[PANEL_CLOCK].panel.Reset();
-//                debug_log << "RESIZE: Flex1: " << &(panels[PANEL_FLEXBOX1].panel) << "\n";
-//                debug_log.flush();
                 panels[PANEL_FLEXBOX1].panel.Reset();
-//                debug_log << "RESIZE: Flex2: " << &(panels[PANEL_FLEXBOX2].panel) << "\n";
-//                debug_log.flush();
                 panels[PANEL_FLEXBOX2].panel.Reset();
-//                debug_log << "RESIZE: Flex3: " << &(panels[PANEL_FLEXBOX3].panel) << "\n";
-//                debug_log.flush();
                 panels[PANEL_FLEXBOX3].panel.Reset();
-//                debug_log << "RESIZE: Flex4: " << &(panels[PANEL_FLEXBOX4].panel) << "\n";
-//                debug_log.flush();
                 panels[PANEL_FLEXBOX4].panel.Reset();
-//                debug_log << "RESIZE: Flex5: " << &(panels[PANEL_FLEXBOX5].panel) << "\n";
-//                debug_log.flush();
                 panels[PANEL_FLEXBOX5].panel.Reset();
-//                debug_log << "RESIZE: Map: " << &(panels[PANEL_MAP].panel) << "\n";
-//                debug_log.flush();
                 panels[PANEL_MAP].panel.Reset();
                 debug_log.flush();
 

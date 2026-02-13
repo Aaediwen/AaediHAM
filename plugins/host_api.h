@@ -4,15 +4,32 @@
 #ifdef _WIN32
 #include <windows.h>
 #endif
+#include <iostream>
+
+class debugbuf : public std::streambuf {
+     public:
+          std::string plugin_name;
+     protected:
+          int overflow(int c) override;
+          std::streamsize xsputn (const char* s, std::streamsize n);
+          int sync() override;
+     private:
+          std::string strbuf;
+};
 
 class HostAPI final : public aaediclock_host_api {
+
      public:
+          HostAPI();
+          ~HostAPI();
           void AaediHAM_GraphicsDrawText(const char* string, const aaediclock_Color color, const aaediclock_FRect dims) override;
           void AaediHAM_GraphicsClear(const aaediclock_Color& color = {0, 0, 0, 255}) override;
-
           const char* AaediHAM_ConfigGetCall() override;
-          void AaediHAM_LogDebug(const char* string);
           ScreenFrame*	panel = nullptr;
+          void set_plugin_name(const std::string& new_name);
+     private:
+          debugbuf debug_log_buffer;
+          std::istream* api_debug_log;
 };
 
 

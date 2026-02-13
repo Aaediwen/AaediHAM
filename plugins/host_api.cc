@@ -40,11 +40,6 @@ bool unregister_module (struct PluginModule* module) {
 }
 
 
-void HostAPI::AaediHAM_LogDebug (const char* string) {
-    debug_log << string;
-    return;
-}
-
 void HostAPI::AaediHAM_GraphicsDrawText (const char* string, const aaediclock_Color color, const aaediclock_FRect dims) {
 //    SDL_Log("Attempting Plugin Text write");
     SDL_FRect textbox;
@@ -61,6 +56,10 @@ void HostAPI::AaediHAM_GraphicsDrawText (const char* string, const aaediclock_Co
     this->panel->render_text(textbox, Sans, textcolor, string);
     return;
 }
+void HostAPI::set_plugin_name(const std::string& new_name) {
+    debug_log_buffer.plugin_name = new_name;
+    return;
+}
 
 void HostAPI::AaediHAM_GraphicsClear(const aaediclock_Color& color) {
 //    SDL_Log("Attempting Plugin Panel Clear");
@@ -70,6 +69,56 @@ void HostAPI::AaediHAM_GraphicsClear(const aaediclock_Color& color) {
     textcolor.b = color.b;
     textcolor.a = color.a;
     this->panel->Clear(textcolor);
+}
+
+
+int debugbuf::overflow(int c) {
+    strbuf.push_back(static_cast<char>(c));
+    if (c == '\n') {
+        debug_log << plugin_name << ": " << strbuf;
+        strbuf.clear();
+    }
+    if (strbuf.size() > 1024) {
+        debug_log << plugin_name << ": " << strbuf << "\n";
+        strbuf.clear();
+    }
+    if (c == EOF) {
+        debug_log << plugin_name << ": " << strbuf << "\n";
+        strbuf.clear();
+    }
+    return c;
+}
+
+std::streamsize debugbuf::xsputn (const char* s, std::streamsize n) {
+    std::streamsize count = 0;
+    for (std::streamsize i = 0; i < n; i++) {
+        int result = overflow(static_cast<unsigned char>(s[i]));
+        if (result != EOF) {
+            count++;
+        }
+    }
+    return count;
+}
+
+int debugbuf::sync() {
+    debug_log << plugin_name << ": " << strbuf << "\n";
+    strbuf.clear();
+    debug_log.flush();
+    return 0;
+}
+
+HostAPI::HostAPI() {
+    api_debug_log 	= new std::istream(&debug_log_buffer);
+    AaediHAM_LogDebug 	= new std::ostream(&debug_log_buffer);
+}
+
+HostAPI::~HostAPI() {
+    if (api_debug_log) {
+        delete (api_debug_log);
+    }
+    if (AaediHAM_LogDebug) {
+        delete (AaediHAM_LogDebug);
+    }
 }
 
 const char* HostAPI::AaediHAM_ConfigGetCall() {
@@ -159,6 +208,7 @@ bool register_module(const std::string& module_lib) {
     loaded_plugins.back().host_api = new(HostAPI);
     // init panel
     loaded_plugins.back().host_api->panel = nullptr;
+    loaded_plugins.back().host_api->set_plugin_name(loaded_plugins.back().name);
     loaded_plugins.back().plugin->set_host((loaded_plugins.back().host_api));
 
     std::cout << "Loaded symbols from "<< module_lib << "\n";

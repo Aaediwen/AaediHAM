@@ -59,6 +59,7 @@ struct internal_mouse_event {
     SDL_FPoint mod_cords;
     int mod_count;
     enum mod_name mod_owner;
+    int plugin_owner;
 };
 extern struct internal_mouse_event clock_mouse_event;
 struct map_pin {

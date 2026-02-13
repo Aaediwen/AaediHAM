@@ -57,6 +57,11 @@ add_library(callsign_plugin SHARED
 )
 target_link_libraries(callsign_plugin PRIVATE aaediclock_path)
 
+add_library(clock_plugin SHARED
+    plugins/clock.cc
+)
+target_link_libraries(clock_plugin PRIVATE aaediclock_path)
+
 # ================================================================================
 # CUSTOM DEPENDANCY FUNCTION
 # ================================================================================
