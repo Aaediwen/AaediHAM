@@ -23,6 +23,22 @@ struct aaediclock_Color {
     uint8_t a;
 };
 
+struct aaediclock_map_pin {
+    int owner;
+    double lat;
+    double lon;
+    void* icon;
+    aaediclock_Color color;
+    char label[16];
+    char tooltip[512];
+};
+
+
+struct plugin_mouse_event {
+    struct aaediclock_FRect coords;
+    int click_count;
+    bool valid = false;
+};
 
 class aaediclock_host_api {
     public:
@@ -30,6 +46,9 @@ class aaediclock_host_api {
         virtual void AaediHAM_GraphicsDrawText(const char* string, const aaediclock_Color color, const aaediclock_FRect dims) = 0;
         virtual void AaediHAM_GraphicsClear(const aaediclock_Color& color = {0, 0, 0, 255}) = 0;
         virtual const char* AaediHAM_ConfigGetCall() = 0;
+        virtual const struct plugin_mouse_event AaediHAM_GetMouseEvent() = 0;
+        virtual void AaediHAM_MapPinDelete() = 0;
+        virtual void AaediHAM_MapPinAdd(struct aaediclock_map_pin) =0;
         std::ostream* AaediHAM_LogDebug = nullptr;
         const uint32_t API_VERSION = 0001;
 };

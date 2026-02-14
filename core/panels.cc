@@ -72,7 +72,7 @@ void panel_assignment(bool increment) {
 //                  master_flags.callsign.panel = &panel.panel;
                     break;
                 case MOD_POTA:
-                    master_flags.pota.panel = &panel.panel;
+//                    master_flags.pota.panel = &panel.panel;
                     break;
                 case MOD_PSK:
                     master_flags.psk.panel = &panel.panel;

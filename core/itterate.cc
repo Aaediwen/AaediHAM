@@ -114,7 +114,20 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         }
         if (master_flags.pota.draw_flag) {
             debug_log << "ITTERATE: Calling POTA ("<< MOD_POTA <<")with panel " << master_flags.pota.panel << "\n";
-            pota_spots(*(master_flags.pota.panel), Sans);
+//            pota_spots(*(master_flags.pota.panel), Sans);
+            aaediclock_FRect module_dims;
+
+            module_dims.w = loaded_plugins[3].host_api->panel->dims.w;
+            module_dims.h = loaded_plugins[3].host_api->panel->dims.h;
+            module_dims.x = loaded_plugins[3].host_api->panel->dims.x;
+            module_dims.y = loaded_plugins[3].host_api->panel->dims.y;
+//            SDL_Log ("Attempting to correct plugin panel settings");
+//            loaded_plugins[1].host_api.panel = &(winboxes[loaded_plugins[1].position].panel);
+
+            //loaded_plugins[1].host_api.panel = master_flags.callsign.panel;
+//            SDL_Log ("Attempting to call plugin main");
+//            loaded_plugins[1].plugin->set_host(&(loaded_plugins[1].host_api));
+            loaded_plugins[3].plugin->plugin_main(module_dims);
             aurora_spots(*(master_flags.map.panel));
             master_flags.pota.draw_flag = false;
             debug_log << "ITTERATE: Module Timer POTA -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";

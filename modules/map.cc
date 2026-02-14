@@ -536,6 +536,11 @@ int draw_map(ScreenFrame& panel) {
             current_pin=current_pin->next;
         }
     }
+    if (!plugin_map_pins.empty()) {
+        for (auto& map_pin : plugin_map_pins) {
+            render_pin(overlay, &map_pin);
+        }
+    }
 /*
     // draw map overlays
        /// start with the map itself

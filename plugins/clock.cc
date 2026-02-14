@@ -1,5 +1,6 @@
 #include "clock.h"
 #include <ctime>
+#include <iostream>
 aaediclock_host_api* host_api = nullptr;
 extern "C" DllExport aaediclock_plugin_api* createPlugin() {
     return new clock_plugin();
@@ -19,6 +20,9 @@ void clock_plugin::plugin_exit() const {
 }
 
 void clock_plugin::plugin_main(const aaediclock_FRect& dims) const {
+    if (dims.h < 5 || dims.w <5) {
+        return;
+    }
 /*
     need some way to replicate these sanity checks
     if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
@@ -52,13 +56,10 @@ void clock_plugin::plugin_main(const aaediclock_FRect& dims) const {
     fontcolor.b=255;
     fontcolor.a=0;
     aaediclock_FRect TextRect;
-    // need to be able to process a mouse event
-    /*
-        if (clock_mouse_event.mod_owner == MOD_CLOCK) {
-        SDL_Log ("Click event in Clock module at %f, %f", clock_mouse_event.mod_cords.x, clock_mouse_event.mod_cords.y);
-        clock_mouse_event.mod_owner = MOD_NULL;
+    struct plugin_mouse_event mouse_event = host_api->AaediHAM_GetMouseEvent();
+    if (mouse_event.valid) {
+        std::cout << "Click Count "<< mouse_event.click_count << " event in Clock module at " << mouse_event.coords.x << ", "<< mouse_event.coords.y << "\n";
     }
-    */
 
      // generate the time strings
      // utc
@@ -71,7 +72,7 @@ void clock_plugin::plugin_main(const aaediclock_FRect& dims) const {
     struct tm* clocktime = gmtime(&currenttime);
     strftime(timestr, sizeof(timestr), "%Y-%m-%d", clocktime);
     host_api->AaediHAM_GraphicsDrawText(timestr, fontcolor, TextRect);
-    TextRect.x=((dims.w/5)*3)-4;;
+    TextRect.x=((dims.w/5)*3)-4;
 #ifndef _WIN32
     strftime(timestr, sizeof(timestr), "%H:%M:%S %Z", clocktime);
 #else

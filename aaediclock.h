@@ -64,6 +64,7 @@ struct internal_mouse_event {
 extern struct internal_mouse_event clock_mouse_event;
 struct map_pin {
     enum mod_name owner;
+    int plugin_owner;
     double lat;
     double lon;
     SDL_Texture* icon;
@@ -72,7 +73,7 @@ struct map_pin {
     char tooltip[512];
     struct map_pin *next;
 }  extern *map_pins;
-
+extern std::vector<struct map_pin>plugin_map_pins;
 struct data_blob {
     enum mod_name owner;
     time_t fetch_time;

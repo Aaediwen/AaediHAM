@@ -21,6 +21,7 @@ set (SOURCES
 	core/itterate.cc
 	core/quit.cc
 	core/event.cc
+	utils/http_fetch.cc
 	plugins/host_api.cc
 	modules/kindex.cc
 	modules/dx_spots.cc
@@ -61,6 +62,12 @@ add_library(clock_plugin SHARED
     plugins/clock.cc
 )
 target_link_libraries(clock_plugin PRIVATE aaediclock_path)
+
+add_library(pota_plugin SHARED
+    plugins/pota.cc
+    utils/http_fetch.cc
+)
+target_link_libraries(pota_plugin PRIVATE aaediclock_path)
 
 # ================================================================================
 # CUSTOM DEPENDANCY FUNCTION

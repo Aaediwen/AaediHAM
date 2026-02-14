@@ -3,6 +3,8 @@
 #include "aaediclock.h"
 #include "utils.h"
 #include <map>
+#include "utils/http_fetch.h"
+/*
 #ifdef _WIN32
 #define poll WSAPoll
 #include <winsock2.h>
@@ -13,6 +15,7 @@
 #include <error.h>
 #include <curl/curl.h>
 #endif
+*/
 #include <string>
 #include <iostream>
 #include <fstream>
@@ -20,6 +23,7 @@
 
 struct data_blob *data_cache = 0;		// main data cache
 struct map_pin   *map_pins = 0;			// active map pins
+std::vector<struct map_pin>plugin_map_pins;
 struct celest_coords g_celestials;              // sun and moon state
 
 int read_socket(dx_socket_t fd, std::string &result) {
@@ -912,7 +916,7 @@ std::string htmldecode(const std::string source) {
     }
     return result;
 }
-
+/*
 const std::string hexencode (const std::string source) {
     std::string result;
     result.clear();
@@ -1238,6 +1242,11 @@ Uint64 http_loader(const char* source_url, void** result) {
 ////    SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
     return 0;
 #endif
+}
+*/
+Uint64 http_loader(const char* source_url, void** result) {
+    std::string user_agent = clockconfig.CallSign()+"-clock-Agent/1.0";
+    return(http_loader(source_url, result, user_agent));
 }
 
 Uint64 cache_loader(const enum mod_name owner, void** result, time_t *result_time) {

@@ -43,7 +43,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                         if (pager.sequence.size()) {
                             clock_mouse_event.mod_cords = {modx, mody};
                             clock_mouse_event.mod_count = event->button.clicks;
-                            if (pager.sequence.size) {
+                            if (pager.sequence.size()) {
                                 clock_mouse_event.mod_owner = pager.sequence[pager.index];
                             }
                             if (pager.plugin_sequence.size()) {
