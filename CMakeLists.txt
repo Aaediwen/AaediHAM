@@ -13,6 +13,16 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # PROJECT SETUP
 # ================================================================================
 
+#
+#
+#	modules/de_dx.cc
+#	modules/pota.cc
+#	modules/callsign.cc
+#	modules/dx_spots.cc
+#	modules/ncdxf.cc
+#	modules/clock.cc
+#	modules/sat_tracker.cc
+
 set (SOURCES
 	core/init.cc
 	core/classes.cc
@@ -24,14 +34,7 @@ set (SOURCES
 	utils/http_fetch.cc
 	plugins/host_api.cc
 	modules/kindex.cc
-	modules/dx_spots.cc
-	modules/sat_tracker.cc
-	modules/de_dx.cc
-	modules/pota.cc
-	modules/callsign.cc
 	modules/map.cc
-	modules/clock.cc
-	modules/ncdxf.cc
 	modules/sun.cc
 	modules/wspr_tracker.cc
 	modules/lunar.cc
@@ -67,7 +70,38 @@ add_library(pota_plugin SHARED
     plugins/pota.cc
     utils/http_fetch.cc
 )
-target_link_libraries(pota_plugin PRIVATE aaediclock_path)
+target_link_libraries(pota_plugin PRIVATE aaediclock_path nlohmann_json::nlohmann_json)
+
+add_library(de_plugin SHARED
+    plugins/de.cc
+    utils/maidenhead.cc
+    utils/celestials.cc
+)
+target_link_libraries(de_plugin PRIVATE aaediclock_path)
+
+add_library(dx_plugin SHARED
+    plugins/dx.cc
+    utils/maidenhead.cc
+    utils/celestials.cc
+)
+target_link_libraries(dx_plugin PRIVATE aaediclock_path)
+
+add_library(dx_cluster_plugin SHARED
+    plugins/dx_cluster.cc
+    utils/http_fetch.cc
+    utils/socket.cc
+    utils/conversions.cc
+)
+target_link_libraries(dx_cluster_plugin PRIVATE aaediclock_path)
+
+add_library(sat_tracker_plugin SHARED
+    plugins/sat_tracker.cc
+    utils/http_fetch.cc
+    utils/conversions.cc
+)
+target_link_libraries(sat_tracker_plugin PRIVATE aaediclock_path sgp4 SDL3_image::SDL3_image)
+
+
 
 # ================================================================================
 # CUSTOM DEPENDANCY FUNCTION
@@ -91,6 +125,9 @@ endif()
         set(${symbol}_BINARY_DIR ${${symbol}_BINARY_DIR} PARENT_SCOPE)
 		target_include_directories(clock SYSTEM PRIVATE
 		${EXTERNAL_DIR}/${target} ${${symbol}_SOURCE_DIR}/include)
+		target_include_directories(sat_tracker_plugin SYSTEM PRIVATE
+                ${EXTERNAL_DIR}/${target} ${${symbol}_SOURCE_DIR}/include)
+
 	else()
 		message(STATUS "Using System ${symbol} ")
 	endif()
@@ -132,7 +169,7 @@ elseif(APPLE)
 else()
    	target_compile_options(clock PRIVATE
         	$<$<CONFIG:Debug>:-Wall -Wextra -Werror -Wunused -O0
--rdynamic -pg -g>
+-rdynamic -pg -g -Wl,--no-undefined>
         	$<$<CONFIG:Release>:-O3 -rdynamic -DNDEBUG>
     	)
 	target_compile_definitions(clock PRIVATE 

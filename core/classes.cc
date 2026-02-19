@@ -747,7 +747,7 @@ void map_overlay::clear() {
     zorder = 0;
     return;
 }
-ScreenFrame* map_overlay::get_overlay(SDL_Renderer* renderer, enum mod_name owner, SDL_FRect dims) {
+ScreenFrame* map_overlay::get_overlay(SDL_Renderer* renderer, uint16_t owner, SDL_FRect dims) {
     if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
         SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
@@ -785,7 +785,7 @@ ScreenFrame* map_overlay::get_overlay(SDL_Renderer* renderer, enum mod_name owne
     }
     return nullptr;
 }
-bool map_overlay::overlay_check(enum mod_name owner) {
+bool map_overlay::overlay_check(uint16_t owner) {
     for (auto& overlay : overlay_list) {
         if (overlay.owner == owner) {
             return true;
@@ -821,7 +821,7 @@ void map_overlay::reset_index() {
     return;
 }
 
-void map_overlay::remove_overlay(enum mod_name owner) {
+void map_overlay::remove_overlay(uint16_t owner) {
     for (auto it = overlay_list.begin(); it != overlay_list.end(); ++it) {
         if (it->owner == owner) {
             debug_log << "OVERLAY: Removing overlay for " << owner << "\n";
@@ -833,24 +833,112 @@ void map_overlay::remove_overlay(enum mod_name owner) {
     return;
 }
 
-map_icons::map_icons (SDL_Renderer* renderer) {
-    if (renderer) {
-        reload_icons(renderer);
-    }
+map_icons::map_icons () {
+    clear_icons();
 }
+
 map_icons::~map_icons() {
     clear_icons();
 }
+
 void map_icons::clear_icons() {
     debug_log << "ICONS: Clearing all icon textures\n";
-    for (SDL_Texture*& tex : icons) {
-        if (tex) {
-            SDL_DestroyTexture(tex);
-            tex = nullptr;
+    if (!icon_list.empty()) {
+        for (struct icon_entry& tex : icon_list) {
+            if (tex.icon) {
+                SDL_DestroyTexture(tex.icon);
+                tex.icon = nullptr;
+            }
         }
+    }
+    icon_list.clear();
+}
+
+bool map_icons::icon_check(uint16_t index, uint16_t owner) {
+    if (icon_list.empty() || index > icon_list.size()) {
+        return false;
+    }
+    if (icon_list[index-1].owner == owner) {
+        return true;
+    } else {
+        return false;
     }
 }
 
+SDL_Texture* map_icons::get_icon(uint16_t index) {
+    if (icon_list.empty() || index > icon_list.size()) {
+        return nullptr;
+    } else {
+        return icon_list[index-1].icon;
+    }
+}
+
+void map_icons::icon_delete(uint16_t owner, uint16_t index) {
+    if (icon_list.empty() || index > icon_list.size()) {
+        return;
+    }
+    index--;
+    if (icon_list[index].owner == owner) {
+        SDL_DestroyTexture(icon_list[index].icon);
+        icon_list[index].icon = nullptr;
+        icon_list[index].owner = 0;
+        return;
+    } else {
+        return;
+    }
+}
+
+uint16_t map_icons::icon_create(uint16_t owner, SDL_Surface* icon_image) {
+    struct icon_entry new_icon;
+    new_icon.owner = owner;
+    int w, h;
+    SDL_GetRenderOutputSize(clock_renderer, &w, &h);
+    w =(floor(w/50));
+    uint16_t result = 0;
+    SDL_Surface* scaled_surface = SDL_CreateSurface(w, w, SDL_PIXELFORMAT_RGBA8888);
+    SDL_ClearSurface(scaled_surface, 0,0,0,0);
+    if (scaled_surface) {
+        if (SDL_BlitSurfaceScaled(icon_image, NULL, scaled_surface, NULL, SDL_SCALEMODE_NEAREST)) {
+            new_icon.icon = SDL_CreateTextureFromSurface(clock_renderer, scaled_surface);
+            icon_list.push_back(new_icon);
+            result = (static_cast<uint16_t>(icon_list.size()));
+        }
+        SDL_DestroySurface(scaled_surface);
+    }
+    return result;
+}
+
+bool map_icons::icon_update(uint16_t owner, uint16_t index, SDL_Surface* icon_image) {
+    index--;
+    if (icon_list.empty() || index >= icon_list.size()) {
+        return false;
+    }
+    if (icon_list[index].owner != owner) {
+        return false;
+    }
+    if (icon_list[index].icon == nullptr) {
+        return false;
+    }
+    int w, h;
+    SDL_GetRenderOutputSize(clock_renderer, &w, &h);
+    w =(floor(w/50));
+    bool result = false;
+    SDL_Surface* scaled_surface = SDL_CreateSurface(w, w, SDL_PIXELFORMAT_RGBA8888);
+    SDL_ClearSurface(scaled_surface, 0,0,0,0);
+    if (scaled_surface) {
+        result = SDL_BlitSurfaceScaled(icon_image, NULL, scaled_surface, NULL, SDL_SCALEMODE_NEAREST);
+        if (result) {
+            result = SDL_UpdateTexture(icon_list[index].icon, NULL, scaled_surface->pixels , scaled_surface->pitch);
+        }
+        SDL_DestroySurface(scaled_surface);
+    } else {
+        result = false;
+    }
+    return result;
+}
+
+
+/*
 void map_icons::set_dynamic(SDL_Renderer* renderer, SDL_Surface* source, enum icon_names id) {
     if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
         SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
@@ -888,7 +976,9 @@ void map_icons::set_dynamic(SDL_Renderer* renderer, SDL_Surface* source, enum ic
     }
     return;
 }
+*/
 
+/*
 void map_icons::load_texture (SDL_Renderer* renderer, const std::string& path, const enum icon_names index) {
     icons[index]=nullptr;
     if (renderer) {
@@ -932,6 +1022,8 @@ void map_icons::load_texture (SDL_Renderer* renderer, const std::string& path, c
     }
     return;
 }
+*/
+/*
 void map_icons::reload_icons(SDL_Renderer* renderer) {
     if (renderer) {
         clear_icons();
@@ -940,9 +1032,4 @@ void map_icons::reload_icons(SDL_Renderer* renderer) {
     }
     return;
 }
-SDL_Texture* map_icons::get_icon(const enum icon_names index) {
-    if ((index < 0) || (index > icons.size())) {
-        return nullptr;
-    }
-    return (icons[index]);
-}
+*/

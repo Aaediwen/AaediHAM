@@ -60,10 +60,10 @@ void panel_assignment(bool increment) {
                     master_flags.map.panel = &panel.panel;
                     break;
                 case MOD_DE:
-                    master_flags.de.panel = &panel.panel;
+//                    master_flags.de.panel = &panel.panel;
                     break;
                 case MOD_DX:
-                    master_flags.dx.panel = &panel.panel;
+//                    master_flags.dx.panel = &panel.panel;
                     break;
                 case MOD_CLOCK:
 //                    master_flags.clock.panel = &panel.panel;
@@ -78,10 +78,10 @@ void panel_assignment(bool increment) {
                     master_flags.psk.panel = &panel.panel;
                     break;
                 case MOD_SAT:
-                    master_flags.sat_tracker.panel = &panel.panel;
+//                    master_flags.sat_tracker.panel = &panel.panel;
                     break;
                 case MOD_DXSPOT:
-                    master_flags.dx_spots.panel = &panel.panel;
+//                    master_flags.dx_spots.panel = &panel.panel;
                     break;
                 case MOD_KINDEX:
                     master_flags.kindex.panel = &panel.panel;
@@ -441,7 +441,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
 
                 debug_log << "RESIZE: Reloading Maps and Icon assets\n";
                 debug_log.flush();
-                icon_bin.reload_icons(clock_renderer);
+                icon_bin.clear_icons();
                 debug_log << "RESIZE: Re-enabling program loops\n";
                 debug_log.flush();
              // re-enable the rest of the program

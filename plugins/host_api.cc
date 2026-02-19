@@ -194,6 +194,11 @@ void HostAPI::set_plugin_name(const std::string& new_name) {
     return;
 }
 
+void HostAPI::AaediHAM_SetTarget() {
+    SDL_SetRenderTarget(this->panel->GetRenderer(), this->panel->texture);
+    return;
+}
+
 //********************************************************************************
 // Graphics Calls
 //********************************************************************************
@@ -213,6 +218,43 @@ void HostAPI::AaediHAM_GraphicsDrawText (const char* string, const aaediclock_Co
 
     this->panel->render_text(textbox, Sans, textcolor, string);
     return;
+}
+
+void HostAPI::AaediHAM_GraphicsDrawRect(const aaediclock_Color color, const aaediclock_FRect dims, bool filled) {
+
+       SDL_FRect host_dims;
+       host_dims.x = dims.x;
+       host_dims.y = dims.y;
+       host_dims.h = dims.h;
+       host_dims.w = dims.w;
+//       debug_log << "Plugin DrawRect: " << dims.x << ", "  << dims.y << ", "  << dims.h << ", "  << dims.w << "\n";
+//       debug_log << "Plugin DrawRect: " << host_dims.x << ", "  << host_dims.y << ", "  << host_dims.h << ", "  << host_dims.w << "\n";
+       SDL_SetRenderDrawColor(this->panel->GetRenderer(), color.r, color.g, color.b, color.a);
+       if (filled) {
+           SDL_RenderFillRect(this->panel->GetRenderer(), &host_dims );
+       } else {
+           SDL_RenderRect(this->panel->GetRenderer(), &host_dims );
+       }
+       return;
+}
+
+void HostAPI::AaediHAM_GraphicsDrawLine(const aaediclock_Color color, const aaediclock_FRect line) {
+       SDL_SetRenderDrawColor(this->panel->GetRenderer(), color.r, color.g, color.b, color.a);
+       SDL_RenderLine (this->panel->GetRenderer(), line.x, line.y, line.w, line.h);
+       return;
+}
+
+void HostAPI::AaediHAM_GraphicsDrawLines(const aaediclock_Color color, const aaediclock_FPoint* point_list, int count) {
+       std::vector<SDL_FPoint>new_points;
+       for (int c=0 ; c < count ; c++) {
+          SDL_FPoint new_point;
+          new_point.x = point_list[c].x;
+          new_point.y = point_list[c].y;
+          new_points.push_back(new_point);
+       }
+       SDL_SetRenderDrawColor(this->panel->GetRenderer(), color.r, color.g, color.b, color.a);
+       SDL_RenderLines(this->panel->GetRenderer(), new_points.data(), count);
+       return;
 }
 
 
@@ -249,13 +291,74 @@ const char* HostAPI::AaediHAM_ConfigGetCall() {
     return(clockconfig.CallSign().c_str());
 }
 
+const struct aaediclock_FRect HostAPI::AaediHAM_GetMapSize() {
+    aaediclock_FRect result;
+    result.x = winboxes[PANEL_MAP].panel.dims.x;
+    result.y = winboxes[PANEL_MAP].panel.dims.y;
+    result.h = winboxes[PANEL_MAP].panel.dims.h;
+    result.w = winboxes[PANEL_MAP].panel.dims.w;
+    return result;
+}
+
+struct plugin_server_info HostAPI::AaediHAM_ConfigGetDXServer() {
+    struct plugin_server_info result;
+    result.name = clockconfig.dxserver().name;
+    result.port = clockconfig.dxserver().port;
+    return result;
+}
+
+const char* HostAPI::AaediHAM_ConfigGetQRZKey(bool refresh) {
+    if (refresh) {
+        clockconfig.qrz_key(1);
+    }
+    return(clockconfig.qrz_key().c_str());
+}
+
+void HostAPI::AaediHAM_ConfigSetDX(struct aaediclock_dx new_dx) {
+    struct GeoCoord temp_coords;
+    temp_coords.latitude = new_dx.lat;
+    temp_coords.longitude = new_dx.lon;
+    clockconfig.set_DX(temp_coords, new_dx.label);
+    return;
+}
+
+struct aaediclock_dx HostAPI::AaediHAM_ConfigGetDX() {
+    struct aaediclock_dx result;
+    const GeoCoord dx_coords = clockconfig.DX();
+    result.lat = dx_coords.latitude;
+    result.lon = dx_coords.longitude;
+    result.label = clockconfig.DXmsg();
+    return result;
+}
+
+struct aaediclock_dx HostAPI::AaediHAM_ConfigGetDE() {
+    struct aaediclock_dx result;
+    const GeoCoord dx_coords = clockconfig.DE();
+    result.lat = dx_coords.latitude;
+    result.lon = dx_coords.longitude;
+    result.label = "";
+    return result;
+}
+
+int HostAPI::AaediHAM_ConfigGetSatCount() {
+    return (static_cast<int>(clockconfig.Sats().size()));
+}
+
+const char* HostAPI::AaediHAM_ConfigGetSat(int index) {
+    if ((index < 0) || (static_cast<size_t>(index) >= clockconfig.Sats().size())) {
+        return nullptr;
+    } else {
+        return (clockconfig.Sats()[index].c_str());
+    }
+}
+
 //********************************************************************************
 // MAP Pins
 //********************************************************************************
 
 void HostAPI::AaediHAM_MapPinDelete() {
     for (size_t index = plugin_map_pins.size() ; index >0 ; index--) {
-        if (plugin_map_pins[index-1].owner == plugin_id) {
+        if (plugin_map_pins[index-1].plugin_owner == plugin_id) {
             plugin_map_pins.erase(plugin_map_pins.begin()+index-1);
         }
     }
@@ -268,7 +371,11 @@ void HostAPI::AaediHAM_MapPinAdd(struct aaediclock_map_pin new_pin){
     host_pin.plugin_owner	=plugin_id;
     host_pin.lat		=new_pin.lat;
     host_pin.lon		=new_pin.lon;
-    host_pin.icon		= static_cast<SDL_Texture*>(new_pin.icon);
+    if (new_pin.icon) {
+       host_pin.icon		=icon_bin.get_icon(new_pin.icon);
+    } else {
+       host_pin.icon 		= nullptr;
+    }
     host_pin.color.r		=new_pin.color.r;
     host_pin.color.g		=new_pin.color.g;
     host_pin.color.b		=new_pin.color.b;
@@ -279,5 +386,98 @@ void HostAPI::AaediHAM_MapPinAdd(struct aaediclock_map_pin new_pin){
     memcpy		(host_pin.tooltip, new_pin.tooltip, 511);
     host_pin.next 		= nullptr;
     plugin_map_pins.push_back(host_pin);
+    return;
+}
+
+//********************************************************************************
+// Overlay Calls
+//********************************************************************************
+
+bool HostAPI::AaediHAM_OverlayCheck() {
+    uint16_t owner = plugin_id + 32; // +32 goes bye bye with the final old module
+    return (overlays.overlay_check(static_cast<enum mod_name>(owner)));
+}
+
+void HostAPI::AaediHAM_OverlaySet(aaediclock_FRect dims) {
+    uint16_t owner = plugin_id + 32; // +32 goes bye bye with the final old module
+    SDL_FRect host_dims;
+    host_dims.x = dims.x;
+    host_dims.y = dims.y;
+    host_dims.h = dims.h;
+    host_dims.w = dims.w;
+    ScreenFrame* overlay = overlays.get_overlay(this->panel->GetRenderer(), static_cast<enum mod_name>(owner), host_dims);
+    if (overlay && overlay->texture) {
+        SDL_SetRenderTarget(this->panel->GetRenderer(), overlay->texture);
+    }
+    return;
+}
+
+void HostAPI::AaediHAM_OverlayRemove() {
+    uint16_t owner = plugin_id + 32; // +32 goes bye bye with the final old module
+    overlays.remove_overlay(static_cast<enum mod_name>(owner));
+    return;
+}
+
+void HostAPI::AaediHAM_OverlayClear(const aaediclock_Color& color) {
+    uint16_t owner = plugin_id + 32; // +32 goes bye bye with the final old module
+//    SDL_Log("Attempting Plugin Panel Clear");
+    SDL_Color clearcolor;
+    clearcolor.r = color.r;
+    clearcolor.g = color.g;
+    clearcolor.b = color.b;
+    clearcolor.a = color.a;
+    if (overlays.overlay_check(static_cast<enum mod_name>(owner))) {
+        ScreenFrame* overlay = overlays.get_overlay(this->panel->GetRenderer(), owner, SDL_FRect{0,0,0,0});
+        overlay->Clear(clearcolor);
+    }
+    return;
+}
+
+//********************************************************************************
+// Icon Calls
+//********************************************************************************
+
+bool HostAPI::AaediHAM_IconCheck (uint16_t icon_index) {
+    uint16_t owner = plugin_id + 32; // +32 goes bye bye with the final old module
+    return (icon_bin.icon_check(icon_index, owner));
+}
+
+uint16_t HostAPI::AaediHAM_IconCreate (const aaediclock_icon_image& image_data) {
+    if ((image_data.width < 1) || (image_data.height < 1)) {
+        return 0;
+    }
+    uint16_t owner = plugin_id + 32; // +32 goes bye bye with the final old module
+    SDL_Surface* new_icon = SDL_CreateSurfaceFrom( image_data.width, image_data.height, SDL_PIXELFORMAT_RGBA8888, image_data.pixels, image_data.width*4);
+    uint16_t result = 0;
+    if (new_icon) {
+        result = icon_bin.icon_create(owner, new_icon);
+        SDL_DestroySurface(new_icon);
+    }
+
+    return (result);
+}
+
+bool HostAPI::AaediHAM_IconUpdate (uint16_t icon_index, const aaediclock_icon_image& image_data) {
+    if ((image_data.width < 1) || (image_data.height < 1)) {
+        return false;
+    }
+    uint16_t owner = plugin_id + 32; // +32 goes bye bye with the final old module
+    if (icon_bin.icon_check(icon_index, owner)) {
+        SDL_Surface* new_icon = SDL_CreateSurfaceFrom( image_data.width, image_data.height, SDL_PIXELFORMAT_RGBA8888, image_data.pixels, image_data.width*4);
+        if (new_icon) {
+           icon_bin.icon_update(owner, icon_index, new_icon);
+           SDL_DestroySurface(new_icon);
+           return true;
+        } else {
+           return false;
+        }
+    } else {
+        return false;
+    }
+}
+
+void HostAPI::AaediHAM_IconDelete (uint16_t icon_index) {
+    uint16_t owner = plugin_id + 32; // +32 goes bye bye with the final old module
+    icon_bin.icon_delete(icon_index, owner);
     return;
 }

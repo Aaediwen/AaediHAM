@@ -128,7 +128,7 @@ class map_overlay {
     private:
         struct transparancy {
             ScreenFrame panel;
-            enum mod_name owner;
+            uint16_t owner;
         };
         std::vector<struct transparancy> overlay_list;
         Uint8 zorder;
@@ -136,18 +136,40 @@ class map_overlay {
     public:
         map_overlay();
         ~map_overlay();
-        ScreenFrame* get_overlay(SDL_Renderer* renderer, enum mod_name owner, SDL_FRect dims); // return existing if present, or create a new and retu
-        bool overlay_check(enum mod_name owner);        // check if a overlay exists
+        ScreenFrame* get_overlay(SDL_Renderer* renderer, uint16_t owner, SDL_FRect dims); // return existing if present, or create a new and retu
+        bool overlay_check(uint16_t owner);        // check if a overlay exists
         void set_zorder(Uint8 priority);
-        void remove_overlay(enum mod_name owner); // remove any overlay owned by owner
+        void remove_overlay(uint16_t owner); // remove any overlay owned by owner
         ScreenFrame* next_overlay();   // somehow get or use a read-only itterator through overlay_list
         void reset_index();
         void clear(); // nuke all overlays
 };
 extern map_overlay overlays;
 
+class map_icons {
+    private:
+        struct icon_entry {
+            SDL_Texture* icon = nullptr;
+            uint16_t owner = 0;
+        };
+        std::vector<struct icon_entry> icon_list;
+    public:
+        map_icons();
+        ~map_icons();
+        map_icons(ScreenFrame&& source) = delete;
+        map_icons& operator=(map_icons&& source) = delete;
+        map_icons(const map_icons& source) = delete;
+        map_icons& operator=(const map_icons& source) = delete;
 
+        bool icon_check (uint16_t index, uint16_t owner);
+        uint16_t icon_create(uint16_t owner, SDL_Surface* icon_image);
+        bool icon_update(uint16_t owner, uint16_t index, SDL_Surface* icon_image);
+        void icon_delete(uint16_t owner, uint16_t index);
+        void clear_icons();
+        SDL_Texture* get_icon(uint16_t index);
+};
 
+/*
 class map_icons {
 
     public:
@@ -170,5 +192,6 @@ class map_icons {
         void load_texture (SDL_Renderer* renderer, const std::string& path, const enum icon_names index);
         void clear_icons();
 };
+*/
 extern map_icons icon_bin;
 #endif

@@ -36,11 +36,11 @@ void sample_plugin::plugin_main(const aaediclock_FRect& dims) const {
     host_api->AaediHAM_GraphicsDrawText(callsign, fontcolor, TextRect);
 }
 
-const char* callsign_plugin::getName() const {
+const char* sample_plugin::getName() const {
     return "Sample Module";
 }
 
-void callsign_plugin::set_host(aaediclock_host_api* host) {
+void sample_plugin::set_host(aaediclock_host_api* host) {
     host_api = host;
 }
 

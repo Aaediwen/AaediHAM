@@ -16,6 +16,11 @@ struct aaediclock_FRect {
     float w;
 };
 
+struct aaediclock_FPoint {
+    float x;
+    float y;
+};
+
 struct aaediclock_Color {
     uint8_t r;
     uint8_t g;
@@ -27,12 +32,24 @@ struct aaediclock_map_pin {
     int owner;
     double lat;
     double lon;
-    void* icon;
+    uint16_t icon;
     aaediclock_Color color;
     char label[16];
     char tooltip[512];
 };
 
+struct aaediclock_icon_image {
+    // image width, height, and RGBA format
+    uint16_t width;
+    uint16_t height;
+    uint8_t*  pixels;
+};
+
+struct aaediclock_dx {
+    double lat;
+    double lon;
+    std::string label;
+};
 
 struct plugin_mouse_event {
     struct aaediclock_FRect coords;
@@ -40,15 +57,46 @@ struct plugin_mouse_event {
     bool valid = false;
 };
 
+struct plugin_server_info {
+    std::string name;
+    uint16_t port;
+};
+
 class aaediclock_host_api {
     public:
+        // graphics calls
+        virtual void 				AaediHAM_SetTarget		() 										= 0;
+        virtual void 				AaediHAM_GraphicsDrawText	(const char* string, const aaediclock_Color color, const aaediclock_FRect dims) = 0;
+        virtual void 				AaediHAM_GraphicsDrawRect	(const aaediclock_Color color, const aaediclock_FRect dims, bool filled) 	= 0;
+        virtual void 				AaediHAM_GraphicsDrawLine	(const aaediclock_Color color, const aaediclock_FRect line) 			= 0;
+        virtual void 				AaediHAM_GraphicsDrawLines	(const aaediclock_Color color, const aaediclock_FPoint* point_list, int count)	= 0;
+        virtual void 				AaediHAM_GraphicsClear		(const aaediclock_Color& color = {0, 0, 0, 255}) 				= 0;
+        // config calls
+        virtual const char* 			AaediHAM_ConfigGetQRZKey	(bool refresh) 									= 0;
+        virtual const char* 			AaediHAM_ConfigGetCall		() 										= 0;
+        virtual struct aaediclock_dx 		AaediHAM_ConfigGetDE		() 										= 0;
+        virtual void 				AaediHAM_ConfigSetDX		(struct aaediclock_dx new_dx) 							= 0;
+        virtual struct aaediclock_dx 		AaediHAM_ConfigGetDX		() 										= 0;
+        virtual struct plugin_server_info	AaediHAM_ConfigGetDXServer	() 										= 0;
+        virtual int				AaediHAM_ConfigGetSatCount	()										= 0;
+        virtual const char*			AaediHAM_ConfigGetSat		(int index)									= 0;
+        // program state calls
+        virtual const struct plugin_mouse_event AaediHAM_GetMouseEvent		() 										= 0;
+        virtual const struct aaediclock_FRect 	AaediHAM_GetMapSize		() 										= 0;
+        // map pins
+        virtual void 				AaediHAM_MapPinDelete		() 										= 0;
+        virtual void 				AaediHAM_MapPinAdd		(struct aaediclock_map_pin) 							= 0;
+        // overlay calls
+        virtual bool 				AaediHAM_OverlayCheck		()		 								= 0;
+        virtual void 				AaediHAM_OverlaySet		(aaediclock_FRect dims) 							= 0;
+        virtual void 				AaediHAM_OverlayRemove		() 										= 0;
+        virtual void				AaediHAM_OverlayClear		(const aaediclock_Color& color = {0, 0, 0, 255}) 				= 0;
+        // icon calls
+        virtual bool				AaediHAM_IconCheck		(uint16_t icon_index)								= 0;
+        virtual uint16_t			AaediHAM_IconCreate		(const aaediclock_icon_image& image_data)					= 0;
+        virtual bool				AaediHAM_IconUpdate		(uint16_t index, const aaediclock_icon_image& image_data)			= 0;
+        virtual void				AaediHAM_IconDelete		(uint16_t index)								= 0;
 
-        virtual void AaediHAM_GraphicsDrawText(const char* string, const aaediclock_Color color, const aaediclock_FRect dims) = 0;
-        virtual void AaediHAM_GraphicsClear(const aaediclock_Color& color = {0, 0, 0, 255}) = 0;
-        virtual const char* AaediHAM_ConfigGetCall() = 0;
-        virtual const struct plugin_mouse_event AaediHAM_GetMouseEvent() = 0;
-        virtual void AaediHAM_MapPinDelete() = 0;
-        virtual void AaediHAM_MapPinAdd(struct aaediclock_map_pin) =0;
         std::ostream* AaediHAM_LogDebug = nullptr;
         const uint32_t API_VERSION = 0001;
 };

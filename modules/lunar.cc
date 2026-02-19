@@ -580,7 +580,7 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
                 SDL_DestroyTexture(moon_texture);
                 moon_texture = 0;
             }
-            icon_bin.set_dynamic(panel.GetRenderer(), moon_image, map_icons::ICON_MOON);
+//            icon_bin.set_dynamic(panel.GetRenderer(), moon_image, map_icons::ICON_MOON);
             moon_texture = SDL_CreateTextureFromSurface(panel.GetRenderer(), moon_image);
             regen_moon_texture = false;
         }
@@ -655,10 +655,12 @@ void lunar_module(ScreenFrame& panel, time_t timestamp) {
     moon_pin.color=lunar_text_color;
     moon_pin.tooltip[0]=0;
     delete_owner_pins(MOD_LUNAR);
-    moon_pin.icon = icon_bin.get_icon(map_icons::ICON_MOON);
+    moon_pin.icon = 0;
+//    moon_pin.icon = icon_bin.get_icon(map_icons::ICON_MOON);
     if (!moon_pin.icon && moon_image) {
-        icon_bin.set_dynamic(panel.GetRenderer(), moon_image, map_icons::ICON_MOON);
-         moon_pin.icon = icon_bin.get_icon(map_icons::ICON_MOON);
+//        icon_bin.set_dynamic(panel.GetRenderer(), moon_image, map_icons::ICON_MOON);
+//         moon_pin.icon = icon_bin.get_icon(map_icons::ICON_MOON);
+        moon_pin.icon = 0;
     }
     SDL_UnlockMutex(moon_mutex);
     add_pin(&moon_pin);

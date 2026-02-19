@@ -373,26 +373,36 @@ namespace AaediClock_Init {
     }
 
     SDL_AppResult Plugin_Loader() {
+        struct plugin_entry {
+            std::string filename;
+            size_t position;
+        };
+        std::vector<struct plugin_entry>plugin_list;
     #ifdef _WIN32
-        register_module("plugins\\ncdxf_plugin.dll");
-        register_module("plugins\\callsign_plugin.dll");
-        register_module("plugins\\clock_plugin.dll");
-        register_module("plugins\\pota_plugin.dll");
+        plugin_list.push_back({"plugins\\ncdxf_plugin.dll",5});
+        plugin_list.push_back({"plugins\\callsign_plugin.dll",0});
+        plugin_list.push_back({"plugins\\clock_plugin.dll",1});
+        plugin_list.push_back({"plugins\\pota_plugin.dll",5});
+        plugin_list.push_back({"plugins\\de_plugin.dll",3});
+        plugin_list.push_back({"plugins\\dx_plugin.dll",4});
+        plugin_list.push_back({"plugins\\dx_cluster_plugin.dll",5});
+        plugin_list.push_back({"plugins\\sat_tracker_plugin.dll",7});
     #else
-        register_module("plugins/libncdxf_plugin.so");
-        register_module("plugins/libcallsign_plugin.so");
-        register_module("plugins/libclock_plugin.so");
-        register_module("plugins/libpota_plugin.so");
+        plugin_list.push_back({"plugins/libncdxf_plugin.so",5});
+        plugin_list.push_back({"plugins/libcallsign_plugin.so",0});
+        plugin_list.push_back({"plugins/libclock_plugin.so",1});
+        plugin_list.push_back({"plugins/libpota_plugin.so",5});
+        plugin_list.push_back({"plugins/libde_plugin.so",3});
+        plugin_list.push_back({"plugins/libdx_plugin.so",4});
+        plugin_list.push_back({"plugins/libdx_cluster_plugin.so",5});
+        plugin_list.push_back({"plugins/libsat_tracker_plugin.so",7});
     #endif
-        loaded_plugins[0].position = 0;     // for testing try both in the callsign box
-        loaded_plugins[1].position = 0;
-        loaded_plugins[2].position = 1;
-        loaded_plugins[3].position = 5;
-        for (auto& plugin : loaded_plugins) {
-            winboxes[plugin.position].plugin_sequence.push_back(plugin.id);
+        for (auto& plugin_load : plugin_list) {
+            register_module(plugin_load.filename);
+            loaded_plugins.back().position = plugin_load.position;
+            winboxes[plugin_load.position].plugin_sequence.push_back(loaded_plugins.back().id);
         }
-//        winboxes[loaded_plugins[0].position].plugin_sequence.push_back(loaded_plugins[0].id);
-//        winboxes[loaded_plugins[1].position].plugin_sequence.push_back(loaded_plugins[1].id);
+
         return(SDL_APP_CONTINUE);
     }
 }

@@ -124,19 +124,23 @@ extern "C" DllExport void destroyPlugin(aaediclock_plugin_api* target) {
 }
 
 void pota_plugin::plugin_init() const {
+     if (!pota_timer) {
+          pota_timer = SDL_AddTimer(30, fetch_pota, NULL);
+     }
     return;
 }
 
 void pota_plugin::plugin_exit() const {
+    const std::lock_guard<std::mutex>pota_lock(pota_mutex);
+     if (pota_timer) {
+         SDL_RemoveTimer(pota_timer);
+     }
     return;
 }
 
 
 
 void pota_plugin::plugin_main(const aaediclock_FRect& dims) const {
-     if (!pota_timer) {
-          pota_timer = SDL_AddTimer(30, fetch_pota, NULL);
-     }
 
     int c, tot;
     c=0;
@@ -155,11 +159,7 @@ void pota_plugin::plugin_main(const aaediclock_FRect& dims) const {
     int reload_flag =0;
     std::istringstream spots_raw;
     // fetch the POTA spot data
-//    delete_owner_pins(MOD_POTA);
     host_api->AaediHAM_MapPinDelete();
-
-
-
     // convert the POTA JSON to an object
     int goodread;
     goodread = 1;
@@ -177,6 +177,7 @@ void pota_plugin::plugin_main(const aaediclock_FRect& dims) const {
     TextRect.h=dims.h/11;
     TextRect.x=5;
     TextRect.y=((dims.h/11)+(dims.h/150));
+    const std::lock_guard<std::mutex>pota_lock(pota_mutex);
     if (!active_spots.empty()) {
         struct plugin_mouse_event mouse_event = host_api->AaediHAM_GetMouseEvent();
         // we have legitimate data
@@ -216,7 +217,11 @@ void pota_plugin::plugin_main(const aaediclock_FRect& dims) const {
                       if ( mouse_event.coords.y >=TextRect.y &&  mouse_event.coords.y <= (TextRect.y+TextRect.h)) {
                            const std::string dxlabel = pota_pin.label;
                            // need to add the set_DX API call
-//                           clockconfig.set_DX(GeoCoord{pota_pin.lat, pota_pin.lon}, dxlabel);
+                           struct aaediclock_dx new_dx;
+                           new_dx.lat = pota_pin.lat;
+                           new_dx.lon = pota_pin.lon;
+                           new_dx.label = dxlabel;
+                           host_api->AaediHAM_ConfigSetDX(new_dx);
                       }
                  }
                  TextRect.y += ((dims.h/11)+(dims.h/150));

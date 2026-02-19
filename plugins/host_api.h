@@ -22,12 +22,39 @@ class HostAPI final : public aaediclock_host_api {
      public:
           HostAPI(int new_id);
           ~HostAPI();
-          void AaediHAM_GraphicsDrawText(const char* string, const aaediclock_Color color, const aaediclock_FRect dims) override;
-          void AaediHAM_GraphicsClear(const aaediclock_Color& color = {0, 0, 0, 255}) override;
-          const char* AaediHAM_ConfigGetCall() override;
-          void AaediHAM_MapPinDelete() override;
-          void AaediHAM_MapPinAdd(struct aaediclock_map_pin) override;
+          // graphics calls
+          void AaediHAM_SetTarget				() override;
+          void AaediHAM_GraphicsDrawText			(const char* string, const aaediclock_Color color, const aaediclock_FRect dims) override;
+          void AaediHAM_GraphicsDrawRect			(const aaediclock_Color color, const aaediclock_FRect dims, bool filled) override;
+          void AaediHAM_GraphicsDrawLine			(const aaediclock_Color color, const aaediclock_FRect line) override;
+          void AaediHAM_GraphicsDrawLines			(const aaediclock_Color color, const aaediclock_FPoint* point_list, int count) override;
+          void AaediHAM_GraphicsClear				(const aaediclock_Color& color = {0, 0, 0, 255}) override;
+          // config calls
+          const char* AaediHAM_ConfigGetQRZKey			(bool refresh = false) override;
+          const char* AaediHAM_ConfigGetCall			() override;
+          struct aaediclock_dx AaediHAM_ConfigGetDE		() override;
+          void AaediHAM_ConfigSetDX				(struct aaediclock_dx new_dx) override;
+          struct aaediclock_dx AaediHAM_ConfigGetDX		() override;
+          struct plugin_server_info AaediHAM_ConfigGetDXServer	() override;
+          int AaediHAM_ConfigGetSatCount			() override;
+          const char* AaediHAM_ConfigGetSat			(int index) override;
+          // map pins
+          void AaediHAM_MapPinDelete				() override;
+          void AaediHAM_MapPinAdd				(struct aaediclock_map_pin) override;
+          // program state requests
+          const struct aaediclock_FRect AaediHAM_GetMapSize	() override;
           const struct plugin_mouse_event AaediHAM_GetMouseEvent() override;
+          // overlay calls
+          bool AaediHAM_OverlayCheck				() override;
+          void AaediHAM_OverlaySet				(aaediclock_FRect dims) override;
+          void AaediHAM_OverlayRemove				() override;
+          void AaediHAM_OverlayClear				(const aaediclock_Color& color = {0, 0, 0, 255}) override;
+          // icon calls
+          bool AaediHAM_IconCheck				(uint16_t icon_index) override;
+          uint16_t AaediHAM_IconCreate				(const aaediclock_icon_image& image_data) override;
+          bool AaediHAM_IconUpdate				(uint16_t icon_index, const aaediclock_icon_image& image_data) override;
+          void AaediHAM_IconDelete				(uint16_t icon_index) override;
+          // internal state
           ScreenFrame*	panel = nullptr;
           void set_plugin_name(const std::string& new_name);
      private:

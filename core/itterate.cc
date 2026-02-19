@@ -48,6 +48,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             module_dims.x = loaded_plugins[2].host_api->panel->dims.x;
             module_dims.y = loaded_plugins[2].host_api->panel->dims.y;
             loaded_plugins[2].plugin->plugin_main(module_dims);
+            SDL_SetRenderTarget(clock_renderer, NULL);
             master_flags.clock.draw_flag = false;
             debug_log << "ITTERATE: Module Timer Clock -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             debug_log.flush();
@@ -68,17 +69,8 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             module_dims.h = loaded_plugins[1].host_api->panel->dims.h;
             module_dims.x = loaded_plugins[1].host_api->panel->dims.x;
             module_dims.y = loaded_plugins[1].host_api->panel->dims.y;
-//            module_dims.w = master_flags.callsign.panel->dims.w;
-//            module_dims.h = master_flags.callsign.panel->dims.h;
-//            module_dims.x = master_flags.callsign.panel->dims.x;
-//            module_dims.y = master_flags.callsign.panel->dims.y;
-//            SDL_Log ("Attempting to correct plugin panel settings");
-//            loaded_plugins[1].host_api.panel = &(winboxes[loaded_plugins[1].position].panel);
-
-            //loaded_plugins[1].host_api.panel = master_flags.callsign.panel;
-//            SDL_Log ("Attempting to call plugin main");
-//            loaded_plugins[1].plugin->set_host(&(loaded_plugins[1].host_api));
             loaded_plugins[1].plugin->plugin_main(module_dims);
+            SDL_SetRenderTarget(clock_renderer, NULL);
             master_flags.callsign.draw_flag = false;
             debug_log << "ITTERATE: Module Timer Callsign -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             debug_log.flush();
@@ -92,15 +84,34 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             debug_log.flush();
         }
         if (master_flags.de.draw_flag) {
+        //4
+
             debug_log << "ITTERATE: Calling DE ("<< MOD_DE <<")with panel " << master_flags.de.panel << "\n";
-            draw_de_dx(*(master_flags.de.panel), Sans, clockconfig.DE().latitude, clockconfig.DE().longitude, 1);
+//            draw_de_dx(*(master_flags.de.panel), Sans, clockconfig.DE().latitude, clockconfig.DE().longitude, 1);
+            aaediclock_FRect module_dims;
+
+            module_dims.w = loaded_plugins[4].host_api->panel->dims.w;
+            module_dims.h = loaded_plugins[4].host_api->panel->dims.h;
+            module_dims.x = loaded_plugins[4].host_api->panel->dims.x;
+            module_dims.y = loaded_plugins[4].host_api->panel->dims.y;
+            loaded_plugins[4].plugin->plugin_main(module_dims);
+            SDL_SetRenderTarget(clock_renderer, NULL);
             master_flags.de.draw_flag = false;
             debug_log << "ITTERATE: Module Timer DE -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             debug_log.flush();
         }
         if (master_flags.dx.draw_flag) {
+        // 5
             debug_log << "ITTERATE: Calling DX ("<< MOD_DX <<")with panel " << master_flags.dx.panel << "\n";
-            draw_de_dx(*(master_flags.dx.panel), Sans, clockconfig.DX().latitude, clockconfig.DX().longitude, 0);
+//            draw_de_dx(*(master_flags.dx.panel), Sans, clockconfig.DX().latitude, clockconfig.DX().longitude, 0);
+            aaediclock_FRect module_dims;
+
+            module_dims.w = loaded_plugins[5].host_api->panel->dims.w;
+            module_dims.h = loaded_plugins[5].host_api->panel->dims.h;
+            module_dims.x = loaded_plugins[5].host_api->panel->dims.x;
+            module_dims.y = loaded_plugins[5].host_api->panel->dims.y;
+            loaded_plugins[5].plugin->plugin_main(module_dims);
+            SDL_SetRenderTarget(clock_renderer, NULL);
             master_flags.dx.draw_flag = false;
             debug_log << "ITTERATE: Module Timer DX -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             debug_log.flush();
@@ -128,7 +139,8 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 //            SDL_Log ("Attempting to call plugin main");
 //            loaded_plugins[1].plugin->set_host(&(loaded_plugins[1].host_api));
             loaded_plugins[3].plugin->plugin_main(module_dims);
-            aurora_spots(*(master_flags.map.panel));
+            SDL_SetRenderTarget(clock_renderer, NULL);
+//            aurora_spots(*(master_flags.map.panel));
             master_flags.pota.draw_flag = false;
             debug_log << "ITTERATE: Module Timer POTA -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             debug_log.flush();
@@ -156,39 +168,45 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             debug_log << "ITTERATE: Module Timer Contests -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
         }
         if (master_flags.sat_tracker.draw_flag) {
-            debug_log << "ITTERATE: Calling Sat Tracker ("<< MOD_SAT <<")with panel " << master_flags.sat_tracker.panel << "\n";
+            debug_log << "ITTERATE: Calling Sat Tracker ("<< MOD_SAT <<")with panel " << loaded_plugins[7].host_api->panel << "\n";
             debug_log.flush();
-            sat_tracker (*(master_flags.sat_tracker.panel), Sans, winboxes[PANEL_MAP].panel);
+//            sat_tracker (*(master_flags.sat_tracker.panel), Sans, winboxes[PANEL_MAP].panel);
+            aaediclock_FRect module_dims;
+            module_dims.w = loaded_plugins[7].host_api->panel->dims.w;
+            module_dims.h = loaded_plugins[7].host_api->panel->dims.h;
+            module_dims.x = loaded_plugins[7].host_api->panel->dims.x;
+            module_dims.y = loaded_plugins[7].host_api->panel->dims.y;
+            loaded_plugins[7].plugin->plugin_main(module_dims);
+            SDL_SetRenderTarget(clock_renderer, NULL);
             master_flags.sat_tracker.draw_flag = false;
             debug_log << "ITTERATE: Module Timer Sat Tracker -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
         }
         if (master_flags.dx_spots.draw_flag) {
             debug_log << "ITTERATE: Calling DX Spots ("<< MOD_DXSPOT <<")with panel " << master_flags.dx_spots.panel << "\n";
             debug_log.flush();
-            dx_cluster(*(master_flags.dx_spots.panel));
+  //          dx_cluster(*(master_flags.dx_spots.panel));
+            aaediclock_FRect module_dims;
+            module_dims.w = loaded_plugins[6].host_api->panel->dims.w;
+            module_dims.h = loaded_plugins[6].host_api->panel->dims.h;
+            module_dims.x = loaded_plugins[6].host_api->panel->dims.x;
+            module_dims.y = loaded_plugins[6].host_api->panel->dims.y;
+            loaded_plugins[6].plugin->plugin_main(module_dims);
+            SDL_SetRenderTarget(clock_renderer, NULL);
             debug_log << "ITTERATE: Module Timer DX Spots -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             master_flags.dx_spots.draw_flag = false;
         }
         if (master_flags.ncdxf.draw_flag) {
             debug_log << "ITTERATE: Calling NCDXF ("<< MOD_NCDXF <<")with panel " <<  loaded_plugins[0].host_api->panel << "\n";
             debug_log.flush();
-//            ncdxf_module(*(master_flags.ncdxf.panel));
             aaediclock_FRect module_dims;
-//            module_dims.w = master_flags.ncdxf.panel->dims.w;
-//            module_dims.h = master_flags.ncdxf.panel->dims.h;
-//            module_dims.x = master_flags.ncdxf.panel->dims.x;
-//            module_dims.y = master_flags.ncdxf.panel->dims.y;
             module_dims.w = loaded_plugins[0].host_api->panel->dims.w;
             module_dims.h = loaded_plugins[0].host_api->panel->dims.h;
             module_dims.x = loaded_plugins[0].host_api->panel->dims.x;
             module_dims.y = loaded_plugins[0].host_api->panel->dims.y;
             SDL_Log ("Attempting to correct plugin panel settings");
-//            winboxes[loaded_plugins[0].position].panel;
-//            loaded_plugins[0].host_api.panel = &(winboxes[loaded_plugins[0].position].panel);
-//            loaded_plugins[0].host_api.panel = master_flags.ncdxf.panel;
             SDL_Log ("Attempting to call plugin main");
-//            loaded_plugins[0].plugin->set_host(&(loaded_plugins[0].host_api));
             loaded_plugins[0].plugin->plugin_main(module_dims);
+            SDL_SetRenderTarget(clock_renderer, NULL);
             debug_log << "ITTERATE: Module Timer NCDXF -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             master_flags.ncdxf.draw_flag = false;
         }

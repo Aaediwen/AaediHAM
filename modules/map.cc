@@ -9,6 +9,11 @@ SDL_Surface* mask_surface 	= nullptr;
 SDL_FRect old_dims 		= {0.0, 0.0, 0.0, 0.0};
 
 
+enum map_overlays : uint16_t {
+    map 	=	1001,
+    pins	=	1002
+};
+
 void load_maps(SDL_Renderer* target_renderer, const SDL_FRect size) {
     (void)size;
     debug_log << "MAP: Reloading Maps\n";
@@ -453,15 +458,15 @@ int draw_map(ScreenFrame& panel) {
     SDL_FRect mapsize ;
     mapsize.w = panel.dims.w;
     mapsize.h = panel.dims.h;
-    ScreenFrame* overlay = overlays.get_overlay(panel.GetRenderer(), MOD_MAP, mapsize);
-
+    ScreenFrame* map_overlay = overlays.get_overlay(panel.GetRenderer(), map_overlays::map, mapsize);
+    map_overlay->Clear(SDL_Color{0,0,0,255});
     // set the render target
-    if (!SDL_SetRenderTarget(panel.GetRenderer(), overlay->texture)) {
+    if (!SDL_SetRenderTarget(panel.GetRenderer(), map_overlay->texture)) {
 //    if (!SDL_SetRenderTarget(panel.GetRenderer(), panel.texture)) {
         debug_log << "MAP: Failed to set render target: " << SDL_GetError() << "\n";
         return 1;
     }
-
+    SDL_RenderClear(panel.GetRenderer());
     // render the Day Map
     if (DayMap.texture) {
         SDL_RenderTexture(panel.GetRenderer(), DayMap.texture, NULL, NULL);
@@ -525,20 +530,26 @@ int draw_map(ScreenFrame& panel) {
     SDL_RenderLine(panel.GetRenderer(), 0,tropic, panel.dims.w, tropic);
     tropic = ((23.4f+90.0f) * panel.dims.h)/180.0f;
     SDL_RenderLine(panel.GetRenderer(), 0,tropic, panel.dims.w, tropic);
+    ScreenFrame* pin_overlay = overlays.get_overlay(panel.GetRenderer(), map_overlays::pins, mapsize);
+    pin_overlay->Clear(SDL_Color{0,0,0,0});
+    // set the render target
+    SDL_SetRenderTarget(panel.GetRenderer(), pin_overlay->texture);
 
     // draw map pins
+    // old pins
     if (map_pins) {
         struct map_pin* current_pin;
         current_pin=map_pins;
         while (current_pin) {
 //            render_pin(&panel, current_pin);
-            render_pin(overlay, current_pin);
+            render_pin(pin_overlay, current_pin);
             current_pin=current_pin->next;
         }
     }
+    // new plugin pins
     if (!plugin_map_pins.empty()) {
         for (auto& map_pin : plugin_map_pins) {
-            render_pin(overlay, &map_pin);
+            render_pin(pin_overlay, &map_pin);
         }
     }
 /*
@@ -596,16 +607,20 @@ void draw_overlays(ScreenFrame& panel) {
     SDL_FRect mapsize ;
     mapsize.w = panel.dims.w;
     mapsize.h = panel.dims.h;
-    ScreenFrame* overlay = overlays.get_overlay(panel.GetRenderer(), MOD_MAP, mapsize);
-
+    ScreenFrame* overlay = overlays.get_overlay(panel.GetRenderer(), map_overlays::map, mapsize);
+    ScreenFrame* pins_overlay = overlays.get_overlay(panel.GetRenderer(), map_overlays::pins, mapsize);
        /// draw the rest of the overlays, skip the map one
     overlays.reset_index();
     ScreenFrame* render_overlay = overlay;
     SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
     SDL_SetTextureBlendMode(render_overlay->texture, SDL_BLENDMODE_BLEND);
     SDL_RenderTexture(panel.GetRenderer(), render_overlay->texture, NULL, NULL);
+    render_overlay = pins_overlay;
+    SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
+    SDL_SetTextureBlendMode(render_overlay->texture, SDL_BLENDMODE_BLEND);
+    SDL_RenderTexture(panel.GetRenderer(), render_overlay->texture, NULL, NULL);
     while (render_overlay) {
-         if (render_overlay != overlay) {
+         if ((render_overlay != overlay) && (render_overlay != pins_overlay)) {
               SDL_SetTextureBlendMode(render_overlay->texture, SDL_BLENDMODE_BLEND);
               SDL_RenderTexture(panel.GetRenderer(), render_overlay->texture, NULL, NULL);
          }

@@ -23,29 +23,6 @@ void clock_plugin::plugin_main(const aaediclock_FRect& dims) const {
     if (dims.h < 5 || dims.w <5) {
         return;
     }
-/*
-    need some way to replicate these sanity checks
-    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
-        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
-    }
-    else {
-        SDL_Log("Clock Module during resize event!");
-        return (0);
-    }
-    if (!font) {
-        debug_log << "CLOCK: No font defined\n";
-        return 1;
-    }
-    if (!panel.GetRenderer()) {
-        debug_log << "CLOCK: Missing Renderer!\n";
-        return 1;
-    }
-    if (!panel.texture) {
-        debug_log << "CLOCK: Missing PANEL!\n";
-        return 1;
-    }
-
-*/
 
     char timestr[64];
     // blank the box

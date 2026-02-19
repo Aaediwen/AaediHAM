@@ -85,7 +85,8 @@ void sdo_image(ScreenFrame& panel, time_t timestamp) {
     SDL_Surface* SDO_Surface = nullptr;
     try {
         // load the image from cache
-        if (refresh_icon_flag || !icon_bin.get_icon(map_icons::ICON_SUN) ) {
+        if(refresh_icon_flag) {
+//        if (refresh_icon_flag || !icon_bin.get_icon(map_icons::ICON_SUN) ) {
             data_size = cache_loader(MOD_SOLAR, (void**)&raw_image, &cache_time);
             if (data_size > 10) {
                 SDL_IOStream *imgdata = SDL_IOFromConstMem((void*)raw_image, static_cast<size_t>(data_size));
@@ -107,19 +108,21 @@ void sdo_image(ScreenFrame& panel, time_t timestamp) {
             }
         }
         // update the icon as needed
-        if (refresh_icon_flag || !icon_bin.get_icon(map_icons::ICON_SUN) ) {
+        if (refresh_icon_flag) {
+//        if (refresh_icon_flag || !icon_bin.get_icon(map_icons::ICON_SUN) ) {
             if (SDO_Surface) {
                 SDL_Surface* icon_surface = SDL_CreateSurface(100, 100, SDL_PIXELFORMAT_RGBA32);
                 if (SDL_BlitSurfaceScaled(SDO_Surface, NULL, icon_surface, NULL, SDL_SCALEMODE_NEAREST)) {
                     SDL_SetSurfaceColorKey(icon_surface, 1, 0);
-                    icon_bin.set_dynamic(panel.GetRenderer(), icon_surface, map_icons::ICON_SUN);
+//                    icon_bin.set_dynamic(panel.GetRenderer(), icon_surface, map_icons::ICON_SUN);
                 }
                 SDL_DestroySurface(icon_surface);
                 refresh_icon_flag = false;
             }
        }
        // set the pin icon
-       solar_pin.icon = icon_bin.get_icon(map_icons::ICON_SUN);
+//       solar_pin.icon = icon_bin.get_icon(map_icons::ICON_SUN);
+        solar_pin.icon = 0;
     } catch (const std::exception& e){
         SDL_Log ("Error loading SDO Image  %s", e.what());
         debug_log << "SOLAR: Error loading SDO Image  " << e.what() << "\n";
