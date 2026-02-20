@@ -128,11 +128,12 @@ endif()
 		FetchContent_MakeAvailable(${symbol})
 		 set(${symbol}_SOURCE_DIR ${${symbol}_SOURCE_DIR} PARENT_SCOPE)
         set(${symbol}_BINARY_DIR ${${symbol}_BINARY_DIR} PARENT_SCOPE)
-		target_include_directories(clock SYSTEM PRIVATE
+#		target_include_directories(clock SYSTEM PRIVATE
+#		${EXTERNAL_DIR}/${target} ${${symbol}_SOURCE_DIR}/include)
+#		target_include_directories(sat_tracker_plugin SYSTEM PRIVATE
+#                ${EXTERNAL_DIR}/${target} ${${symbol}_SOURCE_DIR}/include)
+		target_include_directories(aaediclock_path INTERFACE
 		${EXTERNAL_DIR}/${target} ${${symbol}_SOURCE_DIR}/include)
-		target_include_directories(sat_tracker_plugin SYSTEM PRIVATE
-                ${EXTERNAL_DIR}/${target} ${${symbol}_SOURCE_DIR}/include)
-
 	else()
 		message(STATUS "Using System ${symbol} ")
 	endif()
