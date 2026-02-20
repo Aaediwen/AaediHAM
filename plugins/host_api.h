@@ -28,6 +28,8 @@ class HostAPI final : public aaediclock_host_api {
           void AaediHAM_GraphicsDrawRect			(const aaediclock_Color color, const aaediclock_FRect dims, bool filled) override;
           void AaediHAM_GraphicsDrawLine			(const aaediclock_Color color, const aaediclock_FRect line) override;
           void AaediHAM_GraphicsDrawLines			(const aaediclock_Color color, const aaediclock_FPoint* point_list, int count) override;
+          void AaediHAM_GraphicsDrawImage      			(uint16_t index) override;
+
           void AaediHAM_GraphicsClear				(const aaediclock_Color& color = {0, 0, 0, 255}) override;
           // config calls
           const char* AaediHAM_ConfigGetQRZKey			(bool refresh = false) override;
@@ -51,9 +53,16 @@ class HostAPI final : public aaediclock_host_api {
           void AaediHAM_OverlayClear				(const aaediclock_Color& color = {0, 0, 0, 255}) override;
           // icon calls
           bool AaediHAM_IconCheck				(uint16_t icon_index) override;
-          uint16_t AaediHAM_IconCreate				(const aaediclock_icon_image& image_data) override;
-          bool AaediHAM_IconUpdate				(uint16_t icon_index, const aaediclock_icon_image& image_data) override;
+          uint16_t AaediHAM_IconCreate				(const aaediclock_image& image_data) override;
+          bool AaediHAM_IconUpdate				(uint16_t icon_index, const aaediclock_image& image_data) override;
           void AaediHAM_IconDelete				(uint16_t icon_index) override;
+          // texture cache calls
+          bool AaediHAM_TextureCheck                            (uint16_t index) override;
+          uint16_t AaediHAM_TextureCreate                       (const aaediclock_image& image_data) override;
+          bool AaediHAM_TextureUpdate                           (uint16_t index, const aaediclock_image& image_data) override;
+          void AaediHAM_TextureDelete                           (uint16_t index) override;
+          // internal state
+
           // internal state
           ScreenFrame*	panel = nullptr;
           void set_plugin_name(const std::string& new_name);
@@ -61,6 +70,7 @@ class HostAPI final : public aaediclock_host_api {
           debugbuf debug_log_buffer;
           std::istream* api_debug_log;
           int plugin_id;
+          std::vector<SDL_Texture*>texture_cache;
 };
 
 

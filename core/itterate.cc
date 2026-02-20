@@ -118,7 +118,10 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         }
         if (master_flags.aurora.draw_flag) {
             debug_log << "ITTERATE: Calling AURORA ("<< MOD_AURORA <<")with panel " << master_flags.map.panel << "\n";
-            aurora_spots(*(master_flags.map.panel));
+            aaediclock_FRect module_dims;
+            loaded_plugins[8].plugin->plugin_main(module_dims);
+            SDL_SetRenderTarget(clock_renderer, NULL);
+//            aurora_spots(*(master_flags.map.panel));
             master_flags.aurora.draw_flag = false;
             debug_log << "ITTERATE: Module Timer AURORA -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             debug_log.flush();

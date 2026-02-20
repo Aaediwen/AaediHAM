@@ -178,6 +178,7 @@ HostAPI::HostAPI(int new_id) {
     api_debug_log 	= new std::istream(&debug_log_buffer);
     AaediHAM_LogDebug 	= new std::ostream(&debug_log_buffer);
     plugin_id = new_id;
+    texture_cache.clear();
 }
 
 HostAPI::~HostAPI() {
@@ -186,6 +187,15 @@ HostAPI::~HostAPI() {
     }
     if (AaediHAM_LogDebug) {
         delete (AaediHAM_LogDebug);
+    }
+    if (!texture_cache.empty()) {
+        for (SDL_Texture*& tex : texture_cache) {
+            if (tex) {
+                SDL_DestroyTexture(tex);
+                tex = nullptr;
+            }
+        }
+        texture_cache.clear();
     }
 }
 
@@ -255,6 +265,18 @@ void HostAPI::AaediHAM_GraphicsDrawLines(const aaediclock_Color color, const aae
        SDL_SetRenderDrawColor(this->panel->GetRenderer(), color.r, color.g, color.b, color.a);
        SDL_RenderLines(this->panel->GetRenderer(), new_points.data(), count);
        return;
+}
+
+void HostAPI::AaediHAM_GraphicsDrawImage (uint16_t index) {
+    if ((static_cast<size_t>(index) > texture_cache.size()) || texture_cache.empty()) {
+        return;
+    }
+    index--;
+    if (texture_cache[index]) {
+        debug_log << "HostAPI: Drawing Texture ID: "<< index << " for plugin "<< plugin_id << "\n";
+        SDL_RenderTexture(this->panel->GetRenderer(), texture_cache[index], nullptr, nullptr);
+    }
+    return;
 }
 
 
@@ -442,8 +464,11 @@ bool HostAPI::AaediHAM_IconCheck (uint16_t icon_index) {
     return (icon_bin.icon_check(icon_index, owner));
 }
 
-uint16_t HostAPI::AaediHAM_IconCreate (const aaediclock_icon_image& image_data) {
+uint16_t HostAPI::AaediHAM_IconCreate (const aaediclock_image& image_data) {
     if ((image_data.width < 1) || (image_data.height < 1)) {
+        return 0;
+    }
+    if (!image_data.pixels) {
         return 0;
     }
     uint16_t owner = plugin_id + 32; // +32 goes bye bye with the final old module
@@ -457,8 +482,11 @@ uint16_t HostAPI::AaediHAM_IconCreate (const aaediclock_icon_image& image_data) 
     return (result);
 }
 
-bool HostAPI::AaediHAM_IconUpdate (uint16_t icon_index, const aaediclock_icon_image& image_data) {
+bool HostAPI::AaediHAM_IconUpdate (uint16_t icon_index, const aaediclock_image& image_data) {
     if ((image_data.width < 1) || (image_data.height < 1)) {
+        return false;
+    }
+    if (!image_data.pixels) {
         return false;
     }
     uint16_t owner = plugin_id + 32; // +32 goes bye bye with the final old module
@@ -481,3 +509,88 @@ void HostAPI::AaediHAM_IconDelete (uint16_t icon_index) {
     icon_bin.icon_delete(icon_index, owner);
     return;
 }
+
+//********************************************************************************
+// Texsture Cache Calls
+//********************************************************************************
+
+bool HostAPI::AaediHAM_TextureCheck (uint16_t index) {
+    if ((static_cast<size_t>(index) > texture_cache.size()) || texture_cache.empty()) {
+        return false;
+    }
+    index--;
+    if (texture_cache[index]) {
+        return true;
+    }
+    return false;
+}
+
+uint16_t HostAPI::AaediHAM_TextureCreate (const aaediclock_image& image_data) {
+    uint16_t result = 0;
+    if ((image_data.width < 1) || (image_data.height < 1)) {
+        return result;
+    }
+    if (!image_data.pixels) {
+        return result;
+    }
+//    SDL_Surface* new_image = SDL_CreateSurfaceFrom( image_data.width, image_data.height, SDL_PIXELFORMAT_RGBA8888, image_data.pixels, image_data.width*4);
+//    if (new_image) {
+        SDL_Texture* image_tex = SDL_CreateTexture(this->panel->GetRenderer(), SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, image_data.width, image_data.height);
+        if (image_tex) {
+            if (SDL_UpdateTexture(image_tex, NULL, image_data.pixels, image_data.width*4)) {
+                texture_cache.push_back(image_tex);
+                result = static_cast<uint16_t>(texture_cache.size());
+                debug_log << "HostAPI: Returning Texture ID: "<< result << " for plugin "<< plugin_id << "\n";
+            } else {
+                SDL_DestroyTexture(image_tex);
+            }
+        }
+//        SDL_DestroySurface(new_image);
+//    }
+    return result;
+}
+
+bool HostAPI::AaediHAM_TextureUpdate (uint16_t index, const aaediclock_image& image_data) {
+    uint16_t result = 0;
+    if ((image_data.width < 1) || (image_data.height < 1)) {
+        return result;
+    }
+    if (!image_data.pixels) {
+        return result;
+    }
+
+    if ((static_cast<size_t>(index) > texture_cache.size()) || texture_cache.empty()) {
+        return false;
+    }
+    index--;
+    if (texture_cache[index]) {
+          // everythign seem legit
+          return (SDL_UpdateTexture(texture_cache[index], NULL, image_data.pixels, image_data.width*4));
+    }
+    return false;
+}
+
+void HostAPI::AaediHAM_TextureDelete(uint16_t index) {
+    if ((static_cast<size_t>(index) > texture_cache.size()) || texture_cache.empty()) {
+        return;
+    }
+    index--;
+    if (texture_cache[index]) {
+        SDL_DestroyTexture(texture_cache[index]);
+        texture_cache[index] = nullptr;
+    }
+    return;
+}
+/*
+
+//     this code here is a flag for stability on Pi2
+//     May need to keep a host-side cache of textures to prevent churn
+//     much like overlays or icons are handled
+//
+
+    SDL_Texture* image_tex = SDL_CreateTextureFromSurface(this->panel->GetRenderer(), new_image);
+    SDL_RenderTexture(this->panel->GetRenderer(), image_tex, nullptr, nullptr);
+    SDL_DestroyTexture(image_tex);
+    return;
+}
+*/

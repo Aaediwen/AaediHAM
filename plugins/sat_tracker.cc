@@ -1029,7 +1029,7 @@ void sat_tracker_plugin::plugin_main(const aaediclock_FRect& dims) const {
             if (!host_api->AaediHAM_IconCheck(icon)) {
                 SDL_Surface* loadsurface = IMG_Load("images/satellite.png");
                 if (loadsurface) {
-                    aaediclock_icon_image new_icon;
+                    aaediclock_image new_icon;
                     new_icon.width = loadsurface->w;
                     new_icon.height = loadsurface->h;
                     new_icon.pixels = static_cast<uint8_t*>(loadsurface->pixels);

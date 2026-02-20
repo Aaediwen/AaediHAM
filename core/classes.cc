@@ -385,7 +385,7 @@ void ScreenFrame::Clear(const SDL_Color& color) {
         SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
         SDL_RenderClear(renderer);  // Fills the entire target with the draw color
         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);  // Clear solid
-        SDL_SetRenderTarget(renderer, NULL);
+//        SDL_SetRenderTarget(renderer, NULL);
     //    SDL_Log("SCREENFRAME: Clear Result %s", SDL_GetError());
         debug_log << "SCREENFRAME: Clear Result " << SDL_GetError()  << "\n";
         SDL_ClearError();

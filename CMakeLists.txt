@@ -101,6 +101,11 @@ add_library(sat_tracker_plugin SHARED
 )
 target_link_libraries(sat_tracker_plugin PRIVATE aaediclock_path sgp4 SDL3_image::SDL3_image)
 
+add_library(aurora_plugin SHARED
+    plugins/aurora.cc
+    utils/http_fetch.cc
+)
+target_link_libraries(aurora_plugin PRIVATE aaediclock_path)
 
 
 # ================================================================================

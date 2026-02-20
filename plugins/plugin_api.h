@@ -38,7 +38,7 @@ struct aaediclock_map_pin {
     char tooltip[512];
 };
 
-struct aaediclock_icon_image {
+struct aaediclock_image {
     // image width, height, and RGBA format
     uint16_t width;
     uint16_t height;
@@ -71,6 +71,7 @@ class aaediclock_host_api {
         virtual void 				AaediHAM_GraphicsDrawLine	(const aaediclock_Color color, const aaediclock_FRect line) 			= 0;
         virtual void 				AaediHAM_GraphicsDrawLines	(const aaediclock_Color color, const aaediclock_FPoint* point_list, int count)	= 0;
         virtual void 				AaediHAM_GraphicsClear		(const aaediclock_Color& color = {0, 0, 0, 255}) 				= 0;
+        virtual void				AaediHAM_GraphicsDrawImage	(uint16_t index)								= 0;
         // config calls
         virtual const char* 			AaediHAM_ConfigGetQRZKey	(bool refresh) 									= 0;
         virtual const char* 			AaediHAM_ConfigGetCall		() 										= 0;
@@ -93,9 +94,14 @@ class aaediclock_host_api {
         virtual void				AaediHAM_OverlayClear		(const aaediclock_Color& color = {0, 0, 0, 255}) 				= 0;
         // icon calls
         virtual bool				AaediHAM_IconCheck		(uint16_t icon_index)								= 0;
-        virtual uint16_t			AaediHAM_IconCreate		(const aaediclock_icon_image& image_data)					= 0;
-        virtual bool				AaediHAM_IconUpdate		(uint16_t index, const aaediclock_icon_image& image_data)			= 0;
+        virtual uint16_t			AaediHAM_IconCreate		(const aaediclock_image& image_data)						= 0;
+        virtual bool				AaediHAM_IconUpdate		(uint16_t index, const aaediclock_image& image_data)				= 0;
         virtual void				AaediHAM_IconDelete		(uint16_t index)								= 0;
+        // texture cache calls
+        virtual bool				AaediHAM_TextureCheck		(uint16_t icon_index)								= 0;
+        virtual uint16_t			AaediHAM_TextureCreate		(const aaediclock_image& image_data)						= 0;
+        virtual bool				AaediHAM_TextureUpdate		(uint16_t index, const aaediclock_image& image_data)				= 0;
+        virtual void				AaediHAM_TextureDelete		(uint16_t index)								= 0;
 
         std::ostream* AaediHAM_LogDebug = nullptr;
         const uint32_t API_VERSION = 0001;
