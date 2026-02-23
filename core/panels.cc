@@ -84,16 +84,16 @@ void panel_assignment(bool increment) {
 //                    master_flags.dx_spots.panel = &panel.panel;
                     break;
                 case MOD_KINDEX:
-                    master_flags.kindex.panel = &panel.panel;
+//                    master_flags.kindex.panel = &panel.panel;
                     break;
                 case MOD_CONTESTS:
-                    master_flags.contests.panel = &panel.panel;
+//                    master_flags.contests.panel = &panel.panel;
                     break;
                 case MOD_NCDXF:
 //                    master_flags.ncdxf.panel = &panel.panel;
                     break;
                 case MOD_SOLAR:
-                    master_flags.solar.panel = &panel.panel;
+//                    master_flags.solar.panel = &panel.panel;
                     break;
                 case MOD_WSPR:
                     master_flags.wspr.panel = &panel.panel;
@@ -105,7 +105,7 @@ void panel_assignment(bool increment) {
                     master_flags.rss.panel = &panel.panel;
                     break;
                 case MOD_AURORA:
-                    master_flags.aurora.panel = &panel.panel;
+//                    master_flags.aurora.panel = &panel.panel;
                     break;
                 case MOD_NULL:
                     break;

@@ -461,24 +461,35 @@ void HostAPI::AaediHAM_OverlayClear(const aaediclock_Color& color) {
 
 bool HostAPI::AaediHAM_IconCheck (uint16_t icon_index) {
     uint16_t owner = plugin_id + 32; // +32 goes bye bye with the final old module
+    if (!icon_index) {
+        return false;
+    }
+    icon_index--;
     return (icon_bin.icon_check(icon_index, owner));
 }
 
 uint16_t HostAPI::AaediHAM_IconCreate (const aaediclock_image& image_data) {
     if ((image_data.width < 1) || (image_data.height < 1)) {
+        debug_log << "Icon API: no image size to create icon\n";
         return 0;
+
     }
     if (!image_data.pixels) {
+        debug_log << "Icon API: no image data to create icon\n";
         return 0;
     }
     uint16_t owner = plugin_id + 32; // +32 goes bye bye with the final old module
+    debug_log << "Icon API: Creating API Surface for new icon\n";
     SDL_Surface* new_icon = SDL_CreateSurfaceFrom( image_data.width, image_data.height, SDL_PIXELFORMAT_RGBA8888, image_data.pixels, image_data.width*4);
     uint16_t result = 0;
     if (new_icon) {
         result = icon_bin.icon_create(owner, new_icon);
+        debug_log << "Icon API: Created ICON Id "<< result<<"\n";
         SDL_DestroySurface(new_icon);
+    } else {
+        debug_log << "Icon API: Unable to create temp icon surface\n";
     }
-
+    debug_log << "Icon API: returning ICON Id "<< result<<"\n";
     return (result);
 }
 
@@ -490,6 +501,7 @@ bool HostAPI::AaediHAM_IconUpdate (uint16_t icon_index, const aaediclock_image& 
         return false;
     }
     uint16_t owner = plugin_id + 32; // +32 goes bye bye with the final old module
+    icon_index--;
     if (icon_bin.icon_check(icon_index, owner)) {
         SDL_Surface* new_icon = SDL_CreateSurfaceFrom( image_data.width, image_data.height, SDL_PIXELFORMAT_RGBA8888, image_data.pixels, image_data.width*4);
         if (new_icon) {
@@ -506,6 +518,7 @@ bool HostAPI::AaediHAM_IconUpdate (uint16_t icon_index, const aaediclock_image& 
 
 void HostAPI::AaediHAM_IconDelete (uint16_t icon_index) {
     uint16_t owner = plugin_id + 32; // +32 goes bye bye with the final old module
+    icon_index--;
     icon_bin.icon_delete(icon_index, owner);
     return;
 }
@@ -516,6 +529,9 @@ void HostAPI::AaediHAM_IconDelete (uint16_t icon_index) {
 
 bool HostAPI::AaediHAM_TextureCheck (uint16_t index) {
     if ((static_cast<size_t>(index) > texture_cache.size()) || texture_cache.empty()) {
+        return false;
+    }
+    if (!index) {
         return false;
     }
     index--;

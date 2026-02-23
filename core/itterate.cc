@@ -39,7 +39,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         draw_overlays(*(master_flags.map.panel));
         winboxes[PANEL_MAP].panel.draw_border();
         if (master_flags.clock.draw_flag) {
-            debug_log << "ITTERATE: Calling Clock ("<< MOD_CLOCK <<") with panel " << &(winboxes[PANEL_CLOCK].panel) << "\n";
+            debug_log << "ITTERATE: Calling Clock ("<< MOD_CLOCK <<") with panel " << loaded_plugins[2].host_api->panel << "\n";
 //            draw_clock(winboxes[PANEL_CLOCK].panel, Sans);
             aaediclock_FRect module_dims;
 
@@ -86,7 +86,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         if (master_flags.de.draw_flag) {
         //4
 
-            debug_log << "ITTERATE: Calling DE ("<< MOD_DE <<")with panel " << master_flags.de.panel << "\n";
+            debug_log << "ITTERATE: Calling DE ("<< MOD_DE <<")with panel " << loaded_plugins[4].host_api->panel << "\n";
 //            draw_de_dx(*(master_flags.de.panel), Sans, clockconfig.DE().latitude, clockconfig.DE().longitude, 1);
             aaediclock_FRect module_dims;
 
@@ -102,7 +102,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         }
         if (master_flags.dx.draw_flag) {
         // 5
-            debug_log << "ITTERATE: Calling DX ("<< MOD_DX <<")with panel " << master_flags.dx.panel << "\n";
+            debug_log << "ITTERATE: Calling DX ("<< MOD_DX <<")with panel " << loaded_plugins[5].host_api->panel << "\n";
 //            draw_de_dx(*(master_flags.dx.panel), Sans, clockconfig.DX().latitude, clockconfig.DX().longitude, 0);
             aaediclock_FRect module_dims;
 
@@ -127,7 +127,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             debug_log.flush();
         }
         if (master_flags.pota.draw_flag) {
-            debug_log << "ITTERATE: Calling POTA ("<< MOD_POTA <<")with panel " << master_flags.pota.panel << "\n";
+            debug_log << "ITTERATE: Calling POTA ("<< MOD_POTA <<")with panel " << loaded_plugins[3].host_api->panel << "\n";
 //            pota_spots(*(master_flags.pota.panel), Sans);
             aaediclock_FRect module_dims;
 
@@ -157,16 +157,30 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 
         }
         if (master_flags.kindex.draw_flag) {
-            debug_log << "ITTERATE: Calling Kindex ("<< MOD_KINDEX <<")with panel " << master_flags.kindex.panel << "\n";
+            debug_log << "ITTERATE: Calling Kindex ("<< MOD_KINDEX <<")with panel " << loaded_plugins[11].host_api->panel << "\n";
             debug_log.flush();
-            k_index_chart (*(master_flags.kindex.panel));
+//            k_index_chart (*(master_flags.kindex.panel));
+            aaediclock_FRect module_dims;
+            module_dims.w = loaded_plugins[11].host_api->panel->dims.w;
+            module_dims.h = loaded_plugins[11].host_api->panel->dims.h;
+            module_dims.x = loaded_plugins[11].host_api->panel->dims.x;
+            module_dims.y = loaded_plugins[11].host_api->panel->dims.y;
+            loaded_plugins[11].plugin->plugin_main(module_dims);
+            SDL_SetRenderTarget(clock_renderer, NULL);
             debug_log << "ITTERATE: Module Timer Kindex -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             master_flags.kindex.draw_flag = false;
         }
         if (master_flags.contests.draw_flag) {
-            debug_log << "ITTERATE: Calling Contests ("<< MOD_CONTESTS <<")with panel " << master_flags.contests.panel << "\n";
+            debug_log << "ITTERATE: Calling Contests ("<< MOD_CONTESTS <<")with panel " << loaded_plugins[10].host_api->panel << "\n";
             debug_log.flush();
-            contest_module (*(master_flags.contests.panel));
+//            contest_module (*(master_flags.contests.panel));
+            aaediclock_FRect module_dims;
+            module_dims.w = loaded_plugins[10].host_api->panel->dims.w;
+            module_dims.h = loaded_plugins[10].host_api->panel->dims.h;
+            module_dims.x = loaded_plugins[10].host_api->panel->dims.x;
+            module_dims.y = loaded_plugins[10].host_api->panel->dims.y;
+            loaded_plugins[10].plugin->plugin_main(module_dims);
+            SDL_SetRenderTarget(clock_renderer, NULL);
             master_flags.contests.draw_flag = false;
             debug_log << "ITTERATE: Module Timer Contests -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
         }
@@ -214,9 +228,16 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             master_flags.ncdxf.draw_flag = false;
         }
         if (master_flags.solar.draw_flag) {
-            debug_log << "ITTERATE: Calling SDO ("<< MOD_SOLAR <<")with panel " << master_flags.solar.panel << "\n";
+            debug_log << "ITTERATE: Calling SDO ("<< MOD_SOLAR <<")with panel " << loaded_plugins[9].host_api->panel << "\n";
             debug_log.flush();
-            sdo_image(*(master_flags.solar.panel));
+//            sdo_image(*(master_flags.solar.panel));
+            aaediclock_FRect module_dims;
+            module_dims.w = loaded_plugins[9].host_api->panel->dims.w;
+            module_dims.h = loaded_plugins[9].host_api->panel->dims.h;
+            module_dims.x = loaded_plugins[9].host_api->panel->dims.x;
+            module_dims.y = loaded_plugins[9].host_api->panel->dims.y;
+            loaded_plugins[9].plugin->plugin_main(module_dims);
+            SDL_SetRenderTarget(clock_renderer, NULL);
             debug_log << "ITTERATE: Module Timer SDO -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             master_flags.solar.draw_flag = false;
         }

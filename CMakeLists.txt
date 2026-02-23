@@ -22,6 +22,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 #	modules/ncdxf.cc
 #	modules/clock.cc
 #	modules/sat_tracker.cc
+#	modules/sun.cc
+#	modules/aurora.cc
 
 set (SOURCES
 	core/init.cc
@@ -35,13 +37,12 @@ set (SOURCES
 	plugins/host_api.cc
 	modules/kindex.cc
 	modules/map.cc
-	modules/sun.cc
 	modules/wspr_tracker.cc
 	modules/lunar.cc
 	modules/pskreporter.cc
 	modules/contests.cc
 	modules/rss.cc
-	modules/aurora.cc
+
 )
 
 add_library(aaediclock_path INTERFACE)
@@ -105,7 +106,28 @@ add_library(aurora_plugin SHARED
     plugins/aurora.cc
     utils/http_fetch.cc
 )
-target_link_libraries(aurora_plugin PRIVATE aaediclock_path)
+target_link_libraries(aurora_plugin PRIVATE aaediclock_path nlohmann_json::nlohmann_json)
+
+add_library(sdo_plugin SHARED
+    plugins/sun.cc
+    utils/http_fetch.cc
+    utils/celestials.cc
+)
+target_link_libraries(sdo_plugin PRIVATE aaediclock_path SDL3_image::SDL3_image)
+
+add_library(contest_plugin SHARED
+    plugins/contests.cc
+    utils/http_fetch.cc
+)
+target_link_libraries(contest_plugin PRIVATE aaediclock_path )
+
+add_library(kindex_plugin SHARED
+    plugins/kindex.cc
+    utils/http_fetch.cc
+)
+target_link_libraries(kindex_plugin PRIVATE aaediclock_path nlohmann_json::nlohmann_json)
+
+
 
 
 # ================================================================================

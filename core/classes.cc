@@ -858,7 +858,7 @@ bool map_icons::icon_check(uint16_t index, uint16_t owner) {
     if (icon_list.empty() || index > icon_list.size()) {
         return false;
     }
-    if (icon_list[index-1].owner == owner) {
+    if (icon_list[index].owner == owner) {
         return true;
     } else {
         return false;
@@ -874,10 +874,9 @@ SDL_Texture* map_icons::get_icon(uint16_t index) {
 }
 
 void map_icons::icon_delete(uint16_t owner, uint16_t index) {
-    if (icon_list.empty() || index > icon_list.size()) {
+    if (icon_list.empty() || index >= icon_list.size()) {
         return;
     }
-    index--;
     if (icon_list[index].owner == owner) {
         SDL_DestroyTexture(icon_list[index].icon);
         icon_list[index].icon = nullptr;
@@ -896,15 +895,21 @@ uint16_t map_icons::icon_create(uint16_t owner, SDL_Surface* icon_image) {
     w =(floor(w/50));
     uint16_t result = 0;
     SDL_Surface* scaled_surface = SDL_CreateSurface(w, w, SDL_PIXELFORMAT_RGBA8888);
-    SDL_ClearSurface(scaled_surface, 0,0,0,0);
     if (scaled_surface) {
+        SDL_ClearSurface(scaled_surface, 0,0,0,0);
         if (SDL_BlitSurfaceScaled(icon_image, NULL, scaled_surface, NULL, SDL_SCALEMODE_NEAREST)) {
             new_icon.icon = SDL_CreateTextureFromSurface(clock_renderer, scaled_surface);
             icon_list.push_back(new_icon);
             result = (static_cast<uint16_t>(icon_list.size()));
+            debug_log << "ICON: Created icon ID: "<< result << "\n";
+        } else {
+            debug_log << "ICON: Unable to blit surface\n";
         }
         SDL_DestroySurface(scaled_surface);
+    } else {
+        debug_log << "ICON: Unable to create scaled surface\n";
     }
+    debug_log << "ICON: Returning icon ID: "<< result << "\n";
     return result;
 }
 

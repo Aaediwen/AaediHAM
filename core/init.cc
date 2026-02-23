@@ -388,6 +388,9 @@ namespace AaediClock_Init {
         plugin_list.push_back({"plugins\\dx_cluster_plugin.dll",5});
         plugin_list.push_back({"plugins\\sat_tracker_plugin.dll",7});
         plugin_list.push_back({"plugins\\aurora_plugin.dll",10});
+        plugin_list.push_back({"plugins\\sdo_plugin.dll",7});
+        plugin_list.push_back({"plugins\\contest_plugin.dll",7});
+        plugin_list.push_back({"plugins\\kindex_plugin.dll",8});
     #else
         plugin_list.push_back({"plugins/libncdxf_plugin.so",5});
         plugin_list.push_back({"plugins/libcallsign_plugin.so",0});
@@ -398,6 +401,9 @@ namespace AaediClock_Init {
         plugin_list.push_back({"plugins/libdx_cluster_plugin.so",5});
         plugin_list.push_back({"plugins/libsat_tracker_plugin.so",7});
         plugin_list.push_back({"plugins/libaurora_plugin.so",10});
+        plugin_list.push_back({"plugins/libsdo_plugin.so",7});
+        plugin_list.push_back({"plugins/libcontest_plugin.so",7});
+        plugin_list.push_back({"plugins/libkindex_plugin.so",8});
     #endif
         for (auto& plugin_load : plugin_list) {
             register_module(plugin_load.filename);
