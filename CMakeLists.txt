@@ -24,6 +24,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 #	modules/sat_tracker.cc
 #	modules/sun.cc
 #	modules/aurora.cc
+#	modules/contests.cc
+#	modules/kindex.cc
 
 set (SOURCES
 	core/init.cc
@@ -35,12 +37,11 @@ set (SOURCES
 	core/event.cc
 	utils/http_fetch.cc
 	plugins/host_api.cc
-	modules/kindex.cc
+
 	modules/map.cc
 	modules/wspr_tracker.cc
 	modules/lunar.cc
 	modules/pskreporter.cc
-	modules/contests.cc
 	modules/rss.cc
 
 )
@@ -127,6 +128,11 @@ add_library(kindex_plugin SHARED
 )
 target_link_libraries(kindex_plugin PRIVATE aaediclock_path nlohmann_json::nlohmann_json)
 
+add_library(lunar_plugin SHARED
+    plugins/lunar.cc
+    utils/celestials.cc
+)
+target_link_libraries(lunar_plugin PRIVATE aaediclock_path SDL3_image::SDL3_image)
 
 
 

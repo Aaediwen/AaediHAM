@@ -149,9 +149,16 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             debug_log.flush();
         }
         if (master_flags.lunar.draw_flag) {
-            debug_log << "ITTERATE: Calling Lunar ("<< MOD_LUNAR <<")with panel " << master_flags.lunar.panel << "\n";
+            debug_log << "ITTERATE: Calling Lunar ("<< MOD_LUNAR <<")with panel " << loaded_plugins[12].host_api->panel << "\n";
             debug_log.flush();
-            lunar_module(*(master_flags.lunar.panel));
+//            lunar_module(*(master_flags.lunar.panel));
+            aaediclock_FRect module_dims;
+            module_dims.w = loaded_plugins[12].host_api->panel->dims.w;
+            module_dims.h = loaded_plugins[12].host_api->panel->dims.h;
+            module_dims.x = loaded_plugins[12].host_api->panel->dims.x;
+            module_dims.y = loaded_plugins[12].host_api->panel->dims.y;
+            loaded_plugins[12].plugin->plugin_main(module_dims);
+            SDL_SetRenderTarget(clock_renderer, NULL);
             debug_log << "ITTERATE: Module Timer LUNAR -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
             master_flags.lunar.draw_flag = false;
 
