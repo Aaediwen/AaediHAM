@@ -239,7 +239,6 @@ int SDLCALL regen_lunar_surface(void* data) {
             *(host_api->AaediHAM_LogDebug) << "LUNAR: Loaded image from BMP\n";
         }
         if (moon_image) {
-            *(host_api->AaediHAM_LogDebug) << "LUNAR: Loaded Moon Image\n";
             SDL_DestroySurface(moon_image);
             moon_image = nullptr;
         }
@@ -323,10 +322,10 @@ void lunar_plugin::plugin_main(const aaediclock_FRect& dims) const {
     const std::lock_guard<std::mutex>lunar_lock(moon_mutex);
     *(host_api->AaediHAM_LogDebug) << "LUNAR: locked moon mutex in parent -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
     if ((SDL_GetTicks() - StartTicks) > 200) {
-       moon_max_dims -= 10;
-       if (moon_max_dims < 100) {
-           moon_max_dims = 100;
-       }
+        moon_max_dims -= 10;
+        if (moon_max_dims < 100) {
+            moon_max_dims = 100;
+        }
     }
     // check for image refresh
     if (moon_image) {
@@ -452,6 +451,23 @@ void lunar_plugin::plugin_main(const aaediclock_FRect& dims) const {
     moon_pin.icon = 0;
     if (host_api->AaediHAM_IconCheck(moon_icon_id)) {
         moon_pin.icon = moon_icon_id;
+    } else {
+        if (moon_image) {
+            aaediclock_image new_image;
+            new_image.width = moon_image->w;
+            new_image.height = moon_image->h;
+            SDL_Surface* temp = SDL_ConvertSurface(moon_image, SDL_PIXELFORMAT_RGBA8888);
+            if (temp) {
+                new_image.pixels = static_cast<uint8_t*>(temp->pixels);
+                moon_icon_id = host_api->AaediHAM_IconCreate(new_image);
+                SDL_DestroySurface(temp);
+            }
+            *(host_api->AaediHAM_LogDebug) << "Got moon icon id: "<< moon_icon_id << "\n";
+
+            if (moon_icon_id) {
+                moon_pin.icon = moon_icon_id;
+            }
+        }
     }
     host_api->AaediHAM_MapPinAdd(moon_pin);
     *(host_api->AaediHAM_LogDebug) << "LUNAR: Done with Lunar Module -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";

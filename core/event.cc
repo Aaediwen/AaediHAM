@@ -76,9 +76,9 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                 SDL_SyncWindow(window);
                 break;
             case SDLK_C:
-                if  (event->key.mod & (SDL_KMOD_LALT | SDL_KMOD_RALT)) {
-                    dump_cache();
-                }
+//                if  (event->key.mod & (SDL_KMOD_LALT | SDL_KMOD_RALT)) {
+//                    dump_cache();
+//                }
                 break;
             case SDLK_Q:
                 window_destroy();

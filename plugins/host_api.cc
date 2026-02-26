@@ -374,6 +374,20 @@ const char* HostAPI::AaediHAM_ConfigGetSat(int index) {
     }
 }
 
+struct plugin_wspr_station HostAPI::AaediHAM_ConfigGetNextWspr() {
+    std::string callsign;
+    int band;
+    struct plugin_wspr_station result;
+    result.callsign.clear();
+    result.band = 0;
+    if (clockconfig.next_wspr(&callsign, &band)) {
+        result.callsign = callsign;
+        result.band = band;
+    }
+    return result;
+}
+
+
 //********************************************************************************
 // MAP Pins
 //********************************************************************************

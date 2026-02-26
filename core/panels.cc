@@ -96,7 +96,7 @@ void panel_assignment(bool increment) {
 //                    master_flags.solar.panel = &panel.panel;
                     break;
                 case MOD_WSPR:
-                    master_flags.wspr.panel = &panel.panel;
+//                    master_flags.wspr.panel = &panel.panel;
                     break;
                 case MOD_LUNAR:
 //                    master_flags.lunar.panel = &panel.panel;

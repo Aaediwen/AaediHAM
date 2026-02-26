@@ -148,16 +148,36 @@ void sdo_plugin::plugin_main(const aaediclock_FRect& dims) const {
     }
     host_api->AaediHAM_MapPinAdd(solar_pin);
     // render the sun to the panel
+    if (!host_api->AaediHAM_IconCheck(sun_icon_id)) {
+        // for some reason we don't have a valid sun icon. attempt to refresh
+        *(host_api->AaediHAM_LogDebug) << "Bad Sun Icon ID. "<< sun_icon_id<<" Attempting to regen\n";
+        if (SDO_Surface) {
+             SDL_Surface* temp = SDL_ConvertSurface(SDO_Surface, SDL_PIXELFORMAT_RGBA8888);
+             if (temp) {
+                 aaediclock_image new_image;
+                 new_image.width = temp->w;
+                 new_image.height = temp->h;
+                 new_image.pixels = static_cast<uint8_t*>(temp->pixels);
+                 sun_icon_id = host_api->AaediHAM_IconCreate(new_image);
+                 SDL_DestroySurface(temp);
+             } else {
+                 *(host_api->AaediHAM_LogDebug) << "Icon conversion failure\n";
+             }
+             *(host_api->AaediHAM_LogDebug) << "Got sun icon id: "<< sun_icon_id << "\n";
+        } else {
+             *(host_api->AaediHAM_LogDebug) << "NO SDO Surface\n";
+        }
+    }
     if (host_api->AaediHAM_TextureCheck(sun_tex_id)) {
         host_api->AaediHAM_SetTarget();
         host_api->AaediHAM_GraphicsDrawImage(sun_tex_id);
     } else {
         host_api->AaediHAM_GraphicsDrawText("NO SDO IMAGE", aaediclock_Color{255,0,0,0}, aaediclock_FRect{2,2,dims.w,(dims.h/10)});
     }
-    if (SDO_Surface) {
+/*    if (SDO_Surface) {
         SDL_DestroySurface(SDO_Surface);
         SDO_Surface = 0;
-    }
+    } */
 //    add_pin(&solar_pin);
 
     *(host_api->AaediHAM_LogDebug) << "SOLAR: Exiting Solar module\n";

@@ -62,6 +62,11 @@ struct plugin_server_info {
     uint16_t port;
 };
 
+struct plugin_wspr_station {
+    std::string callsign;
+    uint16_t band;
+};
+
 class aaediclock_host_api {
     public:
         // graphics calls
@@ -79,6 +84,7 @@ class aaediclock_host_api {
         virtual void 				AaediHAM_ConfigSetDX		(struct aaediclock_dx new_dx) 							= 0;
         virtual struct aaediclock_dx 		AaediHAM_ConfigGetDX		() 										= 0;
         virtual struct plugin_server_info	AaediHAM_ConfigGetDXServer	() 										= 0;
+        virtual struct plugin_wspr_station	AaediHAM_ConfigGetNextWspr	()										= 0;
         virtual int				AaediHAM_ConfigGetSatCount	()										= 0;
         virtual const char*			AaediHAM_ConfigGetSat		(int index)									= 0;
         // program state calls

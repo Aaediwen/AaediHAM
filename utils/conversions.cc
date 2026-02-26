@@ -31,3 +31,91 @@ int month_to_int(const std::string& month) {
         return -1;
     }
 }
+
+struct GeoCoord loc_to_geo (const std::string locator) {
+    struct GeoCoord result;
+    result.latitude = 0;
+    result.longitude = 0;
+    if (locator.length() <4) {  //locator too short
+        return result;
+    }
+    char working;
+
+    // first character
+    working = locator.at(0);
+    if (working >= 'a') {
+        working -= 32;
+    }
+    if (working < 'A' || working > 'R') {
+        result.latitude = 0;
+        result.longitude = 0;
+        return result;
+    }
+    result.longitude += (working - 'A')*20.0;
+    // second character
+    working = locator.at(1);
+    if (working >= 'a') {
+        working -= 32;
+    }
+    if (working < 'A' || working > 'R') {
+        result.latitude = 0;
+        result.longitude = 0;
+        return result;
+    }
+    result.latitude += (working - 'A')*10.0;
+    // third character
+    working = locator.at(2);
+    if (working < '0' || working > '9') {
+        result.latitude = 0;
+        result.longitude = 0;
+        return result;
+    }
+    result.longitude += (working - '0')*2.0;
+    // fourth character
+    working = locator.at(3);
+    if (working < '0' || working > '9') {
+        result.latitude = 0;
+        result.longitude = 0;
+        return result;
+    }
+    result.latitude += (working - '0')*1.0;
+    // if we have 6, then we get those too
+    if (locator.length() >= 6) {
+        // fifth character
+         working = locator.at(4);
+         if (working >= 'a') {
+             working -= 32;
+         }
+         if (working < 'A' || working > 'X') {
+             result.latitude = 0;
+             result.longitude = 0;
+             return result;
+         }
+         result.longitude += (working - 'A')/12;
+
+         // sixth character
+         working = locator.at(5);
+         if (working >= 'a') {
+             working -= 32;
+         }
+         if (working < 'A' || working > 'X') {
+             result.latitude = 0;
+             result.longitude = 0;
+             return result;
+         }
+         result.latitude += (working - 'A')/24;
+
+         // final adjustment for 6 character
+         result.longitude += (1.0/12.0);
+         result.latitude  += (1.0/24.0);
+         result.longitude -= 180.0;
+         result.latitude  -= 90.0;
+    } else {
+        // final adjustment for 4 character
+         result.longitude += 1.0;
+         result.latitude  += 0.5;
+         result.longitude -= 180.0;
+         result.latitude  -= 90.0;
+    }
+    return result;
+}

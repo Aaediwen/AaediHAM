@@ -26,6 +26,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 #	modules/aurora.cc
 #	modules/contests.cc
 #	modules/kindex.cc
+#	modules/wspr_tracker.cc
+#	modules/lunar.cc
 
 set (SOURCES
 	core/init.cc
@@ -36,11 +38,10 @@ set (SOURCES
 	core/quit.cc
 	core/event.cc
 	utils/http_fetch.cc
+        utils/celestials.cc
+        utils/conversions.cc
 	plugins/host_api.cc
-
 	modules/map.cc
-	modules/wspr_tracker.cc
-	modules/lunar.cc
 	modules/pskreporter.cc
 	modules/rss.cc
 
@@ -128,12 +129,27 @@ add_library(kindex_plugin SHARED
 )
 target_link_libraries(kindex_plugin PRIVATE aaediclock_path nlohmann_json::nlohmann_json)
 
+
+add_library(wspr_plugin SHARED
+    plugins/wspr_tracker.cc
+    utils/http_fetch.cc
+    utils/conversions.cc
+)
+target_link_libraries(wspr_plugin PRIVATE aaediclock_path)
+
+
 add_library(lunar_plugin SHARED
     plugins/lunar.cc
     utils/celestials.cc
 )
 target_link_libraries(lunar_plugin PRIVATE aaediclock_path SDL3_image::SDL3_image)
 
+
+add_library(rss_plugin SHARED
+    plugins/rss.cc
+    utils/http_fetch.cc
+)
+target_link_libraries(rss_plugin PRIVATE aaediclock_path LibXml2::LibXml2)
 
 
 # ================================================================================

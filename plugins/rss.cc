@@ -9,14 +9,13 @@
 
 std::vector<rss_feed> rss_feeds;
 
+
+aaediclock_host_api* host_api = nullptr;
+
 rss_feed::rss_feed(std::string new_url) {
      m_url.clear();
      m_url = new_url;
      m_entries.clear();
-     this->m_rss_lock = SDL_CreateMutex();
-     if (!this->m_rss_lock) {
-          SDL_Log("Failed to create RSS mutex: %s", SDL_GetError());
-     }
      m_current_index = 0;
      fetch_state = 0;
 }
@@ -24,17 +23,17 @@ rss_feed::rss_feed(std::string new_url) {
 rss_feed::~rss_feed() {
      m_url.clear();
      m_entries.clear();
-     if (this->m_rss_lock) {
-          SDL_DestroyMutex(this->m_rss_lock);
-     }
+//     if (this->m_rss_lock) {
+//          SDL_DestroyMutex(this->m_rss_lock);
+//     }
 }
 
 rss_feed::rss_feed(rss_feed&& source) noexcept {			// move new
-     if (m_rss_lock) {
-          SDL_DestroyMutex(m_rss_lock);
-     }
-     m_rss_lock = source.m_rss_lock;
-     source.m_rss_lock = nullptr;
+//     if (m_rss_lock) {
+//          SDL_DestroyMutex(m_rss_lock);
+//     }
+//     m_rss_lock = std::move(source.m_rss_lock);
+//     source.m_rss_lock = nullptr;
      m_url = std::move(source.m_url);
      m_title = std::move(source.m_title);
      m_entries = std::move(source.m_entries);
@@ -45,11 +44,11 @@ rss_feed::rss_feed(rss_feed&& source) noexcept {			// move new
 
 rss_feed& rss_feed::operator=(rss_feed&& source) noexcept {		// move existing
      if (this != &source) {
-          if (m_rss_lock) {
-               SDL_DestroyMutex(m_rss_lock);
-          }
-          m_rss_lock = source.m_rss_lock;
-          source.m_rss_lock = nullptr;
+//          if (m_rss_lock) {
+//               SDL_DestroyMutex(m_rss_lock);
+//          }
+//          m_rss_lock = std::move(source.m_rss_lock);
+//          source.m_rss_lock = nullptr;
           m_url = std::move(source.m_url);
           m_title = std::move(source.m_title);
           m_entries = std::move(source.m_entries);
@@ -60,9 +59,10 @@ rss_feed& rss_feed::operator=(rss_feed&& source) noexcept {		// move existing
 }
 
 rss_feed::rss_feed(const rss_feed& source) {				// copy new
-     if (!m_rss_lock) {
-          m_rss_lock = SDL_CreateMutex();
-     }
+//     if (!m_rss_lock) {
+//          m_rss_lock = SDL_CreateMutex();
+//     }
+//     m_rss_lock = source.m_rss_lock;
      m_url = source.m_url;
      m_title = source.m_title;
      m_entries = source.m_entries;
@@ -73,9 +73,10 @@ rss_feed::rss_feed(const rss_feed& source) {				// copy new
 
 rss_feed& rss_feed::operator=(const rss_feed& source) {			// copy existing
      if (this != &source) {
-          if (!m_rss_lock) {
-               m_rss_lock = SDL_CreateMutex();
-          }
+//          if (!m_rss_lock) {
+//               m_rss_lock = SDL_CreateMutex();
+//          }
+//          m_rss_lock = source.m_rss_lock;
           m_url = source.m_url;
           m_title = source.m_title;
           m_entries = source.m_entries;
@@ -165,14 +166,15 @@ void rss_feed::fetch_rss() {
           if (!xml_tree) {
                debug_log << "RSS: Failed to parse RSS Feed XML\n";
           } else {
-               SDL_LockMutex(this->m_rss_lock);
+              const std::lock_guard<std::mutex>rss_lock(m_rss_lock);
+//               SDL_LockMutex(this->m_rss_lock);
                m_entries.clear();
                parse_rss(xmlDocGetRootElement(xml_tree), parser_state::none);
                m_current_index = 0;
                fetch_state = 0;
                xmlFreeDoc (xml_tree);
                xml_tree = nullptr;
-               SDL_UnlockMutex(this->m_rss_lock);
+//               SDL_UnlockMutex(this->m_rss_lock);
           }
      } else {
           debug_log << "RSS: Skipped Parsing bad RSS feed\n";
@@ -196,7 +198,8 @@ std::string rss_feed::next() {
      result.clear();
      SDL_Thread* thread = nullptr;
      if (fetch_state == 0) {
-          if (SDL_TryLockMutex(this->m_rss_lock)) {
+            if (m_rss_lock.try_lock()) {
+  //        if (SDL_TryLockMutex(this->m_rss_lock)) {
                if (m_entries.empty() || (m_current_index >= m_entries.size())) {
                     thread = SDL_CreateThread(thread_launcher, "RSS Fetcher", this);
                     SDL_DetachThread(thread);
@@ -205,7 +208,8 @@ std::string rss_feed::next() {
                     result = m_title+": "+m_entries[m_current_index];
                     m_current_index++;
                }
-               SDL_UnlockMutex(this->m_rss_lock);
+               m_rss_lock.unlock();
+//               SDL_UnlockMutex(this->m_rss_lock);
           } else {
                debug_log << "RSS: Mutex Lock Fail, no fetch attempted: "<< SDL_GetError()<<"\n";
           }
@@ -214,17 +218,51 @@ std::string rss_feed::next() {
 }
 
 
+
+extern "C" DllExport aaediclock_plugin_api* createPlugin() {
+    return new rss_plugin();
+}
+extern "C" DllExport void destroyPlugin(aaediclock_plugin_api* target) {
+    if (target) {
+        delete target;
+    }
+}
+
+void rss_plugin::plugin_init() const {
+    // populate the feeds from config if needed
+    if (rss_feeds.empty()) {
+        if (!clockconfig.Rss().empty()) {
+            for (const std::string& stropt : clockconfig.Rss()) {
+                 rss_feeds.emplace_back(stropt);
+            }
+        }
+    }
+    return;
+}
+
+void rss_plugin::plugin_exit() const {
+    return;
+}
+
+
+
 size_t feed_index = 0;
 SDL_Surface* ticker_surface = nullptr;
 //SDL_Texture* active_ticker_texture = nullptr;
-SDL_FRect source_rect, dest_rect;
+aaediclock_FRect source_rect, dest_rect;
 //, max_rect;
-SDL_Rect ticker_texture_size = {0, 0, 0, 0};
-SDL_Texture* streaming_ticker = nullptr;
+aaediclock_FRect ticker_texture_size = {0, 0, 0, 0};
+//SDL_Texture* streaming_ticker = nullptr;
+uint16_t streaming_ticker = 0;
 float feed_rate = 20.0f;
-
-void rss_ticker(ScreenFrame& panel) {
-     // input validation
+void rss_plugin::plugin_main(const aaediclock_FRect& dims) const {
+       if ((dims.h < 10) || (dims.w < 10)) {
+           return;
+       }
+       if (rss_feeds.empty()) {
+           return;
+       }
+/*     // input validation
      if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
          SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
      }
@@ -244,46 +282,43 @@ void rss_ticker(ScreenFrame& panel) {
         debug_log << "RSS: Missing PANEL!\n";
         return;
     }
-    // populate the feeds from config if needed
-    if (rss_feeds.empty()) {
-        if (!clockconfig.Rss().empty()) {
-            for (const std::string& stropt : clockconfig.Rss()) {
-                 rss_feeds.emplace_back(stropt);
-            }
-        }
-    }
-    // go ahead and bail if none are configured
-    if (rss_feeds.empty()) {
-        return;
-    }
-    // Init and clear the overlay
-    SDL_FRect mapsize ;
-    SDL_FRect ticker_box;
-    SDL_Rect int_ticker_box;
-    mapsize.w = panel.dims.w;
-    mapsize.h = panel.dims.h;
-    ScreenFrame* overlay = overlays.get_overlay(panel.GetRenderer(), MOD_RSS, mapsize);
+*/
 
-    overlay->Clear(SDL_Color{0,0,0,0});
+    // go ahead and bail if none are configured
+
+    // Init and clear the overlay
+    aaediclock_FRect mapsize ;
+    aaediclock_FRect ticker_box;
+    mapsize.w = dims.w;
+    mapsize.h = dims.h;
+//    ScreenFrame* overlay = overlays.get_overlay(panel.GetRenderer(), MOD_RSS, mapsize);
+    host_api->AaediHAM_OverlaySet(mapsize);
+    host_api->AaediHAM_OverlayClear(aaediclock_Color{0,0,0,0});
+//    overlay->Clear(SDL_Color{0,0,0,0});
     ticker_box.x = 0;
     ticker_box.y = (mapsize.h/16)*15;
     ticker_box.w = mapsize.w;
     ticker_box.h = (mapsize.h/16);
     dest_rect.h = ticker_box.h;
     dest_rect.y = ticker_box.y;
-    int_ticker_box.x=static_cast<int>(ticker_box.x);
-    int_ticker_box.y=static_cast<int>(ticker_box.y);
-    int_ticker_box.h=static_cast<int>(ticker_box.h);
-    int_ticker_box.w=static_cast<int>(ticker_box.w);
+//    int_ticker_box.x=static_cast<int>(ticker_box.x);
+//    int_ticker_box.y=static_cast<int>(ticker_box.y);
+//    int_ticker_box.h=static_cast<int>(ticker_box.h);
+//    int_ticker_box.w=static_cast<int>(ticker_box.w);
     feed_rate = ticker_box.w/100;
-    if ((ticker_texture_size.h != int_ticker_box.h) &&(ticker_texture_size.w != int_ticker_box.w)) {
-        if (streaming_ticker) {
-            SDL_DestroyTexture(streaming_ticker);
-            streaming_ticker=nullptr;
+    if ((ticker_texture_size.h != ticker_box.h) &&(ticker_texture_size.w != ticker_box.w)) {
+        if (host_api->AaediHAM_TextureCheck(streaming_ticker)) {
+            host_api->AaediHAM_TextureDelete(streaming_ticker);
+            streaming_ticker=0;
         }
-        streaming_ticker = SDL_CreateTexture(panel.GetRenderer(), overlay->texture->format, SDL_TEXTUREACCESS_STREAMING, int_ticker_box.w, int_ticker_box.h);
+        struct aaediclock_image new_texture;
+        new_texture.width = ticker_box.w;
+        new_texture.height = ticker_box.h;
+        new_texture.pixels = static_cast<uint8_t*>(malloc(ticker_box.w*ticker_box.h*4));
+        streaming_ticker =  host_api->AaediHAM_TextureCreate(new_texture);
+//        streaming_ticker = SDL_CreateTexture(panel.GetRenderer(), overlay->texture->format, SDL_TEXTUREACCESS_STREAMING, int_ticker_box.w, int_ticker_box.h);
         if (streaming_ticker) {
-            ticker_texture_size = int_ticker_box;
+            ticker_texture_size = ticker_box;
         }
     }
     // get the next headline as needed
@@ -331,9 +366,11 @@ void rss_ticker(ScreenFrame& panel) {
     }
 
     // draw the background
-    SDL_SetRenderTarget(panel.GetRenderer(), overlay->texture);
-    SDL_SetRenderDrawColor (panel.GetRenderer(), 255,128,128,128);
-    SDL_RenderFillRect(panel.GetRenderer(), &ticker_box);
+    host_api->AaediHAM_OverlaySet(mapsize);
+     host_api->AaediHAM_GraphicsDrawRect(aaediclock_Color {255,128,128,128}, ticker_box, 1);
+//    SDL_SetRenderTarget(panel.GetRenderer(), overlay->texture);
+//    SDL_SetRenderDrawColor (panel.GetRenderer(), 255,128,128,128);
+//    SDL_RenderFillRect(panel.GetRenderer(), &ticker_box);
 
     if (ticker_surface) {
          // we have an active headline here
@@ -401,4 +438,14 @@ void rss_ticker(ScreenFrame& panel) {
         std::cout << "Scroller seems to be missing the ticker_surface\n";
     }
      return;
+
 }
+
+const char* rss_plugin::getName() const {
+    return "RSS Module";
+}
+
+void rss_plugin::set_host(aaediclock_host_api* host) {
+    host_api = host;
+}
+

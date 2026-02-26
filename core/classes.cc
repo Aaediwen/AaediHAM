@@ -1,5 +1,6 @@
 #include "aaediclock.h"
-#include "utils.h"
+//#include "utils.h"
+#include "utils/http_fetch.h"
 #include <fstream>
 #include <sstream>
 //#include "modules.h"
@@ -855,7 +856,7 @@ void map_icons::clear_icons() {
 }
 
 bool map_icons::icon_check(uint16_t index, uint16_t owner) {
-    if (icon_list.empty() || index > icon_list.size()) {
+    if (icon_list.empty() || index >= icon_list.size()) {
         return false;
     }
     if (icon_list[index].owner == owner) {

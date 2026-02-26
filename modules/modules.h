@@ -12,7 +12,7 @@
 //#include "modules/clock.h"
 //#include "modules/ncdxf.h"
 //#include "modules/sun.h"
-#include "modules/wspr_tracker.h"
+//#include "modules/wspr_tracker.h"
 //#include "modules/lunar.h"
 #include "modules/pskreporter.h"
 //#include "modules/contests.h"

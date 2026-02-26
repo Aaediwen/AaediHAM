@@ -29,6 +29,26 @@ const std::string hexencode (const std::string source) {
     return result;
 }
 
+std::string url_encode(const std::string& input) {
+    static const char hex[] = "0123456789ABCDEF";
+    std::string result;
+    result.reserve(input.size() * 3);
+
+    for (unsigned char c : input) {
+        if ((c >= 'A' && c <= 'Z') ||
+            (c >= 'a' && c <= 'z') ||
+            (c >= '0' && c <= '9')) {
+            result.push_back(c);
+        } else {
+            result.push_back('%');
+            result.push_back(hex[c >> 4]);
+            result.push_back(hex[c & 0xF]);
+        }
+    }
+//    SDL_Log ("DEBUG URL_Encoded string: %s", result.c_str());
+    return result;
+}
+
 
 const std::string URL_Encode(const char* source) {
     std::string result;
@@ -72,8 +92,6 @@ const std::string URL_Encode(const char* source) {
     }
     return result;
 }
-
-
 
 size_t cache_http_callback( char* in, size_t size, size_t nmemb, void* out) {
     std::string* buffer = static_cast<std::string*>(out);

@@ -249,9 +249,16 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             master_flags.solar.draw_flag = false;
         }
         if (master_flags.wspr.draw_flag) {
-            debug_log << "ITTERATE: Calling WSPR Tracker ("<< MOD_WSPR <<")with panel " << master_flags.wspr.panel << "\n";
+            debug_log << "ITTERATE: Calling WSPR Tracker ("<< MOD_WSPR <<")with panel " << loaded_plugins[13].host_api->panel << "\n";
             debug_log.flush();
-            wspr_tracker (*(master_flags.wspr.panel), winboxes[PANEL_MAP].panel);
+//            wspr_tracker (*(master_flags.wspr.panel), winboxes[PANEL_MAP].panel);
+            aaediclock_FRect module_dims;
+            module_dims.w = loaded_plugins[13].host_api->panel->dims.w;
+            module_dims.h = loaded_plugins[13].host_api->panel->dims.h;
+            module_dims.x = loaded_plugins[13].host_api->panel->dims.x;
+            module_dims.y = loaded_plugins[13].host_api->panel->dims.y;
+            loaded_plugins[13].plugin->plugin_main(module_dims);
+            SDL_SetRenderTarget(clock_renderer, NULL);
             master_flags.wspr.draw_flag = false;
             debug_log << "ITTERATE: Module Timer WSPR -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
         }

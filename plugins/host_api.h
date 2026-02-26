@@ -38,6 +38,7 @@ class HostAPI final : public aaediclock_host_api {
           void AaediHAM_ConfigSetDX				(struct aaediclock_dx new_dx) override;
           struct aaediclock_dx AaediHAM_ConfigGetDX		() override;
           struct plugin_server_info AaediHAM_ConfigGetDXServer	() override;
+          struct plugin_wspr_station AaediHAM_ConfigGetNextWspr () override;
           int AaediHAM_ConfigGetSatCount			() override;
           const char* AaediHAM_ConfigGetSat			(int index) override;
           // map pins

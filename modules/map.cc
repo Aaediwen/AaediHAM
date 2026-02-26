@@ -1,5 +1,7 @@
 #include "map.h"
 #include "core/utils.h"
+#include "utils/celestials.h"
+//#include "utils/conversions.h"
 
 ScreenFrame DayMap;
 ScreenFrame NightMap;

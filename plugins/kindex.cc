@@ -271,7 +271,7 @@ void kindex_plugin::plugin_main(const aaediclock_FRect& dims) const {
     size_t kindex_count;
     if (kindex_cache.empty() || solar_wind_cache.empty()) {
       *(host_api->AaediHAM_LogDebug) << "Missing Solar Data!\n";
-      host_api->AaediHAM_GraphicsDrawText("MISSING KINDEX DATA", aaediclock_Color{128,128,128,0}, aaediclock_FRect {dims.w/20, dims.h/4, (dims.w/10)*8, dims.h/10});
+      host_api->AaediHAM_GraphicsDrawText("MISSING KINDEX DATA", aaediclock_Color{128,128,128,0}, aaediclock_FRect {dims.w/20, dims.h/4, dims.h/10, (dims.w/10)*8});
       return;
     }
     wind_index = solar_wind_cache.begin();
