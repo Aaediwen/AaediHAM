@@ -1,5 +1,6 @@
 #ifndef CLASSES_H
 #define CLASSES_H
+
 enum mod_name {
     MOD_MAP             ,
     MOD_DE              ,
@@ -67,9 +68,9 @@ class ScreenFrame {
         void present();
         bool valid() const;
 };
-extern ScreenFrame DayMap;
-extern ScreenFrame NightMap;
-extern ScreenFrame CountriesMap;
+//extern ScreenFrame DayMap;
+//extern ScreenFrame NightMap;
+//extern ScreenFrame CountriesMap;
 
 struct GeoCoord {
     double latitude;

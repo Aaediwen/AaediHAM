@@ -2,45 +2,74 @@
 #include "core/utils.h"
 #include "utils/celestials.h"
 //#include "utils/conversions.h"
+#include <mutex>
 
-ScreenFrame DayMap;
-ScreenFrame NightMap;
-ScreenFrame CountriesMap;
-SDL_Texture* mask_tex		= nullptr;
+aaediclock_host_api* host_api = nullptr;
+struct plugin_mouse_event mouse_event;
+//ScreenFrame DayMap;
+//ScreenFrame NightMap;
+//ScreenFrame CountriesMap;
+struct map_layer {
+    uint16_t texture_id = 0;
+    SDL_Surface* surface = nullptr;
+} ;
+struct map_layer DayMap;
+struct map_layer NightMap;
+struct map_layer CountriesMap;
+uint16_t mask_tex;
+//SDL_Texture* mask_tex		= nullptr;
 SDL_Surface* mask_surface 	= nullptr;
-SDL_FRect old_dims 		= {0.0, 0.0, 0.0, 0.0};
-
+aaediclock_FRect old_dims 		= {0.0, 0.0, 0.0, 0.0};
+std::mutex	map_mutex;
 
 enum map_overlays : uint16_t {
     map 	=	1001,
     pins	=	1002
 };
 
-void load_maps(SDL_Renderer* target_renderer, const SDL_FRect size) {
-    (void)size;
-    debug_log << "MAP: Reloading Maps\n";
-    SDL_Surface* temp_surface = nullptr;
-    SDL_LockMutex(mutexes[MUTEX_NIGHT_MASK]);    /// MUTEX LOCK
-    // reset the panels to make sure they are in a good state
-    DayMap.Reset();
-    NightMap.Reset();
-    CountriesMap.Reset();
 
-    if (!target_renderer) {
-        debug_log << "MAP: load_maps called with null renderer\n";
+void load_maps(const aaediclock_FRect size) {
+    (void)size;
+    *(host_api->AaediHAM_LogDebug) << "MAP: Reloading Maps\n";
+    SDL_Surface* load_surface = nullptr;
+    const std::lock_guard<std::mutex>map_lock(map_mutex);
+
+    // reset the panels to make sure they are in a good state
+    if (host_api->AaediHAM_TextureCheck(DayMap.texture_id)) {
+        host_api->TextureDelete(DayMap.texture_id);
+        DayMap.texture_id = 0;
+    }
+    if (host_api->AaediHAM_TextureCheck(NightMap.texture_id)) {
+        host_api->TextureDelete(NightMap.texture_id);
+        NightMap.texture_id = 0;
+    }
+    if (host_api->AaediHAM_TextureCheck(CountriesMap.texture_id)) {
+        host_api->TextureDelete(CountriesMap.texture_id);
+        CountriesMap.texture_id = 0;
+    }
+    if (DayMap.surface) {
+        SDL_DestroySurface(DayMap.surface);
+        DayMap.surface = nullptr;
+    }
+    if (NightMap.surface) {
+        SDL_DestroySurface(NightMap.surface);
+        NightMap.surface = nullptr;
+    }
+    if (CountriesMap.surface) {
+        SDL_DestroySurface(CountriesMap.surface);
+        CountriesMap.surface = nullptr;
+    }
+
+    if ((size.h < 1) || (size.w < 1)) {
+        *(host_api->AaediHAM_LogDebug << "Invalid dims to load maps\n";
         return;
     }
-    const SDL_Rect intsize = SDL_Rect{0,0,static_cast<int>(size.w), static_cast<int>(size.h)};
-    // reset all the renderers
-    DayMap.SetRenderer(target_renderer);
-    NightMap.SetRenderer(target_renderer);
-    CountriesMap.SetRenderer(target_renderer);
     // load the day map
-    temp_surface = SDL_LoadBMP("images/Blue_Marble_2002.bmp");
-    if (temp_surface) {
-        DayMap.surface = SDL_CreateSurface(intsize.w, intsize.h, SDL_PIXELFORMAT_RGBA32);
+    load_surface = SDL_LoadBMP("images/Blue_Marble_2002.bmp");
+    if (load_surface) {
+        DayMap.surface = SDL_CreateSurface(static_)cast<int>(size.w), static_cast<int>(size.h), SDL_PIXELFORMAT_RGBA32);
         if (DayMap.surface) {
-            if (!SDL_BlitSurfaceScaled(temp_surface, NULL, DayMap.surface, NULL, SDL_SCALEMODE_LINEAR)) {
+            if (!SDL_BlitSurfaceScaled(load_surface, NULL, DayMap.surface, NULL, SDL_SCALEMODE_LINEAR)) {
                 debug_log << "MAP: Error scaling Day Map to DayMap surface!\n";
                 SDL_DestroySurface(DayMap.surface);
                 DayMap.surface = nullptr;
@@ -48,26 +77,33 @@ void load_maps(SDL_Renderer* target_renderer, const SDL_FRect size) {
         } else {
             debug_log << "MAP: Error Creating Day Map Surface!\n";
         }
-        SDL_DestroySurface(temp_surface);
-        temp_surface = nullptr;
+        SDL_DestroySurface(load_surface);
+        load_surface = nullptr;
     } else {
         debug_log << "MAP: Error Loading Day Map File!\n";
     }
     // create the DayMap Texture
     if (DayMap.surface) {
-        DayMap.texture = SDL_CreateTextureFromSurface(target_renderer,DayMap.surface);
-        if (!DayMap.texture) {
+        aaediclock_image new_texture;
+        new_texture.height = DayMap.surface->h;
+        new_texture.width =  DayMap.surface->w;
+        new_texture.pixels = DayMap.surface->pixels;
+        DayMap.texture_id = host_api->AaediHAM_TextureCreate(new_texture);
+//        DayMap.texture = SDL_CreateTextureFromSurface(target_renderer,DayMap.surface);
+        if (!DayMap.texture_id) {
             debug_log << "Unable to load DayMap Texture: " << SDL_GetError() << "\n";
             SDL_DestroySurface(DayMap.surface);
+            DayMap.surface = nullptr;
         }
+
     }
 
     // load the Night Map
-    temp_surface = SDL_LoadBMP("images/Black_Marble_2016.bmp");
-    if (temp_surface) {
+    load_surface = SDL_LoadBMP("images/Black_Marble_2016.bmp");
+    if (load_surface) {
         NightMap.surface = SDL_CreateSurface(intsize.w, intsize.h, SDL_PIXELFORMAT_RGBA32);
         if (NightMap.surface) {
-            if (!SDL_BlitSurfaceScaled(temp_surface, NULL, NightMap.surface, NULL, SDL_SCALEMODE_LINEAR)) {
+            if (!SDL_BlitSurfaceScaled(load_surface, NULL, NightMap.surface, NULL, SDL_SCALEMODE_LINEAR)) {
                 debug_log << "MAP: Error scaling Night Map to NightMap surface!\n";
                 SDL_DestroySurface(NightMap.surface);
                 NightMap.surface = nullptr;
@@ -75,18 +111,18 @@ void load_maps(SDL_Renderer* target_renderer, const SDL_FRect size) {
         } else {
             debug_log << "MAP: Error Creating Night Map Surface!\n";
         }
-        SDL_DestroySurface(temp_surface);
-        temp_surface = nullptr;
+        SDL_DestroySurface(load_surface);
+        load_surface = nullptr;
     } else {
         debug_log << "MAP: Error Loading Night Map File!\n";
     }
-    SDL_UnlockMutex(mutexes[MUTEX_NIGHT_MASK]);    /// MUTEX LOCK
+//    SDL_UnlockMutex(mutexes[MUTEX_NIGHT_MASK]);    /// MUTEX LOCK
     // load the Countries Map
-    temp_surface = SDL_LoadBMP("images/outline.bmp");
-    if (temp_surface) {
+    load_surface = SDL_LoadBMP("images/outline.bmp");
+    if (load_surface) {
         CountriesMap.surface = SDL_CreateSurface(intsize.w, intsize.h, SDL_PIXELFORMAT_RGBA32);
         if (CountriesMap.surface) {
-            if (!SDL_BlitSurfaceScaled(temp_surface, NULL, CountriesMap.surface, NULL, SDL_SCALEMODE_LINEAR)) {
+            if (!SDL_BlitSurfaceScaled(load_surface, NULL, CountriesMap.surface, NULL, SDL_SCALEMODE_LINEAR)) {
                 debug_log << "MAP: Error scaling Countries Map to CountriesMap surface!\n";
                 SDL_DestroySurface(CountriesMap.surface);
                 CountriesMap.surface = nullptr;
@@ -94,7 +130,7 @@ void load_maps(SDL_Renderer* target_renderer, const SDL_FRect size) {
         } else {
             debug_log << "MAP: Error Creating Countries Map Surface!\n";
         }
-        SDL_DestroySurface(temp_surface);
+        SDL_DestroySurface(load_surface);
         temp_surface = nullptr;
     } else {
         debug_log << "MAP: Error Loading Countries Map File!\n";
@@ -134,18 +170,18 @@ void load_maps(SDL_Renderer* target_renderer, const SDL_FRect size) {
                 memcpy((country_pixels + pixel_index), &pixel_val_out, bpp);
             }
         }
-        CountriesMap.texture = SDL_CreateTextureFromSurface(target_renderer,CountriesMap.surface);
-        if (!CountriesMap.texture) {
+        aaediclock_image new_texture;
+        new_texture.height = CountriesMap.surface->h;
+        new_texture.width =  CountriesMap.surface->w;
+        new_texture.pixels = CountriesMap.surface->pixels;
+        CountriesMap.texture_id = host_api->AaediHAM_TextureCreate(new_texture);
+        if (!CountriesMap.texture_id) {
             debug_log << "MAP: Unable to load Country texture: " << SDL_GetError() << "\n";
-
         }
     }
-
-
-
     // set blend modes
-    SDL_SetTextureBlendMode(DayMap.texture, SDL_BLENDMODE_NONE);
-    SDL_SetTextureBlendMode(NightMap.texture, SDL_BLENDMODE_NONE);
+//    SDL_SetTextureBlendMode(DayMap.texture, SDL_BLENDMODE_NONE);
+//    SDL_SetTextureBlendMode(NightMap.texture, SDL_BLENDMODE_NONE);
     old_dims = size;
     return;
 }
@@ -264,7 +300,7 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
         return;
     }
     const int unit_scale = static_cast<int>(panel->dims.w/100);
-    SDL_Texture* old_render_target = SDL_GetRenderTarget(panel->GetRenderer());;
+    SDL_Texture* old_render_target = SDL_GetRenderTarget(panel->GetRenderer());
     SDL_FRect icon_box;		// how big and where are we going to render the icon?
     SDL_Texture* icon_texture = nullptr;	// variable to store what icon texture we are going to use
 
@@ -378,31 +414,107 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
     if (icon_box.y <=0) {
         icon_box.y += icon_box.h;
     }
-
     // map the icon texture to the map
     SDL_SetTextureBlendMode(icon_texture, SDL_BLENDMODE_BLEND);
     SDL_SetRenderTarget(panel->GetRenderer(), panel->texture);
     SDL_RenderTexture(panel->GetRenderer(), icon_texture, NULL, &icon_box);
 
     // reset the render target
-    SDL_SetRenderTarget(panel->GetRenderer(), old_render_target);
+//    SDL_SetRenderTarget(panel->GetRenderer(), old_render_target);
 
     // process the mouse event if relivant
     // this is here because it is the best place where we have the mouse target for an icon on the map
-    if (clock_mouse_event.mod_owner == MOD_MAP) {
-        if ( clock_mouse_event.mod_cords.y >= icon_box.y &&  clock_mouse_event.mod_cords.y <= (icon_box.y + icon_box.h)
-            && clock_mouse_event.mod_cords.x >= icon_box.x &&  clock_mouse_event.mod_cords.x <= (icon_box.x + icon_box.w)   ) {
+    if (mouse_event.valid()) {
+        if ( mouse_event.coords.y >= icon_box.y &&  mouse_event.c0ords.y <= (icon_box.y + icon_box.h)
+            && mouse_event.coords.x >= icon_box.x &&  mouse_event.coords.x <= (icon_box.x + icon_box.w)   ) {
                 const std::string dxstring = current_pin->label;
-                clockconfig.set_DX(GeoCoord{current_pin->lat, current_pin->lon}, dxstring);
+//                clockconfig.set_DX(GeoCoord{current_pin->lat, current_pin->lon}, dxstring);
+                struct aaediclock_dx new_dx;
+                new_dx.lat = current_pin->lat;
+                new_dx.lon = current_pin->lon;
+                new_dx.label = dxstring;
+                host_api->AaediHAM_ConfigSetDX(new_dx);
         }
     }
     return;
 }
 
 
-int draw_map(ScreenFrame& panel) {
+
+void draw_overlays(ScreenFrame& panel) {
+
 // input sanity checks
     if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
+        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]) ;
+    } else {
+        debug_log << "MAP: Draw during resize event!\n";
+        return;
+    }
+    if (!panel.GetRenderer()) {
+        debug_log << "MAP: Map called with bad renderer\n";
+        return;
+    }
+    if (!panel.texture) {
+        debug_log << "MAP: Map called with bad panel texture\n";
+        return;
+    }
+
+    // clear the panel
+    panel.Clear();
+    // draw map overlays
+       /// start with the map itself
+    // get an overlay
+    SDL_FRect mapsize ;
+    mapsize.w = panel.dims.w;
+    mapsize.h = panel.dims.h;
+    ScreenFrame* overlay = overlays.get_overlay(panel.GetRenderer(), map_overlays::map, mapsize);
+    ScreenFrame* pins_overlay = overlays.get_overlay(panel.GetRenderer(), map_overlays::pins, mapsize);
+       /// draw the rest of the overlays, skip the map one
+    overlays.reset_index();
+    ScreenFrame* render_overlay = overlay;
+    SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
+    SDL_SetTextureBlendMode(render_overlay->texture, SDL_BLENDMODE_BLEND);
+    SDL_RenderTexture(panel.GetRenderer(), render_overlay->texture, NULL, NULL);
+    render_overlay = pins_overlay;
+    SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
+    SDL_SetTextureBlendMode(render_overlay->texture, SDL_BLENDMODE_BLEND);
+    SDL_RenderTexture(panel.GetRenderer(), render_overlay->texture, NULL, NULL);
+    while (render_overlay) {
+         if ((render_overlay != overlay) && (render_overlay != pins_overlay)) {
+              SDL_SetTextureBlendMode(render_overlay->texture, SDL_BLENDMODE_BLEND);
+              SDL_RenderTexture(panel.GetRenderer(), render_overlay->texture, NULL, NULL);
+         }
+         render_overlay = overlays.next_overlay();
+    }
+
+    // reset the render target
+    SDL_SetRenderTarget(panel.GetRenderer(), NULL);
+    return;
+
+}
+
+
+extern "C" DllExport aaediclock_plugin_api* createPlugin() {
+    return new sample_plugin();
+}
+extern "C" DllExport void destroyPlugin(aaediclock_plugin_api* target) {
+    if (target) {
+        delete target;
+    }
+}
+
+void sample_plugin::plugin_init() const {
+    return;
+}
+
+void sample_plugin::plugin_exit() const {
+    return;
+}
+
+void sample_plugin::plugin_main(const aaediclock_FRect& dims) const {
+
+// input sanity checks
+/*    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
         SDL_UnlockMutex(mutexes[MUTEX_RESIZE]) ;
     } else {
         debug_log << "MAP: Draw during resize event!\n";
@@ -416,16 +528,19 @@ int draw_map(ScreenFrame& panel) {
         debug_log << "MAP: Map called with bad panel texture\n";
         return 0;
     }
-
+*/
+    if ((dims.h < 10) || (dims.w < 10)) {
+        return;
+    }
 //    // clear the panel
 //    panel.Clear();
 
     // verify we have maps to work with, this also handles resize events
-    if ((panel.dims.w != old_dims.w) || (panel.dims.h != old_dims.h) ||
+    if ((dims.w != old_dims.w) || (dims.h != old_dims.h) ||
         (!NightMap.surface) || (!DayMap.surface) || (!CountriesMap.surface) ) {
         debug_log << "MAP: Regenerating Map Mask Surface\n";
         // reload maps
-        load_maps(panel.GetRenderer(), panel.dims);
+        load_maps(dims);
         SDL_LockMutex(mutexes[MUTEX_NIGHT_MASK]);    /// MUTEX LOCK
         // kill the timer
         if (map_timer) {
@@ -457,21 +572,23 @@ int draw_map(ScreenFrame& panel) {
     }
 
     // get an overlay
-    SDL_FRect mapsize ;
-    mapsize.w = panel.dims.w;
-    mapsize.h = panel.dims.h;
-    ScreenFrame* map_overlay = overlays.get_overlay(panel.GetRenderer(), map_overlays::map, mapsize);
-    map_overlay->Clear(SDL_Color{0,0,0,255});
+    aaediclock_FRect mapsize ;
+    mapsize.w = dims.w;
+    mapsize.h = dims.h;
+    host_api->AaediHAM_OverlaySet(mapsize);
+    host_api->AaediHAM_OverlayClear(aaediclock_Color{0,0,0,0});
+//    ScreenFrame* map_overlay = overlays.get_overlay(panel.GetRenderer(), map_overlays::map, mapsize);
+//    map_overlay->Clear(SDL_Color{0,0,0,255});
     // set the render target
-    if (!SDL_SetRenderTarget(panel.GetRenderer(), map_overlay->texture)) {
+//    if (!SDL_SetRenderTarget(panel.GetRenderer(), map_overlay->texture)) {
 //    if (!SDL_SetRenderTarget(panel.GetRenderer(), panel.texture)) {
-        debug_log << "MAP: Failed to set render target: " << SDL_GetError() << "\n";
-        return 1;
-    }
-    SDL_RenderClear(panel.GetRenderer());
+//        debug_log << "MAP: Failed to set render target: " << SDL_GetError() << "\n";
+//        return 1;
+//    }
+//    SDL_RenderClear(panel.GetRenderer());
     // render the Day Map
-    if (DayMap.texture) {
-        SDL_RenderTexture(panel.GetRenderer(), DayMap.texture, NULL, NULL);
+    if (host_api->AaediHAM_TextureCheck(DayMap.texture_id)) {
+        host_api->AaediHAM_GraphicsDrawImage(DayMap.texture_id);
     }
 
     // night mask stuff here
@@ -518,27 +635,31 @@ int draw_map(ScreenFrame& panel) {
         debug_log << "MAP: Missing Night Mask Texture\n";
     }
 
+
     // countries map here
-    if (CountriesMap.texture) {
-        SDL_RenderTexture(panel.GetRenderer(), CountriesMap.texture, NULL, NULL);
+    if (host_api->AaediHAM_TextureCheck(CountriesMap.texture_id)) {
+        host_api->AaediHAM_GraphicsDrawImage(CountriesMap.texture_id);
     }
 
     // draw equator and tropics
-    SDL_SetRenderDrawColor(panel.GetRenderer(), 128,128,128,64);
-    SDL_RenderLine(panel.GetRenderer(), 0,(panel.dims.h/2), panel.dims.w, (panel.dims.h/2));
+    host_api->AaediHAM_GraphicsDrawLine(aaediclock_Color{128,128,128,64}, aaediclock_FRect{0,(panel.dims.h/2), panel.dims.w, (panel.dims.h/2)});
+//    SDL_SetRenderDrawColor(panel.GetRenderer(), 128,128,128,64);
+//    SDL_RenderLine(panel.GetRenderer(), 0,(panel.dims.h/2), panel.dims.w, (panel.dims.h/2));
     SDL_SetRenderDrawColor(panel.GetRenderer(), 128,0,0,64);
     float tropic;
     tropic = ((-23.4f+90.0f) * panel.dims.h)/180.0f;
-    SDL_RenderLine(panel.GetRenderer(), 0,tropic, panel.dims.w, tropic);
+//    SDL_RenderLine(panel.GetRenderer(), 0,tropic, panel.dims.w, tropic);
+    host_api->AaediHAM_GraphicsDrawLine(aaediclock_Color{128,0,0,64}, aaediclock_FRect{0,tropic, panel.dims.w, tropic});
     tropic = ((23.4f+90.0f) * panel.dims.h)/180.0f;
-    SDL_RenderLine(panel.GetRenderer(), 0,tropic, panel.dims.w, tropic);
+//    SDL_RenderLine(panel.GetRenderer(), 0,tropic, panel.dims.w, tropic);
+    host_api->AaediHAM_GraphicsDrawLine(aaediclock_Color{128,0,0,64}, aaediclock_FRect{0,tropic, panel.dims.w, tropic});
     ScreenFrame* pin_overlay = overlays.get_overlay(panel.GetRenderer(), map_overlays::pins, mapsize);
     pin_overlay->Clear(SDL_Color{0,0,0,0});
     // set the render target
     SDL_SetRenderTarget(panel.GetRenderer(), pin_overlay->texture);
-
     // draw map pins
     // old pins
+    mouse_event = host_api->AaediHAM_GetMouseEvent();
     if (map_pins) {
         struct map_pin* current_pin;
         current_pin=map_pins;
@@ -554,85 +675,15 @@ int draw_map(ScreenFrame& panel) {
             render_pin(pin_overlay, &map_pin);
         }
     }
-/*
-    // draw map overlays
-       /// start with the map itself
 
-       /// draw the rest of the overlays, skip the map one
-    overlays.reset_index();
-    ScreenFrame* render_overlay = overlay;
-    SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
-    SDL_SetTextureBlendMode(render_overlay->texture, SDL_BLENDMODE_BLEND);
-    SDL_RenderTexture(panel.GetRenderer(), render_overlay->texture, NULL, NULL);
-    while (render_overlay) {
-         if (render_overlay != overlay) {
-              SDL_SetTextureBlendMode(render_overlay->texture, SDL_BLENDMODE_BLEND);
-              SDL_RenderTexture(panel.GetRenderer(), render_overlay->texture, NULL, NULL);
-         }
-         render_overlay = overlays.next_overlay();
-    }
-*/
-    // reset the render target
-    SDL_SetRenderTarget(panel.GetRenderer(), NULL);
-
-    // reset the mouse event if needed
-    if (clock_mouse_event.mod_owner == MOD_MAP) {
-        clock_mouse_event.mod_owner = MOD_NULL;
-    }
-
-    return 1;
-}
-
-void draw_overlays(ScreenFrame& panel) {
-
-// input sanity checks
-    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
-        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]) ;
-    } else {
-        debug_log << "MAP: Draw during resize event!\n";
-        return;
-    }
-    if (!panel.GetRenderer()) {
-        debug_log << "MAP: Map called with bad renderer\n";
-        return;
-    }
-    if (!panel.texture) {
-        debug_log << "MAP: Map called with bad panel texture\n";
-        return;
-    }
-
-    // clear the panel
-    panel.Clear();
-    // draw map overlays
-       /// start with the map itself
-    // get an overlay
-    SDL_FRect mapsize ;
-    mapsize.w = panel.dims.w;
-    mapsize.h = panel.dims.h;
-    ScreenFrame* overlay = overlays.get_overlay(panel.GetRenderer(), map_overlays::map, mapsize);
-//    ScreenFrame* pins_overlay = overlays.get_overlay(panel.GetRenderer(), map_overlays::pins, mapsize);
-       /// draw the rest of the overlays, skip the map one
-    overlays.reset_index();
-
-    ScreenFrame* render_overlay = overlay;
-render_overlay = overlays.next_overlay();
-//    SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
-//    SDL_SetTextureBlendMode(render_overlay->texture, SDL_BLENDMODE_BLEND);
-//    SDL_RenderTexture(panel.GetRenderer(), render_overlay->texture, NULL, NULL);
-//    render_overlay = pins_overlay;
-//    SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
-//    SDL_SetTextureBlendMode(render_overlay->texture, SDL_BLENDMODE_BLEND);
-//    SDL_RenderTexture(panel.GetRenderer(), render_overlay->texture, NULL, NULL);
-    while (render_overlay) {
-//         if ((render_overlay != overlay) && (render_overlay != pins_overlay)) {
-              SDL_SetTextureBlendMode(render_overlay->texture, SDL_BLENDMODE_BLEND);
-              SDL_RenderTexture(panel.GetRenderer(), render_overlay->texture, NULL, NULL);
-//         }
-         render_overlay = overlays.next_overlay();
-    }
-
-    // reset the render target
-    SDL_SetRenderTarget(panel.GetRenderer(), NULL);
     return;
-
 }
+
+const char* map_plugin::getName() const {
+    return "Map Module";
+}
+
+void map_plugin::set_host(aaediclock_host_api* host) {
+    host_api = host;
+}
+

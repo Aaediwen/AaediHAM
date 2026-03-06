@@ -13,7 +13,7 @@ void panel_assignment(bool increment) {
         plugin.draw_flag = false;
         plugin.host_api->panel = &(winboxes[PANEL_NULL].panel);
     }
-    master_flags.map.panel          =       &(winboxes[PANEL_MAP].panel);
+/*    master_flags.map.panel          =       &(winboxes[PANEL_MAP].panel);
     master_flags.sat_tracker.panel  =       &(winboxes[PANEL_NULL].panel);
     master_flags.dx_spots.panel     =       &(winboxes[PANEL_NULL].panel);
     master_flags.callsign.panel     =       &(winboxes[PANEL_NULL].panel);
@@ -30,6 +30,7 @@ void panel_assignment(bool increment) {
     master_flags.contests.panel     =       &(winboxes[PANEL_NULL].panel);
     master_flags.rss.panel          =       &(winboxes[PANEL_NULL].panel);
     master_flags.aurora.panel       =       &(winboxes[PANEL_NULL].panel);
+    */
     // step through each screen panel
     for (auto& panel : winboxes) {
         //increment plugin counter
@@ -47,70 +48,6 @@ void panel_assignment(bool increment) {
                 debug_log << "MOD PAGER: Setting Plugin: "<< loaded_plugins[panel.plugin_sequence[panel.plugin_index]].name << "to panel " << &panel.panel << "\n";
             }
         }
-        // increment module counter
-        if (panel.sequence.size()) {
-            // optionally increment the panel to the next module in its list
-            if (increment) {
-                panel.index++;
-                if (panel.index >= panel.sequence.size()) { panel.index = 0 ; }
-            }
-            // assign the correct module to the panel
-            switch (panel.sequence[panel.index]) {
-                case MOD_MAP:
-                    master_flags.map.panel = &panel.panel;
-                    break;
-                case MOD_DE:
-//                    master_flags.de.panel = &panel.panel;
-                    break;
-                case MOD_DX:
-//                    master_flags.dx.panel = &panel.panel;
-                    break;
-                case MOD_CLOCK:
-//                    master_flags.clock.panel = &panel.panel;
-                    break;
-                case MOD_CALL:
-//                  master_flags.callsign.panel = &panel.panel;
-                    break;
-                case MOD_POTA:
-//                    master_flags.pota.panel = &panel.panel;
-                    break;
-                case MOD_PSK:
-                    master_flags.psk.panel = &panel.panel;
-                    break;
-                case MOD_SAT:
-//                    master_flags.sat_tracker.panel = &panel.panel;
-                    break;
-                case MOD_DXSPOT:
-//                    master_flags.dx_spots.panel = &panel.panel;
-                    break;
-                case MOD_KINDEX:
-//                    master_flags.kindex.panel = &panel.panel;
-                    break;
-                case MOD_CONTESTS:
-//                    master_flags.contests.panel = &panel.panel;
-                    break;
-                case MOD_NCDXF:
-//                    master_flags.ncdxf.panel = &panel.panel;
-                    break;
-                case MOD_SOLAR:
-//                    master_flags.solar.panel = &panel.panel;
-                    break;
-                case MOD_WSPR:
-//                    master_flags.wspr.panel = &panel.panel;
-                    break;
-                case MOD_LUNAR:
-//                    master_flags.lunar.panel = &panel.panel;
-                    break;
-                case MOD_RSS:
-                    master_flags.rss.panel = &panel.panel;
-                    break;
-                case MOD_AURORA:
-//                    master_flags.aurora.panel = &panel.panel;
-                    break;
-                case MOD_NULL:
-                    break;
-            }
-        }
     }
 }
 
@@ -125,13 +62,20 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
     }
     if (timerID) {
         SDL_LockMutex(mutexes[MUTEX_MASTER_CLOCK]);
-
         if ((interrupt_counter % 600) == 0) {   // 60 seconds
             debug_log << "FLAG_TIMER: MOD PAGER FIRED!\n";
             debug_log.flush();
             panel_assignment(true);
         }
+        for (struct PluginModule& plugin : loaded_plugins ) {
+            if (plugin.interval) {
+                if ((interrupt_counter % plugin.interval) == 0) {
+                    plugin.draw_flag = true;
+                }
+            }
+        }
 
+/*
 
         if ((interrupt_counter % 300)==0) {     // 30 seconds
             master_flags.callsign.draw_flag = true;
@@ -177,6 +121,7 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
             master_flags.clock.draw_flag = true;
         }
         master_flags.rss.draw_flag = true;
+        */
 //        debug_log << "FLAG_TIMER: Master flag timer done.\n";
         SDL_UnlockMutex(mutexes[MUTEX_MASTER_CLOCK]);
         return (interval);
@@ -198,10 +143,10 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 SDL_RemoveTimer(flag_timer);
                 flag_timer = 0;
             }
-            if (map_timer) {
-                SDL_RemoveTimer(map_timer);
-                map_timer = 0;
-            }
+//            if (map_timer) {
+//                SDL_RemoveTimer(map_timer);
+//                map_timer = 0;
+//            }
 
             debug_log << "RESIZE: Beginning Window resize\n";
             debug_log.flush();
@@ -213,7 +158,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 plugin.draw_flag = false;
                 plugin.host_api->panel = nullptr;
             }
-
+/*
             master_flags.callsign.draw_flag     =       false;
             master_flags.de.draw_flag           =       false;
             master_flags.dx.draw_flag           =       false;
@@ -249,7 +194,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
             master_flags.contests.panel         =       nullptr;
             master_flags.rss.panel              =       nullptr;
             master_flags.aurora.panel           =       nullptr;
-
+*/
             debug_log << "RESIZE: Destroying old surfaces\n";
             debug_log.flush();
             // clean up the old surface
@@ -445,7 +390,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 debug_log << "RESIZE: Re-enabling program loops\n";
                 debug_log.flush();
              // re-enable the rest of the program
-                master_flags.callsign.draw_flag         =       true;
+/*                master_flags.callsign.draw_flag         =       true;
                 master_flags.de.draw_flag               =       true;
                 master_flags.dx.draw_flag               =       true;
                 master_flags.pota.draw_flag             =       true;
@@ -461,12 +406,12 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 master_flags.contests.draw_flag         =       true;
                 master_flags.rss.draw_flag              =       true;
                 master_flags.aurora.draw_flag           =       true;
-
+*/
                 for (struct PluginModule& plugin : loaded_plugins ) {
                     plugin.draw_flag = true;
                 }
                 // enable the masin system clock
-                flag_timer = SDL_AddTimer(100, master_clock, &master_flags);
+                flag_timer = SDL_AddTimer(100, master_clock, nullptr);
                 debug_log << "RESIZE: Window resize complete\n";
                 debug_log.flush();
             }

@@ -28,6 +28,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 #	modules/kindex.cc
 #	modules/wspr_tracker.cc
 #	modules/lunar.cc
+#	modules/map.cc
+#	modules/pskreporter.cc
 
 set (SOURCES
 	core/init.cc
@@ -41,15 +43,11 @@ set (SOURCES
         utils/celestials.cc
         utils/conversions.cc
 	plugins/host_api.cc
-	modules/map.cc
-	modules/pskreporter.cc
-	modules/rss.cc
-
 )
 
 add_library(aaediclock_path INTERFACE)
 target_include_directories(aaediclock_path INTERFACE ${CMAKE_SOURCE_DIR})
-
+target_link_options(aaediclock_path INTERFACE -fsanitize=address)
 
 add_executable(clock ${SOURCES})
 target_link_libraries(clock PRIVATE aaediclock_path)
@@ -145,12 +143,23 @@ add_library(lunar_plugin SHARED
 target_link_libraries(lunar_plugin PRIVATE aaediclock_path SDL3_image::SDL3_image)
 
 
-add_library(rss_plugin SHARED
-    plugins/rss.cc
-    utils/http_fetch.cc
-)
-target_link_libraries(rss_plugin PRIVATE aaediclock_path LibXml2::LibXml2)
+#add_library(rss_plugin SHARED
+#    plugins/rss.cc
+#    utils/http_fetch.cc
+#)
+#target_link_libraries(rss_plugin PRIVATE aaediclock_path LibXml2::LibXml2)
 
+#add_library(pskreporter_plugin SHARED
+#    plugins/psk_reporter.cc
+#    utils/http_fetch.cc
+#)
+#target_link_libraries(rss_plugin PRIVATE aaediclock_path LibXml2::LibXml2)
+
+add_library(map_plugin SHARED
+	plugins/map.cc
+	utils/celestials.cc
+)
+target_link_libraries(map_plugin PRIVATE aaediclock_path  SDL3_image::SDL3_image)
 
 # ================================================================================
 # CUSTOM DEPENDANCY FUNCTION
@@ -219,6 +228,7 @@ elseif(APPLE)
 else()
    	target_compile_options(clock PRIVATE
         	$<$<CONFIG:Debug>:-Wall -Wextra -Werror -Wunused -O0
+-fsanitize=address -O1
 -rdynamic -pg -g -Wl,--no-undefined>
         	$<$<CONFIG:Release>:-O3 -rdynamic -DNDEBUG>
     	)

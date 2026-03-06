@@ -17,7 +17,7 @@
 
 
 struct PluginModule;
-
+/*
 struct regen_mask_args {
     SDL_Surface* source;
     SDL_Surface* dest;
@@ -25,6 +25,7 @@ struct regen_mask_args {
 };
 
 extern struct regen_mask_args* night_mask_args;
+*/
 extern SDL_Renderer		*clock_renderer;
 enum mutex_name {
     MUTEX_NIGHT_MASK    ,
@@ -38,7 +39,7 @@ enum mutex_name {
     MUTEX_AURORA
 };
 extern std::array<SDL_Mutex*, 10> mutexes;
-extern SDL_TimerID map_timer;
+//extern SDL_TimerID map_timer;
 extern TTF_Font* Sans;
 extern std::ostream& debug_log;
 

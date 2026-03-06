@@ -5,6 +5,7 @@ struct ModuleControl {
     ScreenFrame* panel = &winboxes[PANEL_NULL].panel;
 };
 
+/*
 struct ModuleList {
     ModuleControl sat_tracker;
     ModuleControl dx_spots;
@@ -24,7 +25,7 @@ struct ModuleList {
     ModuleControl rss;
     ModuleControl aurora;
 } extern master_flags;			// set in init, used in panels. due for replacement
-
+*/
 
 extern SDL_Window* window;		// main window		--	set in init, used to create renderer in resize
 extern SDL_TimerID flag_timer;		// main program timer	--	used in panel, set in init and panel

@@ -77,6 +77,7 @@ class aaediclock_host_api {
         virtual void 				AaediHAM_GraphicsDrawLines	(const aaediclock_Color color, const aaediclock_FPoint* point_list, int count)	= 0;
         virtual void 				AaediHAM_GraphicsClear		(const aaediclock_Color& color = {0, 0, 0, 255}) 				= 0;
         virtual void				AaediHAM_GraphicsDrawImage	(uint16_t index)								= 0;
+//        virtual struct aaediclock_image		AaediHAM_GraphicsGetText	(const char* string, const aaediclock_Color foreground, const aaediclock_Color background) = 0;
         // config calls
         virtual const char* 			AaediHAM_ConfigGetQRZKey	(bool refresh) 									= 0;
         virtual const char* 			AaediHAM_ConfigGetCall		() 										= 0;

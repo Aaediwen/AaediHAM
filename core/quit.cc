@@ -18,18 +18,20 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
         SDL_RemoveTimer(flag_timer);
         flag_timer = 0;
     }
-    if (map_timer) {
+/*    if (map_timer) {
         SDL_RemoveTimer(map_timer);
         map_timer = 0;
     }
     free (night_mask_args);
     night_mask_args=nullptr;
+*/
     debug_log << "EXIT: Disabling Draw flags and panels.\n\n";
     for (struct PluginModule& plugin : loaded_plugins ) {
         plugin.draw_flag = false;
 //        plugin.host_api->panel = nullptr;
         unregister_module(&plugin);
     }
+    /*
     master_flags.callsign.draw_flag     =       false;
     master_flags.de.draw_flag           =       false;
     master_flags.dx.draw_flag           =       false;
@@ -63,6 +65,7 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     master_flags.contests.panel         =       nullptr;
     master_flags.rss.panel              =       nullptr;
     master_flags.aurora.panel           =       nullptr;
+    */
     debug_log << "EXIT: Cleaning Mutexes.\n\n";
    for (SDL_Mutex*& mtx : mutexes) {
         if (mtx) {
@@ -74,9 +77,9 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     }
     debug_log << "EXIT: Cleaning SDL Panels.\n\n";
     overlays.clear();
-    DayMap.Reset();
-    NightMap.Reset();
-    CountriesMap.Reset();
+//    DayMap.Reset();
+//    NightMap.Reset();
+//    CountriesMap.Reset();
     winboxes[PANEL_CALLSIGN].panel.Reset();
     winboxes[PANEL_NULL].panel.Reset();
     winboxes[PANEL_DE].panel.Reset();
@@ -89,7 +92,7 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     winboxes[PANEL_FLEXBOX5].panel.Reset();
     winboxes[PANEL_MAP].panel.Reset();
     debug_log << "EXIT: PSKreporter Cleanup.\n\n";
-    psk_cleanup();
+//    psk_cleanup();
     debug_log << "EXIT: Destroying Window.\n\n";
     debug_log.flush();
 

@@ -170,6 +170,7 @@ int debugbuf::sync() {
     return 0;
 }
 
+
 //********************************************************************************
 // Utility Functions
 //********************************************************************************
@@ -289,7 +290,19 @@ void HostAPI::AaediHAM_GraphicsClear(const aaediclock_Color& color) {
     textcolor.a = color.a;
     this->panel->Clear(textcolor);
 }
-
+/*
+struct aaediclock_image AaediHAM_GraphicsGetText      (const char* string, const aaediclock_Color foreground, const aaediclock_Color background) {
+    struct aaediclock_image result;
+    std::string text = string;
+    SDL_Surface* text_surface =  TTF_RenderText_Shaded(Sans, text.c_str(), text.size(), static_cast<SDL_Color>(foreground), static_cast<SDL_Color>(background));
+    if (text_surface) {
+        result.height = text_surface->h;
+        result.width = test_surface->w;
+        result.pixels = static_cast<uint8_t*>(text_surface->pixels);
+    }
+    return result;
+}
+*/
 //********************************************************************************
 // Host Queries
 //********************************************************************************
@@ -566,6 +579,7 @@ uint16_t HostAPI::AaediHAM_TextureCreate (const aaediclock_image& image_data) {
 //    SDL_Surface* new_image = SDL_CreateSurfaceFrom( image_data.width, image_data.height, SDL_PIXELFORMAT_RGBA8888, image_data.pixels, image_data.width*4);
 //    if (new_image) {
         SDL_Texture* image_tex = SDL_CreateTexture(this->panel->GetRenderer(), SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, image_data.width, image_data.height);
+        SDL_SetTextureBlendMode(image_tex, SDL_BLENDMODE_BLEND);
         if (image_tex) {
             if (SDL_UpdateTexture(image_tex, NULL, image_data.pixels, image_data.width*4)) {
                 texture_cache.push_back(image_tex);

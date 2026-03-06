@@ -29,8 +29,8 @@ class HostAPI final : public aaediclock_host_api {
           void AaediHAM_GraphicsDrawLine			(const aaediclock_Color color, const aaediclock_FRect line) override;
           void AaediHAM_GraphicsDrawLines			(const aaediclock_Color color, const aaediclock_FPoint* point_list, int count) override;
           void AaediHAM_GraphicsDrawImage      			(uint16_t index) override;
-
           void AaediHAM_GraphicsClear				(const aaediclock_Color& color = {0, 0, 0, 255}) override;
+//          struct aaediclock_image AaediHAM_GraphicsGetText	(const char* string, const aaediclock_Color foreground, const aaediclock_Color background) override;
           // config calls
           const char* AaediHAM_ConfigGetQRZKey			(bool refresh = false) override;
           const char* AaediHAM_ConfigGetCall			() override;
@@ -63,13 +63,12 @@ class HostAPI final : public aaediclock_host_api {
           bool AaediHAM_TextureUpdate                           (uint16_t index, const aaediclock_image& image_data) override;
           void AaediHAM_TextureDelete                           (uint16_t index) override;
           // internal state
-
-          // internal state
           ScreenFrame*	panel = nullptr;
           void set_plugin_name(const std::string& new_name);
      private:
           debugbuf debug_log_buffer;
           std::istream* api_debug_log;
+          SDL_Surface*  text_surface;
           int plugin_id;
           std::vector<SDL_Texture*>texture_cache;
 };
@@ -87,6 +86,7 @@ struct PluginModule {
     bool                        draw_flag 				= 	false;		// trigger plugin this frame?
     int				id 					=	0;		// plugin numeric ID
     int				position				=	0;		// panel ID to use
+    uint16_t			interval				=	0;		// how often to trigger in tenths of a second
     HostAPI*			host_api;							// plugin host API instance
     std::string                 name;								// plugin description
 };
