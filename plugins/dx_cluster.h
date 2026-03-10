@@ -5,6 +5,16 @@
 #include "utils/conversions.h"
 #include "utils/socket.h"
 
+
+#ifdef _WIN32
+     typedef SOCKET aaediclock_socket_t;
+#else
+     typedef int aaediclock_socket_t;
+#endif
+
+
+
+
 class dxspot {
     public:
         std::string spotter;
@@ -32,12 +42,6 @@ class dxspot {
        void query_qrz ();
 
 };
-
-
-
-
-//void dx_cluster (ScreenFrame& panel);sample.h
-
 
 class DllExport dx_cluster_plugin : public aaediclock_plugin_api {
         void plugin_init() const override;

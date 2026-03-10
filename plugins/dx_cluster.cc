@@ -6,8 +6,8 @@
 #include <sstream>
 #include <mutex>
 #ifdef _WIN32
-#include <winsock2.h>
-#include <ws2tcpip.h>
+//#include <winsock2.h>
+//#include <ws2tcpip.h>
 #include <time.h>
 #define timegm _mkgmtime
 #define SHUT_RDWR SD_BOTH
@@ -16,8 +16,8 @@
 #pragma comment(lib, "ws2_32.lib")
 #else
 #include <unistd.h>
-#include <sys/socket.h>
-#include <netdb.h>
+//#include <sys/socket.h>
+//#include <netdb.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #endif
@@ -221,94 +221,8 @@ void dxspot::query_qrz () {
 
 
 
-#ifdef _WIN32
-SOCKET dxsocket = 0;
-#else
-int dxsocket = 0;
-#endif
+dx_socket_t dxsocket = 0;
 std::vector<dxspot>dxspots;
-
-void init_fd() {
-        struct plugin_server_info dx_server = host_api->AaediHAM_ConfigGetDXServer();
-        std::string serverip=dx_server.name;
-        std::string serverport=std::to_string(dx_server.port);
-        struct addrinfo* serveraddr = nullptr;
-        struct addrinfo hints;
-        dxsocket = 0;
-
-        memset(&hints, 0, sizeof hints);
-        hints.ai_family = AF_INET;       // or AF_UNSPEC to allow IPv4/IPv6
-        hints.ai_socktype = SOCK_STREAM;
-#ifdef _WIN32
-        WSADATA wsaData;
-        int res = 0;
-        *(host_api->AaediHAM_LogDebug) << "DXSPOTS: WSAStartup ... ";
-        res = WSAStartup(MAKEWORD(2, 2), &wsaData);
-        if (res != 0) {
-            *(host_api->AaediHAM_LogDebug) << "DXSPOTS: failed: " << res << "\n";
-            return;
-        } else {
-            *(host_api->AaediHAM_LogDebug) << "DXSPOTS: Success" << "\n";
-        }
-
-        *(host_api->AaediHAM_LogDebug) << "DXSPOTS: GetAddrInfo ... ";
-        res = getaddrinfo(serverip.c_str(), serverport.c_str(), &hints, &serveraddr);
-        if (res == 0) {
-            *(host_api->AaediHAM_LogDebug) << " Success" << "\n";
-        }
-        else {
-            *(host_api->AaediHAM_LogDebug) << " Failed " << WSAGetLastError() << "\n";
-            WSACleanup();
-            if (serveraddr) {
-                freeaddrinfo(serveraddr);
-            }
-            return;
-        }
-
-        *(host_api->AaediHAM_LogDebug) << "DXSPOTS: Getting DX Socket ... ";
-        dxsocket = socket(serveraddr->ai_family, serveraddr->ai_socktype, serveraddr->ai_protocol);
-        if (dxsocket == INVALID_SOCKET) {
-            *(host_api->AaediHAM_LogDebug) << "Bad DX socket " << WSAGetLastError() << "\n";
-            WSACleanup();
-            if (serveraddr) {
-                freeaddrinfo(serveraddr);
-            }
-            return;
-        } else {
-            *(host_api->AaediHAM_LogDebug) << "Got DX socket" << "\n";
-        }
-        *(host_api->AaediHAM_LogDebug) << "DXSPOTS: Connecting to " << serverip << " " << serverport << "\n";
-        if (connect(dxsocket, serveraddr->ai_addr, static_cast<int>(serveraddr->ai_addrlen)) == SOCKET_ERROR) {
-            *(host_api->AaediHAM_LogDebug) << "DXSPOTS: server connect error on client: " << WSAGetLastError() << "\n";
-            shutdown(dxsocket, SHUT_RDWR);
-            WSACleanup();
-            dxsocket = 0;
-        } else {
-            *(host_api->AaediHAM_LogDebug) << "DXSPOTS: client reporting connected to server on fd " << dxsocket << "with errno: " << errno << "\n";
-        }
-#else
-        int addrerr =getaddrinfo(serverip.c_str(), serverport.c_str(), &hints, &serveraddr);
-        if (addrerr !=0) {
-            *(host_api->AaediHAM_LogDebug) << "DXSPOTS: DX Spots connection error: " << gai_strerror(addrerr) << "\n";
-        }
-        dxsocket = socket(serveraddr->ai_family, serveraddr->ai_socktype, serveraddr->ai_protocol);
-        if (!dxsocket) {
-            *(host_api->AaediHAM_LogDebug) << "DXSPOTS: Bad DX socket" << errno << "\n";
-        }
-
-        if (connect(dxsocket, serveraddr->ai_addr, serveraddr->ai_addrlen) == -1) {
-            *(host_api->AaediHAM_LogDebug) << "DXSPOTS: server connect error on client: " << errno << "\n";
-            *(host_api->AaediHAM_LogDebug) << "DXSPOTS: Connecting to " << serverip << " " << serverport << "\n";
-            shutdown(dxsocket, SHUT_RDWR);
-            dxsocket = 0;
-        }
-        else {
-            *(host_api->AaediHAM_LogDebug) << "DXSPOTS: client reporting connected to server on fd " << dxsocket << "with errno: " << errno << "\n";
-        }
-#endif
-        freeaddrinfo(serveraddr);
-        return;
-}
 
 void duplicate_spot(dxspot& needle) {
     size_t old_index = 0;
@@ -344,15 +258,22 @@ int SDLCALL fetch_dxspots(void* data) {
     bool clean_socket = true;
     *(host_api->AaediHAM_LogDebug) << "Locking Mutex -- checking for stale spots\n";
     dxspot_mutex.lock();
+// check for valid connection
+    if (!dxsocket) {
+        *(host_api->AaediHAM_LogDebug) << "Connecting to DX Cluster\n";
+        struct plugin_server_info dx_server = host_api->AaediHAM_ConfigGetDXServer();
+        std::string serverip=dx_server.name;
+        std::string serverport=std::to_string(dx_server.port);
+        dxsocket = init_fd(dx_server, host_api);
+    }
     // check for old entries
-
     if (!dxspots.empty()) {
-            for (size_t c = dxspots.size() ; c-- > 0 ;) {
-                    if ((currenttime - dxspots[c].timestamp) > max_age) {
-                        *(host_api->AaediHAM_LogDebug) << "DXSPOTS: Erasing entry "<< dxspots[c].dx.c_str() << "\n";
-                            dxspots.erase(dxspots.begin()+c);
-                    }
+        for (size_t c = dxspots.size() ; c-- > 0 ;) {
+            if ((currenttime - dxspots[c].timestamp) > max_age) {
+                *(host_api->AaediHAM_LogDebug) << "DXSPOTS: Erasing entry "<< dxspots[c].dx.c_str() << "\n";
+                dxspots.erase(dxspots.begin()+c);
             }
+        }
     }
     dxspot_mutex.unlock();
     *(host_api->AaediHAM_LogDebug) << "UnLocking Mutex -- checking for stale spots\n";
@@ -490,10 +411,8 @@ int SDLCALL fetch_dxspots(void* data) {
                         size_t spotter_end = buffstr.find_last_of('>', (std::string::npos));
                         new_spot.spotter = buffstr.substr(note_end+1, (spotter_end-note_end+1) );
                         new_spot.note=buffstr.substr(1, note_end-1 );
-//                        dxspot_mutex.lock();
                         new_spot.find_mode();
                         duplicate_spot(new_spot);
-//                        dxspot_mutex.unlock();
                     }
 
 
@@ -504,7 +423,7 @@ int SDLCALL fetch_dxspots(void* data) {
             dxbuffer.clear();
         }
         if (!clean_socket) {
-            *(host_api->AaediHAM_LogDebug) << "DXSPOTS: read_socket indicates failure; will close socket\n";
+            *(host_api->AaediHAM_LogDebug) << "read_socket indicates failure; will close socket\n";
 #ifdef _WIN32
             shutdown(dxsocket, SHUT_RDWR);
             closesocket(dxsocket);
@@ -545,13 +464,7 @@ extern "C" DllExport void destroyPlugin(aaediclock_plugin_api* target) {
 }
 
 void dx_cluster_plugin::plugin_init() const {
-    if (!dxsocket) {
-        *(host_api->AaediHAM_LogDebug) << "Connecting to DX Cluster\n";
-        const char* callsign = host_api->AaediHAM_ConfigGetCall();
-        init_fd();
-    }
     if (!dxspot_timer) {
-        *(host_api->AaediHAM_LogDebug) << "Fetch Init for 1s\n";
         dxspot_timer = SDL_AddTimer(1000, fetch_dxspots, NULL);
     }
     return;
@@ -612,7 +525,9 @@ void dx_cluster_plugin::plugin_main(const aaediclock_FRect& dims) const {
                       struct aaediclock_dx new_dx;
                       new_dx.lat = dxspots[n].lat;
                       new_dx.lon = dxspots[n].lon;
-                      new_dx.label = dxspots[n].dx;
+//                      new_dx.label = dxspots[n].dx;
+                      strncpy(new_dx.label, dxspots[n].dx.c_str(),31);
+                      new_dx.label[31]=0;
                       host_api->AaediHAM_ConfigSetDX(new_dx);
                 }
 
@@ -623,7 +538,6 @@ void dx_cluster_plugin::plugin_main(const aaediclock_FRect& dims) const {
     }
     *(host_api->AaediHAM_LogDebug) << "Setting pins\n";
     host_api->AaediHAM_MapPinDelete();
-//    delete_owner_pins(MOD_DXSPOT);
     for (auto& current_spot : dxspots) {
         if (current_spot.qrz_valid) {
             struct aaediclock_map_pin dx_pin;

@@ -21,10 +21,9 @@ TTF_Font* 			Sans;
 std::array<SDL_Mutex*, 10> 	mutexes;
 std::array<pager_node, 12> 	winboxes;
 internal_mouse_event 		clock_mouse_event;
-
-//struct ModuleList master_flags;                   // set in init, used in panels. due for replacement
-
-
+struct data_blob *data_cache = 0;               // main data cache
+struct map_pin   *map_pins = 0;                 // active map pins
+std::vector<struct map_pin>plugin_map_pins;
 
 Sint64 				max_tex_size;
 struct regen_mask_args* 	night_mask_args;
@@ -160,24 +159,7 @@ namespace AaediClock_Init {
         winboxes[PANEL_FLEXBOX4].panel.Reset();
         winboxes[PANEL_NULL].panel.Reset();
         winboxes[PANEL_FLEXBOX5].panel.Reset();
-/*
-        // eventually I want to make this user definable
-        winboxes[PANEL_MAP].sequence.push_back(MOD_MAP);
-        winboxes[PANEL_CALLSIGN].sequence.push_back(MOD_CALL);
-        winboxes[PANEL_CLOCK].sequence.push_back(MOD_CLOCK);
-        winboxes[PANEL_DE].sequence.push_back(MOD_DE);
-        winboxes[PANEL_DX].sequence.push_back(MOD_DX);
-        winboxes[PANEL_FLEXBOX1].sequence.push_back(MOD_POTA);
-        winboxes[PANEL_FLEXBOX1].sequence.push_back(MOD_NCDXF);
-        winboxes[PANEL_FLEXBOX2].sequence.push_back(MOD_SAT);
-        winboxes[PANEL_FLEXBOX2].sequence.push_back(MOD_PSK);
-        winboxes[PANEL_FLEXBOX3].sequence.push_back(MOD_DXSPOT);
-        winboxes[PANEL_FLEXBOX4].sequence.push_back(MOD_KINDEX);
-        winboxes[PANEL_FLEXBOX4].sequence.push_back(MOD_CONTESTS);
-        winboxes[PANEL_FLEXBOX5].sequence.push_back(MOD_SOLAR);
-        winboxes[PANEL_FLEXBOX5].sequence.push_back(MOD_WSPR);
-        winboxes[PANEL_FLEXBOX5].sequence.push_back(MOD_LUNAR);
-*/
+
         // end panel assignment
         debug_log << "INIT: Globals Initialized\n";
         // create mutexes
@@ -185,8 +167,6 @@ namespace AaediClock_Init {
             mtx = SDL_CreateMutex();;
         }
 
-//        night_mask_args = (struct regen_mask_args*)malloc(sizeof(struct regen_mask_args));
-//        map_timer = 0;
         debug_log << "INIT: Map Variables Initialized\n";
 
         return (SDL_APP_CONTINUE);
@@ -353,23 +333,7 @@ namespace AaediClock_Init {
         for (struct PluginModule& plugin : loaded_plugins ) {
             plugin.draw_flag = true;
         }
-        /*
-        master_flags.callsign.draw_flag         = true;
-        master_flags.de.draw_flag               = true;
-        master_flags.dx.draw_flag               = true;
-        master_flags.pota.draw_flag             = true;
-        master_flags.sat_tracker.draw_flag      = true;
-        master_flags.dx_spots.draw_flag         = true;
-        master_flags.map.draw_flag              = true;
-        master_flags.clock.draw_flag            = true;
-        master_flags.kindex.draw_flag           = true;
-        master_flags.solar.draw_flag            = true;
-        master_flags.wspr.draw_flag             = true;
-        master_flags.lunar.draw_flag            = true;
-        master_flags.contests.draw_flag         = true;
-        master_flags.rss.draw_flag              = true;
-        master_flags.aurora.draw_flag           = true;
-        */
+
         if (!flag_timer) {
             flag_timer = SDL_AddTimer(100, master_clock, nullptr);
         }
@@ -383,48 +347,22 @@ namespace AaediClock_Init {
             uint16_t interval;
         };
         std::vector<struct plugin_entry>plugin_list;
-    #ifdef _WIN32
-        plugin_list.push_back({"plugins\\ncdxf_plugin.dll",5,50});
-        plugin_list.push_back({"plugins\\callsign_plugin.dll",0,300});
-        plugin_list.push_back({"plugins\\clock_plugin.dll",1,20});
-        plugin_list.push_back({"plugins\\pota_plugin.dll",5,50});
-        plugin_list.push_back({"plugins\\de_plugin.dll",3,50});
-        plugin_list.push_back({"plugins\\dx_plugin.dll",4,50});
-        plugin_list.push_back({"plugins\\dx_cluster_plugin.dll",5,50});
-        plugin_list.push_back({"plugins\\sat_tracker_plugin.dll",7,10});
-        plugin_list.push_back({"plugins\\aurora_plugin.dll",10,170});
-        plugin_list.push_back({"plugins\\sdo_plugin.dll",7,50});
-        plugin_list.push_back({"plugins\\contest_plugin.dll",7,50});
-        plugin_list.push_back({"plugins\\kindex_plugin.dll",8,50});
-        plugin_list.push_back({"plugins\\lunar_plugin.dll",7,50});
-        plugin_list.push_back({"plugins\\wspr_plugin.dll",6,50});
-        plugin_list.push_back({"plugins\\map_plugin.dll",2,10});
-//      plugin_list.push_back({"plugins\\rss_plugin.dll",2,1});
-//      plugin_list.push_back({"plugins\\psk_plugin.dll",2,50});
-    #else
-        plugin_list.push_back({"plugins/libncdxf_plugin.so",5,50});
-        plugin_list.push_back({"plugins/libcallsign_plugin.so",0,300});
-        plugin_list.push_back({"plugins/libclock_plugin.so",1,20});
-        plugin_list.push_back({"plugins/libpota_plugin.so",5,50});
-        plugin_list.push_back({"plugins/libde_plugin.so",3,50});
-        plugin_list.push_back({"plugins/libdx_plugin.so",4,50});
-        plugin_list.push_back({"plugins/libdx_cluster_plugin.so",5,50});
-        plugin_list.push_back({"plugins/libsat_tracker_plugin.so",7,10});
-        plugin_list.push_back({"plugins/libaurora_plugin.so",10,170});
-        plugin_list.push_back({"plugins/libsdo_plugin.so",7,50});
-        plugin_list.push_back({"plugins/libcontest_plugin.so",7,50});
-        plugin_list.push_back({"plugins/libkindex_plugin.so",8,50});
-        plugin_list.push_back({"plugins/liblunar_plugin.so",7,50});
-        plugin_list.push_back({"plugins/libwspr_plugin.so",6,50});
-        plugin_list.push_back({"plugins/libmap_plugin.so",2,10});
+
 //      plugin_list.push_back({"plugins/librss_plugin.so",2,1});
 //      plugin_list.push_back({"plugins/libpsk_plugin.so",2,50});
-    #endif
-        for (auto& plugin_load : plugin_list) {
-            register_module(plugin_load.filename);
-            loaded_plugins.back().position = plugin_load.position;
-            loaded_plugins.back().interval = plugin_load.interval;
-            winboxes[plugin_load.position].plugin_sequence.push_back(loaded_plugins.back().id);
+        config::plugin plugin_load;
+        plugin_load.filename="null";
+        while (!plugin_load.filename.empty()) {
+            plugin_load = clockconfig.next_plugin();
+            if (!plugin_load.filename.empty()) {
+                plugin_list.push_back({plugin_load.filename, plugin_load.panel_id, plugin_load.interval});
+            }
+        }
+        for (auto& plugin: plugin_list) {
+            register_module(plugin.filename);
+            loaded_plugins.back().position = static_cast<uint16_t>(plugin.position);
+            loaded_plugins.back().interval = plugin.interval;
+            winboxes[plugin.position].plugin_sequence.push_back(loaded_plugins.back().id);
         }
 
         return(SDL_APP_CONTINUE);
@@ -440,6 +378,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 #ifdef CLOCK_DEBUG
 #ifdef _WIN32
 #ifdef _DEBUG
+    SDL_Delay(10000);
  //   _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF | _CRTDBG_DELAY_FREE_MEM_DF );
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
     HANDLE hLogFile;

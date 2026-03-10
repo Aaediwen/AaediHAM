@@ -8,7 +8,7 @@
 struct data_blob *data_cache = 0;		// main data cache
 struct map_pin   *map_pins = 0;			// active map pins
 std::vector<struct map_pin>plugin_map_pins;
-
+/*
 void cords_to_px(double lat, double lon, int w, int h, SDL_FPoint* result) {
     if (!result) return;
     if (lon < -180.0) {
@@ -28,3 +28,4 @@ void cords_to_px(double lat, double lon, int w, int h, SDL_FPoint* result) {
     return ;
 }
 
+*/

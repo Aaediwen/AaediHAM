@@ -34,7 +34,7 @@ struct aaediclock_map_pin {
     double lon;
     uint16_t icon;
     aaediclock_Color color;
-    char label[16];
+    char label[32];
     char tooltip[512];
 };
 
@@ -48,7 +48,7 @@ struct aaediclock_image {
 struct aaediclock_dx {
     double lat;
     double lon;
-    std::string label;
+    char label[32];
 };
 
 struct plugin_mouse_event {
@@ -115,7 +115,7 @@ class aaediclock_host_api {
 };
 
 
-class aaediclock_plugin_api {
+class DllExport aaediclock_plugin_api {
     public:
         virtual ~aaediclock_plugin_api();
         virtual void plugin_init() const = 0;

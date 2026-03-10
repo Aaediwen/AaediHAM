@@ -20,7 +20,7 @@ class debugbuf : public std::streambuf {
 class HostAPI final : public aaediclock_host_api {
 
      public:
-          HostAPI(int new_id);
+          HostAPI(uint16_t new_id);
           ~HostAPI();
           // graphics calls
           void AaediHAM_SetTarget				() override;
@@ -69,7 +69,7 @@ class HostAPI final : public aaediclock_host_api {
           debugbuf debug_log_buffer;
           std::istream* api_debug_log;
           SDL_Surface*  text_surface;
-          int plugin_id;
+          uint16_t plugin_id;
           std::vector<SDL_Texture*>texture_cache;
 };
 
@@ -84,8 +84,8 @@ struct PluginModule {
     aaediclock_plugin_api*      (*create)()     			= 	nullptr;	// plugin constructor
     void                        (*destroy)(aaediclock_plugin_api*) 	= 	nullptr;	// plugin destructor
     bool                        draw_flag 				= 	false;		// trigger plugin this frame?
-    int				id 					=	0;		// plugin numeric ID
-    int				position				=	0;		// panel ID to use
+    uint16_t				id 					=	0;		// plugin numeric ID
+    uint16_t				position				=	0;		// panel ID to use
     uint16_t			interval				=	0;		// how often to trigger in tenths of a second
     HostAPI*			host_api;							// plugin host API instance
     std::string                 name;								// plugin description

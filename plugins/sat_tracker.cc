@@ -834,6 +834,12 @@ void sat_tracker_plugin::plugin_init() const {
 }
 
 void sat_tracker_plugin::plugin_exit() const {
+    if (sat_timer) {
+        SDL_RemoveTimer(sat_timer);
+    }
+    if (host_api->AaediHAM_IconCheck(icon)) {
+        host_api->AaediHAM_IconDelete(icon);
+    }
     return;
 }
 
@@ -865,38 +871,11 @@ void sat_tracker_plugin::plugin_main(const aaediclock_FRect& dims) const {
 
     aaediclock_FRect TextRect;
     host_api->AaediHAM_MapPinDelete();
-//    bool reload_flag = false;
-//    data_size = cache_loader(MOD_SAT, (void**)&amateur_tle, &cache_time);
-
-//    if (!data_size) {
-//        reload_flag=true;
-//    } else if ((time(NULL) - cache_time) > 14400) {
-//        reload_flag=true;
-//        if (amateur_tle) {
-//            free (amateur_tle);
-//            amateur_tle=0;
-//        }
-//    }
-//    if (reload_flag) {  // fetch new
-
-//    } else {    // use cache[D
-//        tle_raw.clear();
-//        std::string sanitized(amateur_tle, static_cast<size_t>(data_size));
-//        tle_raw.str(sanitized);
-//        if (amateur_tle) {
-//            free(amateur_tle);
-//            amateur_tle=0;
-//        }
-//        debug_log <<"SAT_TRACKER: Using "<< data_size << " Bytes of Cached Data!\n";
-//    }
 
 
     // clear the box
     host_api->AaediHAM_GraphicsClear();
-//    panel.Clear();
     aaediclock_FRect mapsize = host_api->AaediHAM_GetMapSize();
-//    mapsize.w = map.dims.w;
-//    mapsize.h = map.dims.h;
     bool redraw_flag = false;
     redraw_flag = (!host_api->AaediHAM_OverlayCheck());
 
@@ -906,7 +885,6 @@ void sat_tracker_plugin::plugin_main(const aaediclock_FRect& dims) const {
     TextRect.x=5;
     TextRect.y=2;
     host_api->AaediHAM_GraphicsDrawText("SAT TRACKERS", aaediclock_Color{128,128,0,255}, TextRect);
-//    panel.render_text(TextRect, font, {128,128,0,255}, "SAT TRACKERS");
     TextRect.w=dims.w-10;
     TextRect.y += ((dims.h/11)+(dims.h/150));
 
@@ -980,12 +958,7 @@ void sat_tracker_plugin::plugin_main(const aaediclock_FRect& dims) const {
                 }
             }
         }
-//        SDL_Log ("Done with Sar %s", temp.name);
     } // read from Celestrak
-//    if (amateur_tle) {
-//        free(amateur_tle);
-//        amateur_tle = nullptr;
-//    }
     *(host_api->AaediHAM_LogDebug) << "Displaying Selected Satellites\n";
     // display the selected satellites
     const std::lock_guard<std::mutex>sat_lock(sat_tracker_mutex);
@@ -1007,7 +980,6 @@ void sat_tracker_plugin::plugin_main(const aaediclock_FRect& dims) const {
             }
         }
         host_api->AaediHAM_OverlaySet(mapsize);
-//        overlay = overlays.get_overlay(panel.GetRenderer(), MOD_SAT, mapsize);
         if (redraw_flag) {
             host_api->AaediHAM_OverlayClear(aaediclock_Color{0,0,0,0});
         }

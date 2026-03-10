@@ -36,7 +36,6 @@ extern "C" DllExport void destroyPlugin(aaediclock_plugin_api* target) {
     }
 }
 
-
 void ncdxf_plugin::plugin_init() const {
     return;
 }
@@ -46,13 +45,11 @@ void ncdxf_plugin::plugin_exit() const {
 }
 
 void ncdxf_plugin::plugin_main(const aaediclock_FRect& dims) const {
-    std::cout << "In Plugin ncdxf main\n";
     time_t time_now=time(NULL);
     aaediclock_FRect TextBox;
     if (!host_api) {
         return;
     }
-//    std::cout << "Plugin calling host clear\n";
     host_api->AaediHAM_GraphicsClear();
 
     // Header
@@ -66,7 +63,6 @@ void ncdxf_plugin::plugin_main(const aaediclock_FRect& dims) const {
     TextBox.w = (dims.w/3) - (dims.w/20);
     int cycle_sec = (time_now) % 180; // 3 minutes = 180 seconds
     int beacon_index = cycle_sec / 10; // which 10-second slot
-
 
     for (int i = 0; i < 5; ++i) {
         // Render the current beacon for each frequency slot
@@ -93,6 +89,7 @@ void ncdxf_plugin::plugin_main(const aaediclock_FRect& dims) const {
         TextBox.x = dims.w/20;
         TextBox.w = (dims.w/3) - (dims.w/20);
     }
+
     return;
 }
 

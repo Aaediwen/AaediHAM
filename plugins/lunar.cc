@@ -297,6 +297,18 @@ void lunar_plugin::plugin_exit() const {
     if (moon_timer) {
         SDL_RemoveTimer(moon_timer);
     }
+    if (host_api->AaediHAM_IconCheck(moon_icon_id)) {
+        host_api->AaediHAM_IconDelete(moon_icon_id);
+        moon_icon_id=0;
+    }
+    if (host_api->AaediHAM_TextureCheck(moon_tex_id)) {
+        host_api->AaediHAM_TextureDelete(moon_tex_id);
+        moon_tex_id = 0;
+    }
+    if (moon_image) {
+        SDL_DestroySurface(moon_image);
+        moon_image = 0;
+    }
     return;
 }
 

@@ -1,10 +1,7 @@
-
-
 #ifndef AURORA_H
 #define AURORA_H
 #include "aaediclock.h"
 #include "plugin_api.h"
-
 
 class DllExport aurora_plugin : public aaediclock_plugin_api {
         void plugin_init() const override;

@@ -1,5 +1,8 @@
 
 #pragma once
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#endif
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
 #include <iostream>
@@ -9,6 +12,7 @@
 #include "core/classes.h"
 #include "plugins/host_api.h"
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
 #ifdef _DEBUG
 #define _CRTDBG_MAP_ALLOC
 #include <crtdbg.h>

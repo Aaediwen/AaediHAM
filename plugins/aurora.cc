@@ -3,6 +3,7 @@
 #include <sstream>
 #include <mutex>
 #include <nlohmann/json.hpp>
+
 using json = nlohmann::json;
 
 SDL_TimerID aurora_timer = 0;
@@ -14,7 +15,7 @@ aaediclock_host_api* host_api = nullptr;
 void aurora_json_parser(const char* input_string) {
     // sanity check the JSON input
     if (!input_string || !(input_string[0])) {
-         *(host_api->AaediHAM_LogDebug) << "AURORA: NULL Json INPUT Error \n";
+         *(host_api->AaediHAM_LogDebug) << "NULL Json INPUT Error \n";
          return;
     }
     // parse the JSON object
@@ -23,11 +24,10 @@ void aurora_json_parser(const char* input_string) {
         spot_list=json::parse(input_string);
     } catch (const json::parse_error &e) {
         (void)e;
-        *(host_api->AaediHAM_LogDebug) << "AURORA: Json Parse Error " << strlen(input_string) << " bytes " << input_string << "\n";
+        *(host_api->AaediHAM_LogDebug) << "Json Parse Error " << strlen(input_string) << " bytes " << input_string << "\n";
         return;
     }
 
-//    SDL_LockMutex(mutexes[MUTEX_AURORA]);
     *(host_api->AaediHAM_LogDebug) << "Locking to parse Aurora data\n";
     const std::lock_guard<std::mutex>aurora_lock(aurora_mutex);
     // recreate a new aurora map surface
@@ -35,17 +35,6 @@ void aurora_json_parser(const char* input_string) {
         aurora_map = static_cast<uint8_t*>(malloc(360*181*4));
         if (aurora_map) {
             memset(aurora_map, 255, 360*181*4);
-/*            const int dest_bpp = 4;
-            const int stride = 360 * dest_bpp;
-            for (int y = 0 ; y < 181 ; y++) {
-                for (int x = 0; x < 360 ; x++) {
-                    int dest_pixel_index =  y * stride ;
-                    dest_pixel_index += x*dest_bpp;
-                    dest_pixel_index++;
-                    aurora_map[dest_pixel_index]=0;
-                }
-            }
-*/
         }
     }
 
@@ -57,7 +46,6 @@ void aurora_json_parser(const char* input_string) {
         const int stride = 360 * 4;
         uint8_t* alpha_pixels = aurora_map;
         *(host_api->AaediHAM_LogDebug) << "generating auroral map\n";
-//        *(host_api->AaediHAM_LogDebug).flush();
         // itterate through the JSON here for each lat/lon coordinate
         for (auto spot : spot_list["coordinates"]) {
            // fetch the raw values from the JSON
@@ -100,8 +88,11 @@ void aurora_json_parser(const char* input_string) {
 }
 
 
-int SDLCALL fetch_aurora (void* data) {
+static int SDLCALL fetch_aurora (void* data) {
      (void)data;
+     std::cout << "THREAD fetch_aurora entered\n";
+     std::cout.flush();
+
      char* aurora_data = 0 ;
      Uint64 data_size = 0;
      *(host_api->AaediHAM_LogDebug) <<"AURORA: Data from NOAA via timer\n";
@@ -118,7 +109,7 @@ int SDLCALL fetch_aurora (void* data) {
      return 0;
 }
 
-Uint32 SDLCALL fetch_aurora (void *userdata, SDL_TimerID timerID, Uint32 interval) {
+static Uint32 SDLCALL fetch_aurora (void *userdata, SDL_TimerID timerID, Uint32 interval) {
     (void)interval;
     (void)userdata;
      if (timerID) {
@@ -149,7 +140,7 @@ extern "C" DllExport void destroyPlugin(aaediclock_plugin_api* target) {
 }
 
 void aurora_plugin::plugin_init() const {
-    aurora_timer = SDL_AddTimer(30, fetch_aurora, NULL);
+    aurora_timer = SDL_AddTimer(3000, fetch_aurora, NULL);
     return;
 }
 

@@ -463,6 +463,22 @@ bool config::next_wspr(std::string *callsign, int *band) {
     }
 }
 
+config::plugin config::next_plugin() {
+    config::plugin result;
+    result.filename.clear();
+    if (m_Plugins.empty()) {
+        return result;
+    }
+    if (m_PluginIndex < m_Plugins.size()) {
+        result = m_Plugins[m_PluginIndex];
+        m_PluginIndex++;
+        return result;
+    } else {
+        m_PluginIndex = 0;
+        return result;
+    }
+}
+
 void config::write_config() {
     json data = json({});
     data["CallSign"]=m_CallSign.c_str();
@@ -490,6 +506,14 @@ void config::write_config() {
             {"band", entry.band}
         });
     }
+    data["Plugins"]=nlohmann::json::array();
+    for (const auto& entry : m_Plugins) {
+        data["Plugins"].push_back({
+            {"plugin", entry.filename},
+            {"panel", entry.panel_id},
+            {"interval", entry.interval}
+        });
+    }
     std::ofstream f("aaediclock_config.json");
     if (!f) {
         SDL_Log("CONFIG: Failed to write configuration file!");
@@ -508,6 +532,7 @@ void config::load_config() {
     m_DXMsg.clear();
     m_sats.clear();
     m_rss.clear();
+    m_Plugins.clear();
     m_DE={0, 0};
     m_DX={0, 0};
     m_QRZ.Secret.clear();
@@ -611,7 +636,19 @@ void config::load_config() {
                 }
             }
         }
-
+        if (data.contains("Plugins")) {
+            if (data["Plugins"].is_array()) {
+                for (const auto& entry : data["Plugins"]) {
+                    if (entry.contains("plugin") && entry.contains("panel") && entry.contains("interval") && entry["panel"].is_number() && entry["interval"].is_number() && entry["plugin"].is_string()) {
+                        plugin new_plugin;
+                        new_plugin.filename = entry["plugin"].get<std::string>();
+                        new_plugin.panel_id = entry["panel"].get<size_t>();
+                        new_plugin.interval = entry["interval"].get<uint16_t>();
+                        m_Plugins.push_back(new_plugin);
+                    }
+                }
+            }
+        }
         if (data.contains("QRZ")) {
             try {
             if (data["QRZ"].is_string()) {
@@ -893,7 +930,7 @@ uint16_t map_icons::icon_create(uint16_t owner, SDL_Surface* icon_image) {
     new_icon.owner = owner;
     int w, h;
     SDL_GetRenderOutputSize(clock_renderer, &w, &h);
-    w =(floor(w/50));
+    w =(w/50);
     uint16_t result = 0;
     SDL_Surface* scaled_surface = SDL_CreateSurface(w, w, SDL_PIXELFORMAT_RGBA8888);
     if (scaled_surface) {
@@ -927,7 +964,7 @@ bool map_icons::icon_update(uint16_t owner, uint16_t index, SDL_Surface* icon_im
     }
     int w, h;
     SDL_GetRenderOutputSize(clock_renderer, &w, &h);
-    w =(floor(w/50));
+    w =(w/50);
     bool result = false;
     SDL_Surface* scaled_surface = SDL_CreateSurface(w, w, SDL_PIXELFORMAT_RGBA8888);
     SDL_ClearSurface(scaled_surface, 0,0,0,0);

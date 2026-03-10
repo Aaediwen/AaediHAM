@@ -1,4 +1,4 @@
-#include "aaediclock.h"
+
 #ifdef _WIN32
 #define poll WSAPoll
 #include <winsock2.h>
@@ -7,9 +7,8 @@
 #include <poll.h>
 #include <error.h>
 #endif
+#include "aaediclock.h"
 #ifdef _WIN32
-#include <winsock2.h>
-#include <ws2tcpip.h>
 #include <time.h>
 #define timegm _mkgmtime
 #define SHUT_RDWR SD_BOTH
@@ -30,5 +29,7 @@ using dx_socket_t = uintptr_t;
 #else
 using dx_socket_t = int;
 #endif
+
+dx_socket_t init_fd(const struct plugin_server_info dx_server, aaediclock_host_api* host_api);
 
 int read_socket(dx_socket_t fd, std::string &result);

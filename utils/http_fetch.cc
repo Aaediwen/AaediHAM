@@ -178,20 +178,20 @@ uint64_t http_loader(const char* source_url, void** result, const std::string& u
 ////        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
     }
-    std::string narrow = clockconfig.CallSign() + "-clock-Agent/1.0";
+    std::string narrow = user_agent;
     len = MultiByteToWideChar(CP_UTF8, 0, narrow.c_str(), -1, nullptr, 0);
-    std::wstring user_agent(len, L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, narrow.c_str(), -1, &user_agent[0], len);
+    std::wstring user_agent_wide(len, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, narrow.c_str(), -1, &user_agent_wide[0], len);
     HINTERNET http, http_connection, http_request;
     // open an http session
-    http = WinHttpOpen(user_agent.c_str(), WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, NULL);
+    http = WinHttpOpen(user_agent_wide.c_str(), WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, NULL);
 //    SDL_Log("Wide version URL (len=%zu): %ls", wcslen(utf8_url), utf8_url);
     if (!WinHttpCrackUrl(
         utf8_url,
         0,
         0,
         &exploded_url )) {
-        SDL_Log("Error %u trying to Split URL", GetLastError());
+ //       SDL_Log("Error %u trying to Split URL", GetLastError());
 ////        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
 
@@ -206,7 +206,7 @@ uint64_t http_loader(const char* source_url, void** result, const std::string& u
 //        exploded_url.dwUrlPathLength, exploded_url.dwUrlPathLength, exploded_url.lpszUrlPath,
 //        exploded_url.dwExtraInfoLength, exploded_url.lpszExtraInfo, exploded_url.dwExtraInfoLength);
     if (!http) {
-        SDL_Log("Unable to Init HTTP");
+//        SDL_Log("Unable to Init HTTP");
 ////        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
     }
@@ -216,9 +216,9 @@ uint64_t http_loader(const char* source_url, void** result, const std::string& u
 
     http_connection = WinHttpConnect(http, host.c_str(),
         exploded_url.nPort, 0);
-    SDL_Log("Attemped to connect to server. %s (Error %u)", host.c_str(), GetLastError());
+//    SDL_Log("Attemped to connect to server. %s (Error %u)", host.c_str(), GetLastError());
     if (!http_connection) {
-        SDL_Log("Unable to connect to %ls on %u", host.c_str(), exploded_url.nPort);
+//        SDL_Log("Unable to connect to %ls on %u", host.c_str(), exploded_url.nPort);
         WinHttpCloseHandle(http);
 ////        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
         return 0;
@@ -259,7 +259,7 @@ uint64_t http_loader(const char* source_url, void** result, const std::string& u
         flags);
     //SDL_Log("Attemped request. (Error %u)", GetLastError());
     if (!http_request) {
-        SDL_Log("Unable to request %ls", exploded_url.lpszUrlPath);
+//        SDL_Log("Unable to request %ls", exploded_url.lpszUrlPath);
         WinHttpCloseHandle(http_connection);
         WinHttpCloseHandle(http);
 ////        SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
@@ -273,7 +273,7 @@ uint64_t http_loader(const char* source_url, void** result, const std::string& u
         read_result = WinHttpReceiveResponse(http_request, NULL);
 //        SDL_Log("Sent Request");
     } else {
-        SDL_Log("Unable to send request %ls", exploded_url.lpszUrlPath);
+//        SDL_Log("Unable to send request %ls", exploded_url.lpszUrlPath);
         WinHttpCloseHandle(http_request);
         WinHttpCloseHandle(http_connection);
         WinHttpCloseHandle(http);
@@ -291,19 +291,19 @@ uint64_t http_loader(const char* source_url, void** result, const std::string& u
             // Check for available data.
             read_size = 0;
             if (!WinHttpQueryDataAvailable(http_request, &read_size)) {
-                SDL_Log("Error %u in WinHttpQueryDataAvailable.", GetLastError());
+//                SDL_Log("Error %u in WinHttpQueryDataAvailable.", GetLastError());
                 break;
             } else {
                 // allocate response space
                 buffer = new char[read_size + 1];
                 if (!buffer) {
-                    SDL_Log("HTTP result MALLOC error\n");
+//                    SDL_Log("HTTP result MALLOC error\n");
                     break;
                 } else { ZeroMemory(buffer, read_size + 1);  }
 
             }
             if (!WinHttpReadData(http_request, (LPVOID)buffer, read_size, NULL)) {
-                SDL_Log("Error %u in WinHttpReadData.", GetLastError());
+//                SDL_Log("Error %u in WinHttpReadData.", GetLastError());
             } else {
 //                SDL_Log("READ %s", buffer);
                 cache_http_callback(buffer, 1, read_size, &buffstr);
@@ -326,7 +326,7 @@ uint64_t http_loader(const char* source_url, void** result, const std::string& u
                 return((int)buffstr.size());
             }
             else {
-                SDL_Log("WinHttp result MALLOC error");
+//                SDL_Log("WinHttp result MALLOC error");
                 WinHttpCloseHandle(http_request);
                 WinHttpCloseHandle(http_connection);
                 WinHttpCloseHandle(http);

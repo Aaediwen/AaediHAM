@@ -12,7 +12,7 @@ bool unregister_module (struct PluginModule* module) {
         return false;
     }
     if (module->plugin) {
-        loaded_plugins.back().plugin->plugin_exit();
+        module->plugin->plugin_exit();
         if (module->destroy) {
             module->destroy(module->plugin);
         }
@@ -44,6 +44,8 @@ bool unregister_module (struct PluginModule* module) {
 bool register_module(const std::string& module_lib) {
     struct PluginModule new_plugin;
     char* library_error = nullptr;
+    std::cout << "Loading Plugin: " << module_lib << "\n";
+    std::cout.flush();
     // load library file
 #ifdef _WIN32
     GetLastError();
@@ -67,7 +69,7 @@ bool register_module(const std::string& module_lib) {
     // load the constructor and destructor functions for the module
 #ifdef _WIN32
     GetLastError();
-    new_plugin.create   = (aaediclock_plugin * (*)())GetProcAddress(new_plugin.library, "createPlugin");
+    new_plugin.create   = (aaediclock_plugin_api * (*)())GetProcAddress(new_plugin.library, "createPlugin");
     FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
         NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&library_error, 0, NULL);
 #else
@@ -86,7 +88,7 @@ bool register_module(const std::string& module_lib) {
     }
 #ifdef _WIN32
     GetLastError();
-    new_plugin.destroy = (void(*)(aaediclock_plugin*))GetProcAddress(new_plugin.library, "destroyPlugin");
+    new_plugin.destroy = (void(*)(aaediclock_plugin_api*))GetProcAddress(new_plugin.library, "destroyPlugin");
     FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
         NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&library_error, 0, NULL);
 #else
@@ -117,7 +119,7 @@ bool register_module(const std::string& module_lib) {
     if (loaded_plugins.empty()) {
         new_plugin.id = 0;
     } else {
-        new_plugin.id = loaded_plugins.size();
+        new_plugin.id = static_cast<uint16_t>(loaded_plugins.size());
     }
     // make it official
     loaded_plugins.push_back(new_plugin);
@@ -127,7 +129,8 @@ bool register_module(const std::string& module_lib) {
     loaded_plugins.back().host_api->set_plugin_name(loaded_plugins.back().name);
     loaded_plugins.back().plugin->set_host((loaded_plugins.back().host_api));
     loaded_plugins.back().plugin->plugin_init();
-    std::cout << "Loaded symbols from "<< module_lib << "\n";
+    std::cout << "Loaded "<< loaded_plugins.back().name << "\n";
+    std::cout.flush();
     return true;
 }
 
@@ -175,7 +178,7 @@ int debugbuf::sync() {
 // Utility Functions
 //********************************************************************************
 
-HostAPI::HostAPI(int new_id) {
+HostAPI::HostAPI(uint16_t new_id) {
     api_debug_log 	= new std::istream(&debug_log_buffer);
     AaediHAM_LogDebug 	= new std::ostream(&debug_log_buffer);
     plugin_id = new_id;
@@ -362,7 +365,9 @@ struct aaediclock_dx HostAPI::AaediHAM_ConfigGetDX() {
     const GeoCoord dx_coords = clockconfig.DX();
     result.lat = dx_coords.latitude;
     result.lon = dx_coords.longitude;
-    result.label = clockconfig.DXmsg();
+    strncpy(result.label, clockconfig.DXmsg().c_str(),31);
+    result.label[31]=0;
+//    result.label = clockconfig.DXmsg();
     return result;
 }
 
@@ -371,7 +376,8 @@ struct aaediclock_dx HostAPI::AaediHAM_ConfigGetDE() {
     const GeoCoord dx_coords = clockconfig.DE();
     result.lat = dx_coords.latitude;
     result.lon = dx_coords.longitude;
-    result.label = "";
+//    result.label = "";
+    result.label[0]=0;
     return result;
 }
 
@@ -395,7 +401,7 @@ struct plugin_wspr_station HostAPI::AaediHAM_ConfigGetNextWspr() {
     result.band = 0;
     if (clockconfig.next_wspr(&callsign, &band)) {
         result.callsign = callsign;
-        result.band = band;
+        result.band = static_cast<uint16_t>(band);
     }
     return result;
 }

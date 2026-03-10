@@ -5,6 +5,6 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-void cords_to_px(double lat, double lon, int w, int h, SDL_FPoint* result);
+//void cords_to_px(double lat, double lon, int w, int h, SDL_FPoint* result);
 
 #endif

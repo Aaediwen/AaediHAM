@@ -15,97 +15,96 @@ SDL_TimerID night_mask_timer = 0;
 aaediclock_FRect old_dims = {0,0,0,0};
 
 void load_day_map (const aaediclock_FRect& dims) {
-    //reset everything
+				//reset everything
     if (day_map.surface) {
-        SDL_DestroySurface(day_map.surface);
+    				SDL_DestroySurface(day_map.surface);
         day_map.surface = nullptr;
    }
-   if (day_map.texture) {
+   if (host_api->AaediHAM_TextureCheck(day_map.texture)) {
        host_api->AaediHAM_TextureDelete(day_map.texture);
        day_map.texture = 0;
    }
    SDL_Surface* temp_surface = IMG_Load("images/Blue_Marble_2002.bmp");
 
-    if (temp_surface) {
-        day_map.surface = SDL_CreateSurface(dims.w, dims.h, SDL_PIXELFORMAT_RGBA32);
-        if (day_map.surface) {
-            if (SDL_BlitSurfaceScaled(temp_surface, NULL, day_map.surface, NULL, SDL_SCALEMODE_LINEAR)) {
-                aaediclock_image new_image;
-                new_image.width = dims.w;
-                new_image.height = dims.h;
-                new_image.pixels = static_cast<uint8_t*>(day_map.surface->pixels);
-                day_map.texture = host_api->AaediHAM_TextureCreate(new_image);
-                if (!host_api->AaediHAM_TextureCheck(day_map.texture)) {
-                    *(host_api->AaediHAM_LogDebug) << "Error Creating DayMap Texture "<< SDL_GetError() <<"\n";
-                    SDL_DestroySurface(day_map.surface);
-                    day_map.surface = nullptr;
-                }
+   if (temp_surface) {
+   				day_map.surface = SDL_CreateSurface(static_cast<int>(floor(dims.w)), static_cast<int>(floor(dims.h)), SDL_PIXELFORMAT_RGBA32);
+   				if (day_map.surface) {
+   								if (SDL_BlitSurfaceScaled(temp_surface, NULL, day_map.surface, NULL, SDL_SCALEMODE_LINEAR)) {
+   												aaediclock_image new_image;
+   												new_image.width = static_cast<uint16_t>(floor(dims.w));
+   												new_image.height = static_cast<uint16_t>(floor(dims.h));
+   												new_image.pixels = static_cast<uint8_t*>(day_map.surface->pixels);
+   												day_map.texture = host_api->AaediHAM_TextureCreate(new_image);
+   												if (!host_api->AaediHAM_TextureCheck(day_map.texture)) {
+   																*(host_api->AaediHAM_LogDebug) << "Error Creating DayMap Texture "<< SDL_GetError() <<"\n";
+   																SDL_DestroySurface(day_map.surface);
+   																day_map.surface = nullptr;
+   												}
             } else {
                 *(host_api->AaediHAM_LogDebug) << "Error Scaling DayMap: "<< SDL_GetError() <<"\n";
             }
-        } else {
-            *(host_api->AaediHAM_LogDebug) << "Unable to load Day Map texture from disk\n";
-        }
-        SDL_DestroySurface(temp_surface);
-        temp_surface = nullptr;
-    } else {
+       } else {
+           *(host_api->AaediHAM_LogDebug) << "Unable to load Day Map texture from disk\n";
+       }
+       SDL_DestroySurface(temp_surface);
+       temp_surface = nullptr;
+   } else {
         *(host_api->AaediHAM_LogDebug) << "Unable to load Day Map texture from disk\n";
-    }
+   }
     return;
 }
 
 void load_night_map (const aaediclock_FRect& dims) {
-   if (night_map.surface) {
-        SDL_DestroySurface(night_map.surface);
+				if (night_map.surface) {
+								SDL_DestroySurface(night_map.surface);
         night_map.surface = nullptr;
-   }
-   if (night_map.texture) {
-       host_api->AaediHAM_TextureDelete(night_map.texture);
-       night_map.texture = 0;
-   }
-   SDL_Surface* temp_surface = IMG_Load("images/Black_Marble_2016.bmp");
-   if (temp_surface) {
-       night_map.surface = SDL_CreateSurface(dims.w, dims.h, SDL_PIXELFORMAT_RGBA32);
-       if (night_map.surface) {
-           if (SDL_BlitSurfaceScaled(temp_surface, NULL, night_map.surface, NULL, SDL_SCALEMODE_LINEAR)) {
-               *(host_api->AaediHAM_LogDebug) << "Scaled Night Map to NightMap surface!\n";
-           } else {
-               *(host_api->AaediHAM_LogDebug) << "Error scaling Night Map to NightMap surface!\n";
-               SDL_DestroySurface(night_map.surface);
-               night_map.surface = nullptr;
-           }
-       }
-       SDL_DestroySurface(temp_surface);
-       temp_surface = nullptr;
-   }  else {
+				}
+				if (host_api->AaediHAM_TextureCheck(night_map.texture)) {
+								host_api->AaediHAM_TextureDelete(night_map.texture);
+								night_map.texture = 0;
+				}
+				SDL_Surface* temp_surface = IMG_Load("images/Black_Marble_2016.bmp");
+				if (temp_surface) {
+								night_map.surface = SDL_CreateSurface(static_cast<int>(floor(dims.w)), static_cast<int>(floor(dims.h)), SDL_PIXELFORMAT_RGBA32);
+								if (night_map.surface) {
+												if (SDL_BlitSurfaceScaled(temp_surface, NULL, night_map.surface, NULL, SDL_SCALEMODE_LINEAR)) {
+																*(host_api->AaediHAM_LogDebug) << "Scaled Night Map to NightMap surface!\n";
+												} else {
+																*(host_api->AaediHAM_LogDebug) << "Error scaling Night Map to NightMap surface!\n";
+																SDL_DestroySurface(night_map.surface);
+																night_map.surface = nullptr;
+												}
+								}
+								SDL_DestroySurface(temp_surface);
+								temp_surface = nullptr;
+				} else {
         *(host_api->AaediHAM_LogDebug) << "Unable to load Night Map texture from disk\n";
-    }
-
-   return;
+				}
+				return;
 }
 
 void load_countries_map (const aaediclock_FRect& dims) {
-    if (countries_map.surface) {
-        SDL_DestroySurface(countries_map.surface);
+				if (countries_map.surface) {
+								SDL_DestroySurface(countries_map.surface);
         countries_map.surface = nullptr;
-   }
-   if (countries_map.texture) {
-       host_api->AaediHAM_TextureDelete(countries_map.texture);
-       countries_map.texture = 0;
-   }
-   SDL_Surface* temp_surface = IMG_Load("images/outline.bmp");
-   if (temp_surface) {
-       countries_map.surface = SDL_CreateSurface(dims.w, dims.h, SDL_PIXELFORMAT_RGBA32);
-       if (countries_map.surface) {
-           if (SDL_BlitSurfaceScaled(temp_surface, NULL, countries_map.surface, NULL, SDL_SCALEMODE_LINEAR)) {
-               // alpha mask the political map
-               int x, y;
-               x=0;
-               y=0;
-               Uint8 cg, cr, cb;
-               Uint8* country_pixels = (Uint8*)countries_map.surface->pixels;
-               const Uint8 bpp = SDL_GetPixelFormatDetails(countries_map.surface->format)->bytes_per_pixel;
-    /*
+				}
+				if (countries_map.texture) {
+								host_api->AaediHAM_TextureDelete(countries_map.texture);
+								countries_map.texture = 0;
+				}
+				SDL_Surface* temp_surface = IMG_Load("images/outline.bmp");
+				if (temp_surface) {
+								countries_map.surface = SDL_CreateSurface(static_cast<int>(floor(dims.w)), static_cast<int>(floor(dims.h)), SDL_PIXELFORMAT_RGBA32);
+								if (countries_map.surface) {
+												if (SDL_BlitSurfaceScaled(temp_surface, NULL, countries_map.surface, NULL, SDL_SCALEMODE_LINEAR)) {
+																// alpha mask the political map
+																int x, y;
+																x=0;
+																y=0;
+																Uint8 cg, cr, cb;
+																Uint8* country_pixels = (Uint8*)countries_map.surface->pixels;
+																const Uint8 bpp = SDL_GetPixelFormatDetails(countries_map.surface->format)->bytes_per_pixel;
+								    /*
             about the following FOR loop:
             --------------------------------
 
@@ -118,38 +117,41 @@ void load_countries_map (const aaediclock_FRect& dims) {
             After CountriesMap.texture is created, no other code actually cares about CountriesMap.surface
             However, Other code does check for its existance as a sanity check that this routine ran correctly
             I *could* nuke the surface and create a stub 1x1 surface, but I don't think it's worth the savings in system RAM
-        */
-               for ( y = 0; y < countries_map.surface->h ; y++) {
-                   for (x = 0 ; x < countries_map.surface->w ; x++) {
-                       // get where the pixel lives
-                       int pixel_index = countries_map.surface->pitch*y + ( bpp * x );
-                       // read its color values
-                       Uint32 *pixel_val=(Uint32*)(pixel_index+country_pixels);
-                       SDL_GetRGBA( *pixel_val, SDL_GetPixelFormatDetails(countries_map.surface->format), NULL, &cr, &cg, &cb, NULL);
-                       // write the new value back
-                       Uint32 pixel_val_out = SDL_MapRGBA(SDL_GetPixelFormatDetails(countries_map.surface->format), NULL, 0, 0, 0, (255-cg));
-                       memcpy((country_pixels + pixel_index), &pixel_val_out, bpp);
-                   }
-               }
-               aaediclock_image new_image;
-               new_image.width = dims.w;
-               new_image.height = dims.h;
-               new_image.pixels = static_cast<uint8_t*>(countries_map.surface->pixels);
-               countries_map.texture = host_api->AaediHAM_TextureCreate(new_image);
-               if (!host_api->AaediHAM_TextureCheck(countries_map.texture)) {
-                    *(host_api->AaediHAM_LogDebug) << "Error Creating Countries Texture "<< SDL_GetError() <<"\n";
+            */
+            				for ( y = 0; y < countries_map.surface->h ; y++) {
+            								for (x = 0 ; x < countries_map.surface->w ; x++) {
+            												// get where the pixel lives
+            												int pixel_index = countries_map.surface->pitch*y + ( bpp * x );
+            												// read its color values
+            												Uint32 *pixel_val=(Uint32*)(pixel_index+country_pixels);
+            												SDL_GetRGBA( *pixel_val, SDL_GetPixelFormatDetails(countries_map.surface->format), NULL, &cr, &cg, &cb, NULL);
+            												// write the new value back
+            												Uint32 pixel_val_out = SDL_MapRGBA(SDL_GetPixelFormatDetails(countries_map.surface->format), NULL, 0, 0, 0, (255-cg));
+            												memcpy((country_pixels + pixel_index), &pixel_val_out, bpp);
+																				}
+																}
+																aaediclock_image new_image;
+																new_image.width = static_cast<uint16_t>(floor(dims.w));
+																new_image.height = static_cast<uint16_t>(floor(dims.h));
+																new_image.pixels = static_cast<uint8_t*>(countries_map.surface->pixels);
+																countries_map.texture = host_api->AaediHAM_TextureCreate(new_image);
+																if (!host_api->AaediHAM_TextureCheck(countries_map.texture)) {
+																				*(host_api->AaediHAM_LogDebug) << "Error Creating Countries Texture "<< SDL_GetError() <<"\n";
                     SDL_DestroySurface(countries_map.surface);
                     countries_map.surface = nullptr;
-               }
-           } else {
-               *(host_api->AaediHAM_LogDebug) << "Error scaling Night Map to NightMap surface!\n";
-               SDL_DestroySurface(countries_map.surface);
-               countries_map.surface = nullptr;
-           }
-       }
-   } else {
-       *(host_api->AaediHAM_LogDebug) << "Unable to load Countries texture from disk\n";
-   }
+																}
+												} else {
+																*(host_api->AaediHAM_LogDebug) << "Error scaling Night Map to NightMap surface!\n";
+																SDL_DestroySurface(countries_map.surface);
+																countries_map.surface = nullptr;
+												}
+								}
+								SDL_DestroySurface(temp_surface);
+								temp_surface = nullptr;
+				} else {
+								*(host_api->AaediHAM_LogDebug) << "Unable to load Countries texture from disk\n";
+				}
+				return;
 }
 
 int SDLCALL regen_night_mask(void* userdata) {
@@ -166,7 +168,7 @@ int SDLCALL regen_night_mask(void* userdata) {
         *(host_api->AaediHAM_LogDebug) << "No Night Map when generating mask\n";
         return 0;
     }
-    std::cout << "night_mask_pixels "<< night_mask.pixels <<"\n";
+//    std::cout << "night_mask_pixels "<< night_mask.pixels <<"\n";
     // recreate a new surface
     if (night_mask.pixels != nullptr) {
         night_mask.height = 0;
@@ -174,8 +176,8 @@ int SDLCALL regen_night_mask(void* userdata) {
         free(night_mask.pixels);
         night_mask.pixels = nullptr;
     }
-    night_mask.height = dims.h;
-    night_mask.width = dims.w;
+    night_mask.height = static_cast<uint16_t>(floor(dims.h));
+    night_mask.width = static_cast<uint16_t>(floor(dims.w));
     night_mask.pixels = (uint8_t*)malloc(night_mask.height*night_mask.width*4);
     if (!night_mask.pixels) {
         *(host_api->AaediHAM_LogDebug) << "Failed to create mask surface\n";
@@ -198,7 +200,7 @@ int SDLCALL regen_night_mask(void* userdata) {
     const Uint8 source_bpp = source_details->bytes_per_pixel;
     const double solar_decl = 23.45 * (sin( (2 * M_PI/365) * (284+(utc.tm_yday+1)) ));
     for (panel_cords.y=0.0 ; panel_cords.y < floor(dims.h) ; panel_cords.y++) {
-        source_cords.y = static_cast<int>((panel_cords.y/dims.h)*night_map.surface->h);
+        source_cords.y = static_cast<uint16_t>((panel_cords.y/dims.h)*night_map.surface->h);
         double lat = 90.0 - (180.0 * panel_cords.y / (double)dims.h);
         for (panel_cords.x=0 ; panel_cords.x < floor(dims.w) ; panel_cords.x++) {
             uint8_t r, g, b, alpha;
@@ -216,9 +218,9 @@ int SDLCALL regen_night_mask(void* userdata) {
             source_cords.x = static_cast<int>((panel_cords.x/dims.w)*night_map.surface->w);
             int source_pixel_index = ( night_map.surface->pitch * (int)source_cords.y ) + ( source_bpp * (int)source_cords.x );
             int dest_pixel_index =   ( (int)dims.w * 4 * (int)panel_cords.y ) + ( 4 * (int)panel_cords.x );
-            *(host_api->AaediHAM_LogDebug) << "src: " << source_cords.x << ", " << source_cords.y << "\tdst: "
-                                           << panel_cords.x << ", " << panel_cords.y << "\t"
-                                           << "indices " << source_pixel_index << ", " << dest_pixel_index << "\n";
+//            *(host_api->AaediHAM_LogDebug) << "src: " << source_cords.x << ", " << source_cords.y << "\tdst: "
+//                                           << panel_cords.x << ", " << panel_cords.y << "\t"
+//                                           << "indices " << source_pixel_index << ", " << dest_pixel_index << "\n";
             Uint32 *source_pixel_val=(Uint32*)(source_pixel_index+(uint8_t*)source_pixels);
             SDL_GetRGBA( *source_pixel_val, source_details, NULL, &r, &g, &b, NULL);
             night_mask.pixels[dest_pixel_index]=r;
@@ -267,6 +269,45 @@ void map_plugin::plugin_init() const {
 }
 
 void map_plugin::plugin_exit() const {
+				std::cout << "Freeing MAP resources\n";
+    if (night_mask_timer) {
+        SDL_RemoveTimer(night_mask_timer);
+    }
+    if (night_mask.pixels != nullptr) {
+        night_mask.height = 0;
+        night_mask.width = 0;
+        free(night_mask.pixels);
+        night_mask.pixels = nullptr;
+    }
+
+    if (day_map.surface) {
+        SDL_DestroySurface(day_map.surface);
+        day_map.surface = nullptr;
+   }
+   if (host_api->AaediHAM_TextureCheck(day_map.texture)) {
+       host_api->AaediHAM_TextureDelete(day_map.texture);
+       day_map.texture = 0;
+   }
+   if (night_map.surface) {
+        SDL_DestroySurface(night_map.surface);
+        night_map.surface = nullptr;
+   }
+   if (host_api->AaediHAM_TextureCheck(night_map.texture)) {
+       host_api->AaediHAM_TextureDelete(night_map.texture);
+       night_map.texture = 0;
+   }
+   if (countries_map.surface) {
+        SDL_DestroySurface(countries_map.surface);
+        countries_map.surface = nullptr;
+   }
+   if (host_api->AaediHAM_TextureCheck(countries_map.texture)) {
+       host_api->AaediHAM_TextureDelete(countries_map.texture);
+       countries_map.texture = 0;
+   }
+   if (host_api->AaediHAM_TextureCheck(night_mask_texture)) {
+       host_api->AaediHAM_TextureDelete(night_mask_texture);
+   }
+
     return;
 }
 

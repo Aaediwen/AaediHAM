@@ -31,41 +31,7 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
 //        plugin.host_api->panel = nullptr;
         unregister_module(&plugin);
     }
-    /*
-    master_flags.callsign.draw_flag     =       false;
-    master_flags.de.draw_flag           =       false;
-    master_flags.dx.draw_flag           =       false;
-    master_flags.pota.draw_flag         =       false;
-    master_flags.sat_tracker.draw_flag  =       false;
-    master_flags.dx_spots.draw_flag     =       false;
-    master_flags.map.draw_flag          =       false;
-    master_flags.ncdxf.draw_flag        =       false;
-    master_flags.kindex.draw_flag       =       false;
-    master_flags.clock.draw_flag        =       false;
-    master_flags.solar.draw_flag        =       false;
-    master_flags.wspr.draw_flag         =       false;
-    master_flags.lunar.draw_flag        =       false;
-    master_flags.psk.draw_flag          =       false;
-    master_flags.contests.draw_flag     =       false;
-    master_flags.rss.draw_flag          =       false;
-    master_flags.map.panel              =       nullptr;
-    master_flags.sat_tracker.panel      =       nullptr;
-    master_flags.dx_spots.panel         =       nullptr;
-    master_flags.callsign.panel         =       nullptr;
-    master_flags.de.panel               =       nullptr;
-    master_flags.dx.panel               =       nullptr;
-    master_flags.pota.panel             =       nullptr;
-    master_flags.ncdxf.panel            =       nullptr;
-    master_flags.clock.panel            =       nullptr;
-    master_flags.kindex.panel           =       nullptr;
-    master_flags.solar.panel            =       nullptr;
-    master_flags.wspr.panel             =       nullptr;
-    master_flags.lunar.panel            =       nullptr;
-    master_flags.psk.panel              =       nullptr;
-    master_flags.contests.panel         =       nullptr;
-    master_flags.rss.panel              =       nullptr;
-    master_flags.aurora.panel           =       nullptr;
-    */
+
     debug_log << "EXIT: Cleaning Mutexes.\n\n";
    for (SDL_Mutex*& mtx : mutexes) {
         if (mtx) {
@@ -77,9 +43,6 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     }
     debug_log << "EXIT: Cleaning SDL Panels.\n\n";
     overlays.clear();
-//    DayMap.Reset();
-//    NightMap.Reset();
-//    CountriesMap.Reset();
     winboxes[PANEL_CALLSIGN].panel.Reset();
     winboxes[PANEL_NULL].panel.Reset();
     winboxes[PANEL_DE].panel.Reset();

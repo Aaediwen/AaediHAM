@@ -138,7 +138,7 @@ void dx_plugin::plugin_main(const aaediclock_FRect& dims) const {
         TextRect.y=((dims.h)/8)*7;
         TextRect.h=(dims.h)/8;
         TextRect.w=(dims.w/10)*8;
-        host_api->AaediHAM_GraphicsDrawText(location.label.c_str(), fontcolor, TextRect);
+        host_api->AaediHAM_GraphicsDrawText(location.label, fontcolor, TextRect);
 
 
 }

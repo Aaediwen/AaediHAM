@@ -143,10 +143,6 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 SDL_RemoveTimer(flag_timer);
                 flag_timer = 0;
             }
-//            if (map_timer) {
-//                SDL_RemoveTimer(map_timer);
-//                map_timer = 0;
-//            }
 
             debug_log << "RESIZE: Beginning Window resize\n";
             debug_log.flush();
@@ -158,43 +154,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 plugin.draw_flag = false;
                 plugin.host_api->panel = nullptr;
             }
-/*
-            master_flags.callsign.draw_flag     =       false;
-            master_flags.de.draw_flag           =       false;
-            master_flags.dx.draw_flag           =       false;
-            master_flags.pota.draw_flag         =       false;
-            master_flags.sat_tracker.draw_flag  =       false;
-            master_flags.dx_spots.draw_flag     =       false;
-            master_flags.map.draw_flag          =       false;
-            master_flags.ncdxf.draw_flag        =       false;
-            master_flags.kindex.draw_flag       =       false;
-            master_flags.clock.draw_flag        =       false;
-            master_flags.solar.draw_flag        =       false;
-            master_flags.wspr.draw_flag         =       false;
-            master_flags.lunar.draw_flag        =       false;
-            master_flags.psk.draw_flag          =       false;
-            master_flags.contests.draw_flag     =       false;
-            master_flags.rss.draw_flag          =       false;
-            master_flags.aurora.draw_flag       =       false;
 
-            master_flags.map.panel              =       nullptr;
-            master_flags.sat_tracker.panel      =       nullptr;
-            master_flags.dx_spots.panel         =       nullptr;
-            master_flags.callsign.panel         =       nullptr;
-            master_flags.de.panel               =       nullptr;
-            master_flags.dx.panel               =       nullptr;
-            master_flags.pota.panel             =       nullptr;
-            master_flags.ncdxf.panel            =       nullptr;
-            master_flags.clock.panel            =       nullptr;
-            master_flags.kindex.panel           =       nullptr;
-            master_flags.solar.panel            =       nullptr;
-            master_flags.wspr.panel             =       nullptr;
-            master_flags.lunar.panel            =       nullptr;
-            master_flags.psk.panel              =       nullptr;
-            master_flags.contests.panel         =       nullptr;
-            master_flags.rss.panel              =       nullptr;
-            master_flags.aurora.panel           =       nullptr;
-*/
             debug_log << "RESIZE: Destroying old surfaces\n";
             debug_log.flush();
             // clean up the old surface
@@ -209,7 +169,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 panels[PANEL_NULL].panel.Reset();
                 panels[PANEL_DE].panel.Reset();
                 panels[PANEL_DX].panel.Reset();
-               panels[PANEL_CLOCK].panel.Reset();
+                panels[PANEL_CLOCK].panel.Reset();
                 panels[PANEL_FLEXBOX1].panel.Reset();
                 panels[PANEL_FLEXBOX2].panel.Reset();
                 panels[PANEL_FLEXBOX3].panel.Reset();
@@ -390,23 +350,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
                 debug_log << "RESIZE: Re-enabling program loops\n";
                 debug_log.flush();
              // re-enable the rest of the program
-/*                master_flags.callsign.draw_flag         =       true;
-                master_flags.de.draw_flag               =       true;
-                master_flags.dx.draw_flag               =       true;
-                master_flags.pota.draw_flag             =       true;
-                master_flags.sat_tracker.draw_flag      =       true;
-                master_flags.dx_spots.draw_flag         =       true;
-                master_flags.ncdxf.draw_flag            =       true;
-                master_flags.map.draw_flag              =       true;
-                master_flags.clock.draw_flag            =       true;
-                master_flags.solar.draw_flag            =       true;
-                master_flags.wspr.draw_flag             =       true;
-                master_flags.lunar.draw_flag            =       true;
-                master_flags.psk.draw_flag              =       true;
-                master_flags.contests.draw_flag         =       true;
-                master_flags.rss.draw_flag              =       true;
-                master_flags.aurora.draw_flag           =       true;
-*/
+
                 for (struct PluginModule& plugin : loaded_plugins ) {
                     plugin.draw_flag = true;
                 }

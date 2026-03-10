@@ -30,25 +30,26 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 #	modules/lunar.cc
 #	modules/map.cc
 #	modules/pskreporter.cc
+#	core/utils.cc
+#        utils/celestials.cc
 
 set (SOURCES
 	core/init.cc
 	core/classes.cc
-	core/utils.cc
 	core/panels.cc
 	core/itterate.cc
 	core/quit.cc
 	core/event.cc
 	utils/http_fetch.cc
-        utils/celestials.cc
-        utils/conversions.cc
+    utils/conversions.cc
 	plugins/host_api.cc
 )
 
 add_library(aaediclock_path INTERFACE)
 target_include_directories(aaediclock_path INTERFACE ${CMAKE_SOURCE_DIR})
 target_link_options(aaediclock_path INTERFACE -fsanitize=address)
-
+target_compile_options(aaediclock_path INTERFACE -fno-omit-frame-pointer
+-rdynamic)
 add_executable(clock ${SOURCES})
 target_link_libraries(clock PRIVATE aaediclock_path)
 
@@ -71,7 +72,7 @@ add_library(pota_plugin SHARED
     plugins/pota.cc
     utils/http_fetch.cc
 )
-target_link_libraries(pota_plugin PRIVATE aaediclock_path nlohmann_json::nlohmann_json)
+target_link_libraries(pota_plugin PRIVATE aaediclock_path SDL3::SDL3 nlohmann_json::nlohmann_json)
 
 add_library(de_plugin SHARED
     plugins/de.cc
@@ -93,39 +94,39 @@ add_library(dx_cluster_plugin SHARED
     utils/socket.cc
     utils/conversions.cc
 )
-target_link_libraries(dx_cluster_plugin PRIVATE aaediclock_path)
+target_link_libraries(dx_cluster_plugin PRIVATE aaediclock_path SDL3::SDL3)
 
 add_library(sat_tracker_plugin SHARED
     plugins/sat_tracker.cc
     utils/http_fetch.cc
     utils/conversions.cc
 )
-target_link_libraries(sat_tracker_plugin PRIVATE aaediclock_path sgp4 SDL3_image::SDL3_image)
+target_link_libraries(sat_tracker_plugin PRIVATE aaediclock_path sgp4 SDL3::SDL3 SDL3_image::SDL3_image)
 
 add_library(aurora_plugin SHARED
     plugins/aurora.cc
     utils/http_fetch.cc
 )
-target_link_libraries(aurora_plugin PRIVATE aaediclock_path nlohmann_json::nlohmann_json)
+target_link_libraries(aurora_plugin PRIVATE aaediclock_path SDL3::SDL3 nlohmann_json::nlohmann_json)
 
 add_library(sdo_plugin SHARED
     plugins/sun.cc
     utils/http_fetch.cc
     utils/celestials.cc
 )
-target_link_libraries(sdo_plugin PRIVATE aaediclock_path SDL3_image::SDL3_image)
+target_link_libraries(sdo_plugin PRIVATE aaediclock_path SDL3::SDL3 SDL3_image::SDL3_image)
 
 add_library(contest_plugin SHARED
     plugins/contests.cc
     utils/http_fetch.cc
 )
-target_link_libraries(contest_plugin PRIVATE aaediclock_path )
+target_link_libraries(contest_plugin PRIVATE aaediclock_path SDL3::SDL3)
 
 add_library(kindex_plugin SHARED
     plugins/kindex.cc
     utils/http_fetch.cc
 )
-target_link_libraries(kindex_plugin PRIVATE aaediclock_path nlohmann_json::nlohmann_json)
+target_link_libraries(kindex_plugin PRIVATE aaediclock_path SDL3::SDL3 nlohmann_json::nlohmann_json)
 
 
 add_library(wspr_plugin SHARED
@@ -133,14 +134,14 @@ add_library(wspr_plugin SHARED
     utils/http_fetch.cc
     utils/conversions.cc
 )
-target_link_libraries(wspr_plugin PRIVATE aaediclock_path)
+target_link_libraries(wspr_plugin PRIVATE aaediclock_path SDL3::SDL3)
 
 
 add_library(lunar_plugin SHARED
     plugins/lunar.cc
     utils/celestials.cc
 )
-target_link_libraries(lunar_plugin PRIVATE aaediclock_path SDL3_image::SDL3_image)
+target_link_libraries(lunar_plugin PRIVATE aaediclock_path SDL3::SDL3 SDL3_image::SDL3_image)
 
 
 #add_library(rss_plugin SHARED
@@ -159,7 +160,7 @@ add_library(map_plugin SHARED
 	plugins/map.cc
 	utils/celestials.cc
 )
-target_link_libraries(map_plugin PRIVATE aaediclock_path  SDL3_image::SDL3_image)
+target_link_libraries(map_plugin PRIVATE aaediclock_path  SDL3::SDL3 SDL3_image::SDL3_image)
 
 # ================================================================================
 # CUSTOM DEPENDANCY FUNCTION
@@ -183,8 +184,8 @@ endif()
         set(${symbol}_BINARY_DIR ${${symbol}_BINARY_DIR} PARENT_SCOPE)
 #		target_include_directories(clock SYSTEM PRIVATE
 #		${EXTERNAL_DIR}/${target} ${${symbol}_SOURCE_DIR}/include)
-#		target_include_directories(sat_tracker_plugin SYSTEM PRIVATE
-#                ${EXTERNAL_DIR}/${target} ${${symbol}_SOURCE_DIR}/include)
+		target_include_directories(sat_tracker_plugin SYSTEM PRIVATE
+                ${EXTERNAL_DIR}/${target} ${${symbol}_SOURCE_DIR})
 		target_include_directories(aaediclock_path INTERFACE
 		${EXTERNAL_DIR}/${target} ${${symbol}_SOURCE_DIR}/include)
 	else()
@@ -206,8 +207,9 @@ if(NOT DEFINED CMAKE_BUILD_TYPE)
 endif()
 
 if(WIN32)
- 	target_compile_options(clock PRIVATE
-        	$<$<CONFIG:Debug>:/Od /Zi /W4 /WX /RTC1 /MDd /Ob0 /external:W0  /external:anglebrackets>
+    target_link_libraries(aaediclock_path INTERFACE  SDL3::SDL3 winhttp)
+ 	target_compile_options(clock PRIVATE /external:W0  /external:anglebrackets /showIncludes
+        	$<$<CONFIG:Debug>:/Od /Zi /W4 /WX /RTC1 /MDd /Ob0 >
         	$<$<CONFIG:Release>:/O2 /DNDEBUG>
     	)	
  	target_compile_definitions(clock PRIVATE 
@@ -248,11 +250,12 @@ if(WIN32)
     			COMMAND git config --global --add safe.directory "*"
     			RESULT_VARIABLE result
 	)
+        set(LIBXML2_WITH_ICONV OFF CACHE BOOL "" FORCE)
     	target_compile_definitions(clock PRIVATE _CRT_SECURE_NO_WARNINGS)
     	set(EXTERNAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/Windows")
     	list(APPEND CMAKE_PREFIX_PATH "${EXTERNAL_DIR}")
     	target_include_directories(clock PRIVATE ${EXTERNAL_DIR}/json-develop/include)
-	find_build(sgp4 https://github.com/dnwrnr/sgp4.git "master" .)
+	    find_build(sgp4 https://github.com/dnwrnr/sgp4.git "master"  "sgp4-src/")
 	
 elseif(APPLE)
 	set(EXTERNAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/macos")

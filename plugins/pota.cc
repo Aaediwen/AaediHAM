@@ -215,12 +215,14 @@ void pota_plugin::plugin_main(const aaediclock_FRect& dims) const {
                  TextRect.x = 5;
                  if (mouse_event.valid) {
                       if ( mouse_event.coords.y >=TextRect.y &&  mouse_event.coords.y <= (TextRect.y+TextRect.h)) {
-                           const std::string dxlabel = pota_pin.label;
+//                           const std::string dxlabel = pota_pin.label;
                            // need to add the set_DX API call
                            struct aaediclock_dx new_dx;
                            new_dx.lat = pota_pin.lat;
                            new_dx.lon = pota_pin.lon;
-                           new_dx.label = dxlabel;
+                           memset (new_dx.label,0,32);
+                           memcpy(new_dx.label, pota_pin.label, length);
+//                           new_dx.label = pota_pin.label;
                            host_api->AaediHAM_ConfigSetDX(new_dx);
                       }
                  }

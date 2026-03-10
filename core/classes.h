@@ -84,6 +84,11 @@ public:
         std::string name;
         uint16_t port;
     };
+    struct plugin {
+        std::string filename;
+        size_t  panel_id;
+        uint16_t interval;
+    };
     config();
     ~config();
     const std::string& CallSign() const;
@@ -98,13 +103,17 @@ public:
     const std::string& qrz_key(bool refresh = false);
     void set_qrz_pass(const std::string& newpass);
     bool next_wspr(std::string *callsign, int *band);
+    plugin next_plugin();
     private:
+
         struct WSPRTarget {
             std::string callsign;
             int band;
         };
         std::vector<struct WSPRTarget> m_WSPRList;
         Uint16 m_WSPRIndex;
+        std::vector<struct plugin> m_Plugins;
+        Uint16 m_PluginIndex;
         std::string m_CallSign;
         std::string m_PSKCall;
         std::vector<std::string> m_sats;

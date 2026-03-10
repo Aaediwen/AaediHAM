@@ -1,9 +1,10 @@
 
-#include "wspr_tracker.h"
-#include "aaediclock.h"
+
 //#include "core/utils.h"
 #include "utils/http_fetch.h"
+#include "wspr_tracker.h"
 #include "utils/conversions.h"
+
 #ifdef _WIN32
 #include <time.h>
 #define timegm _mkgmtime
@@ -233,17 +234,13 @@ void TrackedWSPR::wspr_live_update() {
 
 bool TrackedWSPR::gen_telemetry() {
     // generate the telemetry track for a WSPR station
-    Uint64 data_size;
     bool add_flag;
     add_flag=true;
-    void* data_buffer = nullptr;
     time_t cache_time;
     // check cache, then disk, then do a web query for anything new
-//    data_size = cache_loader(MOD_WSPR, &data_buffer, &cache_time);
     bool use_cache = false;
     std::istringstream telemetry_buffer;
 //    const std::lock_guard<std::mutex>wspr_lock(wspr_mutex);
-//    SDL_LockMutex(mutexes[MUTEX_WSPR]);
     m_telemetry.clear();
     std::string telemetry_str;
 
