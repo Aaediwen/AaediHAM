@@ -8,6 +8,7 @@
 #include <time.h>
 #define timegm _mkgmtime
 #endif
+#include <mutex>
 using json = nlohmann::json;
 
 struct KIndexPoint {
@@ -30,6 +31,7 @@ std::vector<struct SolarWindPoint>solar_wind_cache;
 static nlohmann::json::iterator wind_index;
 static nlohmann::json::iterator wind_end;
 SDL_TimerID kindex_timer = 0;
+std::mutex kindex_mutex;
 aaediclock_host_api* host_api = nullptr;
 time_t parse_time_tag(const std::string& time_tag) {
     std::tm tm = {};
@@ -120,6 +122,7 @@ void merge_json (const char* k_index_list, const char* solar_wind_list) {
                          new_node.day_mark = true;
                     }
                }
+               const std::lock_guard<std::mutex>kindex_lock(kindex_mutex);
                write_wind_cache(new_node.timestamp);
                kindex_cache.push_back(new_node);
           } catch (const std::exception& e) {
@@ -269,20 +272,14 @@ void kindex_plugin::plugin_main(const aaediclock_FRect& dims) const {
     float klast = 0.0;
     uint8_t type;
     size_t kindex_count;
+    const std::lock_guard<std::mutex>kindex_lock(kindex_mutex);
     if (kindex_cache.empty() || solar_wind_cache.empty()) {
       *(host_api->AaediHAM_LogDebug) << "Missing Solar Data!\n";
       host_api->AaediHAM_GraphicsDrawText("MISSING KINDEX DATA", aaediclock_Color{128,128,128,0}, aaediclock_FRect {dims.w/20, dims.h/4, dims.h/10, (dims.w/10)*8});
       return;
     }
     wind_index = solar_wind_cache.begin();
-/*    data.read(reinterpret_cast<char*>(&kindex_count), sizeof(kindex_count));
-    if (kindex_count <=0) {
-      *(host_api->AaediHAM_LogDebug) << "KINDEX: BAD Solar Data! count: " << kindex_count << "\n";
-      host_api->AaediHAM_GraphicsDrawText("BAD KINDEX DATA", aaediclock_Color{128,128,128,0}, aaediclock_FRect {dims.w/20, dims.h/4, (dims.w/10)*8, dims.h/10});
-//      panel.render_text(SDL_FRect {dims.w/20, dims.h/4, (dims.w/10)*8, dims.h/10}, Sans, SDL_Color{128,128,128,0}, "BAD KINDEX DATA");
-      return;
-    }
-*/
+
     *(host_api->AaediHAM_LogDebug) << "KINDEX: Drawing chart size " << kindex_cache.size() << "\n";
 
     bar_box.x=1;

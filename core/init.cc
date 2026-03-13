@@ -40,6 +40,7 @@ std::vector<PluginModule> 	loaded_plugins;
 #endif
 SDL_Rect 			default_size;
 std::string 			outfile;
+SDL_ThreadID 			main_thread_id;
 
 namespace AaediClock_Init {
     bool headless = false;		// used at the base of itterate, set during init. probably doesn't need to exist in itterate
@@ -139,6 +140,8 @@ namespace AaediClock_Init {
             debug_log << "INIT: TTF Init Error:" << SDL_GetError() << "\n";
             return(SDL_APP_FAILURE);
         }
+        main_thread_id = SDL_GetCurrentThreadID();
+
         return (SDL_APP_CONTINUE);
     }
 

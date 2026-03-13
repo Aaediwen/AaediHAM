@@ -1,7 +1,6 @@
 #include "aaediclock.h"
 #include "core.h"
 #include "quit.h"
-#include "utils.h"
 #include "panels.h"
 #include "sdl_callbacks.h"
     // SDL Event Handler
@@ -73,11 +72,11 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                 }
                 SDL_SyncWindow(window);
                 break;
-            case SDLK_C:
+//            case SDLK_C:
 //                if  (event->key.mod & (SDL_KMOD_LALT | SDL_KMOD_RALT)) {
 //                    dump_cache();
 //                }
-                break;
+//                break;
             case SDLK_Q:
                 window_destroy();
                 return SDL_APP_FAILURE;

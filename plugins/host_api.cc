@@ -260,6 +260,10 @@ void HostAPI::set_plugin_name(const std::string& new_name) {
 }
 
 void HostAPI::AaediHAM_SetTarget() {
+    if (SDL_GetCurrentThreadID() != main_thread_id) {
+	debug_log << debug_log_buffer.plugin_name << ": Texture call from non-parent thread. ignoring\n";
+	return;
+    }
     SDL_SetRenderTarget(this->panel->GetRenderer(), this->panel->texture);
     return;
 }
@@ -286,7 +290,10 @@ void HostAPI::AaediHAM_GraphicsDrawText (const char* string, const aaediclock_Co
     textcolor.g = color.g;
     textcolor.b = color.b;
     textcolor.a = color.a;
-
+    if (SDL_GetCurrentThreadID() != main_thread_id) {
+	debug_log << debug_log_buffer.plugin_name << ": Texture call from non-parent thread. ignoring\n";
+	return;
+    }
     this->panel->render_text(textbox, Sans, textcolor, string);
     return;
 }
@@ -294,6 +301,10 @@ void HostAPI::AaediHAM_GraphicsDrawText (const char* string, const aaediclock_Co
 void HostAPI::AaediHAM_GraphicsDrawRect(const aaediclock_Color color, const aaediclock_FRect dims, bool filled) {
     if ((dims.h <= 0) || (dims.w <= 0)) {
         return;
+    }
+    if (SDL_GetCurrentThreadID() != main_thread_id) {
+	debug_log << debug_log_buffer.plugin_name << ": Texture call from non-parent thread. ignoring\n";
+	return;
     }
     SDL_FRect host_dims;
     host_dims.x = dims.x;
@@ -312,6 +323,10 @@ void HostAPI::AaediHAM_GraphicsDrawRect(const aaediclock_Color color, const aaed
 }
 
 void HostAPI::AaediHAM_GraphicsDrawLine(const aaediclock_Color color, const aaediclock_FRect line) {
+       if (SDL_GetCurrentThreadID() != main_thread_id) {
+           debug_log << debug_log_buffer.plugin_name << ": Texture call from non-parent thread. ignoring\n";
+           return;
+       }
        SDL_SetRenderDrawColor(this->panel->GetRenderer(), color.r, color.g, color.b, color.a);
        SDL_RenderLine (this->panel->GetRenderer(), line.x, line.y, line.w, line.h);
        return;
@@ -320,6 +335,10 @@ void HostAPI::AaediHAM_GraphicsDrawLine(const aaediclock_Color color, const aaed
 void HostAPI::AaediHAM_GraphicsDrawLines(const aaediclock_Color color, const aaediclock_FPoint* point_list, int count) {
     if (!point_list || count <= 0) {
         return;
+    }
+    if (SDL_GetCurrentThreadID() != main_thread_id) {
+           debug_log << debug_log_buffer.plugin_name << ": Texture call from non-parent thread. ignoring\n";
+           return;
     }
     std::vector<SDL_FPoint>new_points;
     for (int c=0 ; c < count ; c++) {
@@ -337,6 +356,10 @@ void HostAPI::AaediHAM_GraphicsDrawImage (uint16_t index) {
     if ((static_cast<size_t>(index) > texture_cache.size()) || texture_cache.empty()) {
         return;
     }
+    if (SDL_GetCurrentThreadID() != main_thread_id) {
+           debug_log << debug_log_buffer.plugin_name << ": Texture call from non-parent thread. ignoring\n";
+           return;
+    }
     index--;
     if (texture_cache[index]) {
         debug_log << "HostAPI: Drawing Texture ID: "<< index << " for plugin "<< plugin_id << "\n";
@@ -348,6 +371,10 @@ void HostAPI::AaediHAM_GraphicsDrawImage (uint16_t index) {
 
 void HostAPI::AaediHAM_GraphicsClear(const aaediclock_Color& color) {
 //    SDL_Log("Attempting Plugin Panel Clear");
+    if (SDL_GetCurrentThreadID() != main_thread_id) {
+           debug_log << debug_log_buffer.plugin_name << ": Texture call from non-parent thread. ignoring\n";
+           return;
+    }
     SDL_Color textcolor;
     textcolor.r = color.r;
     textcolor.g = color.g;
@@ -523,6 +550,10 @@ bool HostAPI::AaediHAM_OverlayCheck() {
 }
 
 void HostAPI::AaediHAM_OverlaySet(aaediclock_FRect dims) {
+    if (SDL_GetCurrentThreadID() != main_thread_id) {
+           debug_log << debug_log_buffer.plugin_name << ": Texture call from non-parent thread. ignoring\n";
+           return;
+    }
     uint16_t owner = plugin_id;
     SDL_FRect host_dims;
     host_dims.x = dims.x;
@@ -537,12 +568,20 @@ void HostAPI::AaediHAM_OverlaySet(aaediclock_FRect dims) {
 }
 
 void HostAPI::AaediHAM_OverlayRemove() {
+    if (SDL_GetCurrentThreadID() != main_thread_id) {
+           debug_log << debug_log_buffer.plugin_name << ": Texture call from non-parent thread. ignoring\n";
+           return;
+    }
     uint16_t owner = plugin_id;
     overlays.remove_overlay(static_cast<enum mod_name>(owner));
     return;
 }
 
 void HostAPI::AaediHAM_OverlayClear(const aaediclock_Color& color) {
+    if (SDL_GetCurrentThreadID() != main_thread_id) {
+           debug_log << debug_log_buffer.plugin_name << ": Texture call from non-parent thread. ignoring\n";
+           return;
+    }
     uint16_t owner = plugin_id ;
 //    SDL_Log("Attempting Plugin Panel Clear");
     SDL_Color clearcolor;
@@ -571,6 +610,10 @@ bool HostAPI::AaediHAM_IconCheck (uint16_t icon_index) {
 }
 
 uint16_t HostAPI::AaediHAM_IconCreate (const aaediclock_image& image_data) {
+    if (SDL_GetCurrentThreadID() != main_thread_id) {
+           debug_log << debug_log_buffer.plugin_name << ": Texture call from non-parent thread. ignoring\n";
+           return 0;
+    }
     if ((image_data.width < 1) || (image_data.height < 1)) {
         debug_log << "Icon API: no image size to create icon\n";
         return 0;
@@ -596,6 +639,10 @@ uint16_t HostAPI::AaediHAM_IconCreate (const aaediclock_image& image_data) {
 }
 
 bool HostAPI::AaediHAM_IconUpdate (uint16_t icon_index, const aaediclock_image& image_data) {
+    if (SDL_GetCurrentThreadID() != main_thread_id) {
+           debug_log << debug_log_buffer.plugin_name << ": Texture call from non-parent thread. ignoring\n";
+           return false;
+    }
     if ((image_data.width < 1) || (image_data.height < 1)) {
         return false;
     }
@@ -619,6 +666,10 @@ bool HostAPI::AaediHAM_IconUpdate (uint16_t icon_index, const aaediclock_image& 
 }
 
 void HostAPI::AaediHAM_IconDelete (uint16_t icon_index) {
+    if (SDL_GetCurrentThreadID() != main_thread_id) {
+           debug_log << debug_log_buffer.plugin_name << ": Texture call from non-parent thread. ignoring\n";
+           return;
+    }
     uint16_t owner = plugin_id;
     icon_index--;
     icon_bin.icon_delete(icon_index, owner);
@@ -630,6 +681,10 @@ void HostAPI::AaediHAM_IconDelete (uint16_t icon_index) {
 //********************************************************************************
 
 bool HostAPI::AaediHAM_TextureCheck (uint16_t index) {
+    if (SDL_GetCurrentThreadID() != main_thread_id) {
+           debug_log << debug_log_buffer.plugin_name << ": Texture call from non-parent thread. ignoring\n";
+           return false;
+    }
     if ((static_cast<size_t>(index) > texture_cache.size()) || texture_cache.empty()) {
         return false;
     }
@@ -645,6 +700,10 @@ bool HostAPI::AaediHAM_TextureCheck (uint16_t index) {
 
 uint16_t HostAPI::AaediHAM_TextureCreate (const aaediclock_image& image_data) {
     uint16_t result = 0;
+    if (SDL_GetCurrentThreadID() != main_thread_id) {
+           debug_log << debug_log_buffer.plugin_name << ": Texture call from non-parent thread. ignoring\n";
+           return result;
+    }
     if ((image_data.width < 1) || (image_data.height < 1)) {
         return result;
     }
@@ -671,6 +730,10 @@ uint16_t HostAPI::AaediHAM_TextureCreate (const aaediclock_image& image_data) {
 
 bool HostAPI::AaediHAM_TextureUpdate (uint16_t index, const aaediclock_image& image_data) {
     uint16_t result = 0;
+    if (SDL_GetCurrentThreadID() != main_thread_id) {
+           debug_log << debug_log_buffer.plugin_name << ": Texture call from non-parent thread. ignoring\n";
+           return result;
+    }
     if ((image_data.width < 1) || (image_data.height < 1)) {
         return result;
     }
@@ -692,6 +755,10 @@ bool HostAPI::AaediHAM_TextureUpdate (uint16_t index, const aaediclock_image& im
 }
 
 void HostAPI::AaediHAM_TextureDelete(uint16_t index) {
+    if (SDL_GetCurrentThreadID() != main_thread_id) {
+           debug_log << debug_log_buffer.plugin_name << ": Texture call from non-parent thread. ignoring\n";
+           return;
+    }
     if ((static_cast<size_t>(index) > texture_cache.size()) || texture_cache.empty()) {
         return;
     }

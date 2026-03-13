@@ -48,7 +48,7 @@ extern TTF_Font* Sans;
 extern std::ostream& debug_log;
 
 extern Sint64 max_tex_size;
-
+extern SDL_ThreadID main_thread_id;
 struct pager_node {
     std::vector<enum mod_name> sequence;
     std::vector<int> plugin_sequence;

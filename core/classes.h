@@ -1,6 +1,6 @@
 #ifndef CLASSES_H
 #define CLASSES_H
-
+#include <mutex>
 enum mod_name {
     MOD_MAP             ,
     MOD_DE              ,
@@ -122,6 +122,7 @@ public:
         struct GeoCoord m_DX;
         std::string m_DXMsg;
         ip_server_t m_dxserver;
+        mutable std::mutex dx_set_mutex;
         struct {
             std::string Secret;
             std::string Key;

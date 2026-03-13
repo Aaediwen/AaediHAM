@@ -722,10 +722,12 @@ const GeoCoord& config::DE() const {
 }
 
 const GeoCoord& config::DX() const {
+    const std::lock_guard<std::mutex>dx_lock(dx_set_mutex);
     return m_DX;
 }
 
 void config::set_DX(const GeoCoord& target, const std::string msg) {
+    const std::lock_guard<std::mutex>dx_lock(dx_set_mutex);
     m_DX = target;
     if (m_DX.latitude < -90 || m_DX.latitude > 90) {
         SDL_Log("CONFIG: DX Latitude out of range, resetting to 0");
