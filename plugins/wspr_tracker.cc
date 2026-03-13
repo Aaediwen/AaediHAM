@@ -365,7 +365,8 @@ int SDLCALL update_wspr (void *userdata) {
     int band;
     struct plugin_wspr_station  wspr_station =  host_api->AaediHAM_ConfigGetNextWspr();
     wsprlist.clear();
-    while (!wspr_station.callsign.empty()) {
+    while (wspr_station.callsign[0] !=0) {
+      callsign = wspr_station.callsign;
 //    while (clockconfig.next_wspr(&callsign, &band)) {
         wsprcolor.r += 16;
 //        if (wsprcolor.r > 255) { wsprcolor.r=0; }
@@ -373,8 +374,8 @@ int SDLCALL update_wspr (void *userdata) {
 //        if (wsprcolor.g < 0) { wsprcolor.g=255; }
         wsprcolor.b -=16;
 //        if (wsprcolor.b < 0) { wsprcolor.b=255; }
-        *(host_api->AaediHAM_LogDebug) << "Adding WSPR Station: " << wspr_station.callsign << "\n";
-        wsprlist.emplace_back(wspr_station.callsign, static_cast<TrackedWSPR::Band>(wspr_station.band));
+        *(host_api->AaediHAM_LogDebug) << "Adding WSPR Station: " << callsign << "\n";
+        wsprlist.emplace_back(callsign, static_cast<TrackedWSPR::Band>(wspr_station.band));
         wsprlist.back().gen_telemetry();
         wsprlist.back().m_color = wsprcolor;
         wspr_station =  host_api->AaediHAM_ConfigGetNextWspr();

@@ -40,14 +40,12 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                         debug_log << "EVENT: Panel event coords: " << modx << ", " << mody << "\n";
                         pager.clickpoint={modx, mody};
                         pager.clickcount = event->button.clicks;
-                        if (pager.sequence.size()) {
+                        if (pager.plugin_sequence.size()) {
                             clock_mouse_event.mod_cords = {modx, mody};
                             clock_mouse_event.mod_count = event->button.clicks;
-                            if (pager.sequence.size()) {
-                                clock_mouse_event.mod_owner = pager.sequence[pager.index];
-                            }
                             if (pager.plugin_sequence.size()) {
                                 clock_mouse_event.plugin_owner = pager.plugin_sequence[pager.plugin_index];
+                                debug_log << "EVENT: Panel event owner: " << clock_mouse_event.plugin_owner << "("<< loaded_plugins[clock_mouse_event.plugin_owner].name << ")\n";
                             }
                         }
                     }

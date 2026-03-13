@@ -1,6 +1,6 @@
 #include "aaediclock.h"
 #include "core/core.h"
-#include "modules/pskreporter.h"
+//#include "modules/pskreporter.h"
 #include "sdl_callbacks.h"
 
 int window_destroy() {

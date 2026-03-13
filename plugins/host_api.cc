@@ -12,9 +12,13 @@ bool unregister_module (struct PluginModule* module) {
         return false;
     }
     if (module->plugin) {
-        module->plugin->plugin_exit();
-        if (module->destroy) {
-            module->destroy(module->plugin);
+        try {
+            module->plugin->plugin_exit();
+            if (module->destroy) {
+                module->destroy(module->plugin);
+            }
+        } catch (...) {
+            std::cout << "Error Unloading module\n";
         }
         module->plugin = nullptr;
     }
@@ -24,6 +28,15 @@ bool unregister_module (struct PluginModule* module) {
     if (module->create) {
         module->create = nullptr;
     }
+    module->id = 0;
+    module->position = 0;
+    module->interval = 0;
+    module->draw_flag = false;
+    if (module->host_api) {
+        module->host_api->panel = nullptr;
+        delete (module->host_api);
+        module->host_api = nullptr;
+    }
     if (module->library) {
 #ifdef _WIN32
         FreeLibrary(module->library);
@@ -32,11 +45,6 @@ bool unregister_module (struct PluginModule* module) {
 #endif
         module->library = nullptr;
     }
-    if (module->host_api) {
-        module->host_api->panel = nullptr;
-        delete (module->host_api);
-        module->host_api = nullptr;
-    }
     module->name.clear();
     return true;
 }
@@ -44,14 +52,19 @@ bool unregister_module (struct PluginModule* module) {
 bool register_module(const std::string& module_lib) {
     struct PluginModule new_plugin;
     char* library_error = nullptr;
+    if (module_lib.empty()) {
+        return false;
+    }
     std::cout << "Loading Plugin: " << module_lib << "\n";
     std::cout.flush();
     // load library file
 #ifdef _WIN32
-    GetLastError();
+    SetLastError(0);
     new_plugin.library = LoadLibraryA(module_lib.c_str());
-    FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-        NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&library_error, 0, NULL);
+    if (!new_plugin.library) {
+        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+            NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&library_error, 0, NULL);
+    }
 #else
     library_error = dlerror();
     new_plugin.library = dlopen(module_lib.c_str(), RTLD_LAZY);
@@ -60,7 +73,11 @@ bool register_module(const std::string& module_lib) {
     if (!new_plugin.library) {
         std::cout << "Error Loading Plugin Library File: " << module_lib;
         if (library_error) {
-            std::cout << " Error Code" << library_error;
+            std::cout << " Error Code: " << library_error;
+            #ifdef _WIN32
+            LocalFree(library_error);
+            library_error = nullptr;
+            #endif
         }
         std::cout << "\n";
         unregister_module(&new_plugin);
@@ -68,10 +85,12 @@ bool register_module(const std::string& module_lib) {
     }
     // load the constructor and destructor functions for the module
 #ifdef _WIN32
-    GetLastError();
+    SetLastError(0);
     new_plugin.create   = (aaediclock_plugin_api * (*)())GetProcAddress(new_plugin.library, "createPlugin");
-    FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-        NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&library_error, 0, NULL);
+    if (!new_plugin.create) {
+        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+            NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&library_error, 0, NULL);
+    }
 #else
     library_error = dlerror();
     new_plugin.create =         (aaediclock_plugin_api*(*)())dlsym(new_plugin.library, "createPlugin");
@@ -80,17 +99,23 @@ bool register_module(const std::string& module_lib) {
     if (!new_plugin.create) {
         std::cout << "Error Loading Plugin Constructor: " << module_lib;
         if (library_error) {
-            std::cout << " Error Code" << library_error;
+            std::cout << " Error Code: " << library_error;
+            #ifdef _WIN32
+            LocalFree(library_error);
+            library_error = nullptr;
+            #endif
         }
         std::cout << "\n";
         unregister_module(&new_plugin);
         return false;
     }
 #ifdef _WIN32
-    GetLastError();
+    SetLastError(0);
     new_plugin.destroy = (void(*)(aaediclock_plugin_api*))GetProcAddress(new_plugin.library, "destroyPlugin");
-    FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-        NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&library_error, 0, NULL);
+    if (!new_plugin.destroy) {
+        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+            NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&library_error, 0, NULL);
+    }
 #else
     library_error = dlerror();
     new_plugin.destroy =        (void(*)(aaediclock_plugin_api*))dlsym(new_plugin.library, "destroyPlugin");
@@ -99,21 +124,41 @@ bool register_module(const std::string& module_lib) {
     if (!new_plugin.destroy) {
         std::cout << "Error Loading Plugin Destructor: " << module_lib;
         if (library_error) {
-            std::cout << " Error Code" << library_error;
+            std::cout << " Error Code: " << library_error;
+            #ifdef _WIN32
+            LocalFree(library_error);
+            library_error = nullptr;
+            #endif
         }
         std::cout << "\n";
         unregister_module(&new_plugin);
         return false;
     }
     // create the plugin object
-    new_plugin.plugin = new_plugin.create();
+    try {
+        new_plugin.plugin = new_plugin.create();
+    } catch (std::exception& e) {
+        std::cout << "Exception " << e.what() << " while creating plugin: " << module_lib << "\n";
+        unregister_module(&new_plugin);
+        return false;
+    } catch (...) {
+        std::cout << "Unknown Exception while creating plugin: " << module_lib << "\n";
+        unregister_module(&new_plugin);
+        return false;
+    }
     if (!new_plugin.plugin) {
-        std::cout << "Error Creating plugin object: " << module_lib;
+        std::cout << "Plugin Error Creating plugin object: " << module_lib << "\n";
         unregister_module(&new_plugin);
         return false;
     }
     // get the plugin name
-    new_plugin.name = new_plugin.plugin->getName();
+    try {
+        new_plugin.name = new_plugin.plugin->getName();
+    } catch (...) {
+        std::cout << "Plugin Error Getting Plugin Name: " << module_lib << "\n";
+        unregister_module(&new_plugin);
+        return false;
+    }
 
     // assign an ID
     if (loaded_plugins.empty()) {
@@ -139,7 +184,10 @@ bool register_module(const std::string& module_lib) {
 //********************************************************************************
 
 int debugbuf::overflow(int c) {
-    strbuf.push_back(static_cast<char>(c));
+    const std::lock_guard<std::recursive_mutex>char_lock(debug_lock);
+    if (c != EOF) {
+        strbuf.push_back(static_cast<char>(c));
+    }
     if (c == '\n') {
         debug_log << plugin_name << ": " << strbuf;
         strbuf.clear();
@@ -157,6 +205,7 @@ int debugbuf::overflow(int c) {
 
 std::streamsize debugbuf::xsputn (const char* s, std::streamsize n) {
     std::streamsize count = 0;
+    const std::lock_guard<std::recursive_mutex>str_lock(debug_lock);
     for (std::streamsize i = 0; i < n; i++) {
         int result = overflow(static_cast<unsigned char>(s[i]));
         if (result != EOF) {
@@ -167,8 +216,10 @@ std::streamsize debugbuf::xsputn (const char* s, std::streamsize n) {
 }
 
 int debugbuf::sync() {
-    debug_log << plugin_name << ": " << strbuf << "\n";
-    strbuf.clear();
+    if (!strbuf.empty()) {
+        debug_log << plugin_name << ": " << strbuf << "\n";
+        strbuf.clear();
+    }
     debug_log.flush();
     return 0;
 }
@@ -219,6 +270,12 @@ void HostAPI::AaediHAM_SetTarget() {
 
 void HostAPI::AaediHAM_GraphicsDrawText (const char* string, const aaediclock_Color color, const aaediclock_FRect dims) {
 //    SDL_Log("Attempting Plugin Text write");
+    if ((!string) || (!string[0])) {
+        return;
+    }
+    if ((dims.h <= 0) || (dims.w <= 0)) {
+        return;
+    }
     SDL_FRect textbox;
     textbox.x = dims.x;
     textbox.y = dims.y;
@@ -235,21 +292,23 @@ void HostAPI::AaediHAM_GraphicsDrawText (const char* string, const aaediclock_Co
 }
 
 void HostAPI::AaediHAM_GraphicsDrawRect(const aaediclock_Color color, const aaediclock_FRect dims, bool filled) {
-
-       SDL_FRect host_dims;
-       host_dims.x = dims.x;
-       host_dims.y = dims.y;
-       host_dims.h = dims.h;
-       host_dims.w = dims.w;
+    if ((dims.h <= 0) || (dims.w <= 0)) {
+        return;
+    }
+    SDL_FRect host_dims;
+    host_dims.x = dims.x;
+    host_dims.y = dims.y;
+    host_dims.h = dims.h;
+    host_dims.w = dims.w;
 //       debug_log << "Plugin DrawRect: " << dims.x << ", "  << dims.y << ", "  << dims.h << ", "  << dims.w << "\n";
 //       debug_log << "Plugin DrawRect: " << host_dims.x << ", "  << host_dims.y << ", "  << host_dims.h << ", "  << host_dims.w << "\n";
-       SDL_SetRenderDrawColor(this->panel->GetRenderer(), color.r, color.g, color.b, color.a);
-       if (filled) {
-           SDL_RenderFillRect(this->panel->GetRenderer(), &host_dims );
-       } else {
-           SDL_RenderRect(this->panel->GetRenderer(), &host_dims );
-       }
-       return;
+    SDL_SetRenderDrawColor(this->panel->GetRenderer(), color.r, color.g, color.b, color.a);
+    if (filled) {
+        SDL_RenderFillRect(this->panel->GetRenderer(), &host_dims );
+    } else {
+        SDL_RenderRect(this->panel->GetRenderer(), &host_dims );
+    }
+    return;
 }
 
 void HostAPI::AaediHAM_GraphicsDrawLine(const aaediclock_Color color, const aaediclock_FRect line) {
@@ -259,16 +318,19 @@ void HostAPI::AaediHAM_GraphicsDrawLine(const aaediclock_Color color, const aaed
 }
 
 void HostAPI::AaediHAM_GraphicsDrawLines(const aaediclock_Color color, const aaediclock_FPoint* point_list, int count) {
-       std::vector<SDL_FPoint>new_points;
-       for (int c=0 ; c < count ; c++) {
-          SDL_FPoint new_point;
-          new_point.x = point_list[c].x;
-          new_point.y = point_list[c].y;
-          new_points.push_back(new_point);
-       }
-       SDL_SetRenderDrawColor(this->panel->GetRenderer(), color.r, color.g, color.b, color.a);
-       SDL_RenderLines(this->panel->GetRenderer(), new_points.data(), count);
-       return;
+    if (!point_list || count <= 0) {
+        return;
+    }
+    std::vector<SDL_FPoint>new_points;
+    for (int c=0 ; c < count ; c++) {
+        SDL_FPoint new_point;
+        new_point.x = point_list[c].x;
+        new_point.y = point_list[c].y;
+        new_points.push_back(new_point);
+    }
+    SDL_SetRenderDrawColor(this->panel->GetRenderer(), color.r, color.g, color.b, color.a);
+    SDL_RenderLines(this->panel->GetRenderer(), new_points.data(), count);
+    return;
 }
 
 void HostAPI::AaediHAM_GraphicsDrawImage (uint16_t index) {
@@ -340,7 +402,10 @@ const struct aaediclock_FRect HostAPI::AaediHAM_GetMapSize() {
 
 struct plugin_server_info HostAPI::AaediHAM_ConfigGetDXServer() {
     struct plugin_server_info result;
-    result.name = clockconfig.dxserver().name;
+//    result.name = clockconfig.dxserver().name;
+    memset(result.name, 0, 128);
+    strncpy(result.name, clockconfig.dxserver().name.c_str(),127);
+    result.name[127]=0;
     result.port = clockconfig.dxserver().port;
     return result;
 }
@@ -397,10 +462,14 @@ struct plugin_wspr_station HostAPI::AaediHAM_ConfigGetNextWspr() {
     std::string callsign;
     int band;
     struct plugin_wspr_station result;
-    result.callsign.clear();
+//    result.callsign.clear();
+    memset(result.callsign,0,32);
     result.band = 0;
     if (clockconfig.next_wspr(&callsign, &band)) {
-        result.callsign = callsign;
+        memset(result.callsign, 0, 32);
+        strncpy(result.callsign, callsign.c_str(), 31);
+//        result.callsign = callsign;
+        result.callsign[31]=0;
         result.band = static_cast<uint16_t>(band);
     }
     return result;
@@ -449,12 +518,12 @@ void HostAPI::AaediHAM_MapPinAdd(struct aaediclock_map_pin new_pin){
 //********************************************************************************
 
 bool HostAPI::AaediHAM_OverlayCheck() {
-    uint16_t owner = plugin_id + 32; // +32 goes bye bye with the final old module
+    uint16_t owner = plugin_id;
     return (overlays.overlay_check(static_cast<enum mod_name>(owner)));
 }
 
 void HostAPI::AaediHAM_OverlaySet(aaediclock_FRect dims) {
-    uint16_t owner = plugin_id + 32; // +32 goes bye bye with the final old module
+    uint16_t owner = plugin_id;
     SDL_FRect host_dims;
     host_dims.x = dims.x;
     host_dims.y = dims.y;
@@ -468,13 +537,13 @@ void HostAPI::AaediHAM_OverlaySet(aaediclock_FRect dims) {
 }
 
 void HostAPI::AaediHAM_OverlayRemove() {
-    uint16_t owner = plugin_id + 32; // +32 goes bye bye with the final old module
+    uint16_t owner = plugin_id;
     overlays.remove_overlay(static_cast<enum mod_name>(owner));
     return;
 }
 
 void HostAPI::AaediHAM_OverlayClear(const aaediclock_Color& color) {
-    uint16_t owner = plugin_id + 32; // +32 goes bye bye with the final old module
+    uint16_t owner = plugin_id ;
 //    SDL_Log("Attempting Plugin Panel Clear");
     SDL_Color clearcolor;
     clearcolor.r = color.r;
@@ -493,7 +562,7 @@ void HostAPI::AaediHAM_OverlayClear(const aaediclock_Color& color) {
 //********************************************************************************
 
 bool HostAPI::AaediHAM_IconCheck (uint16_t icon_index) {
-    uint16_t owner = plugin_id + 32; // +32 goes bye bye with the final old module
+    uint16_t owner = plugin_id;
     if (!icon_index) {
         return false;
     }
@@ -511,7 +580,7 @@ uint16_t HostAPI::AaediHAM_IconCreate (const aaediclock_image& image_data) {
         debug_log << "Icon API: no image data to create icon\n";
         return 0;
     }
-    uint16_t owner = plugin_id + 32; // +32 goes bye bye with the final old module
+    uint16_t owner = plugin_id ;
     debug_log << "Icon API: Creating API Surface for new icon\n";
     SDL_Surface* new_icon = SDL_CreateSurfaceFrom( image_data.width, image_data.height, SDL_PIXELFORMAT_RGBA8888, image_data.pixels, image_data.width*4);
     uint16_t result = 0;
@@ -533,7 +602,7 @@ bool HostAPI::AaediHAM_IconUpdate (uint16_t icon_index, const aaediclock_image& 
     if (!image_data.pixels) {
         return false;
     }
-    uint16_t owner = plugin_id + 32; // +32 goes bye bye with the final old module
+    uint16_t owner = plugin_id ;
     icon_index--;
     if (icon_bin.icon_check(icon_index, owner)) {
         SDL_Surface* new_icon = SDL_CreateSurfaceFrom( image_data.width, image_data.height, SDL_PIXELFORMAT_RGBA8888, image_data.pixels, image_data.width*4);
@@ -550,7 +619,7 @@ bool HostAPI::AaediHAM_IconUpdate (uint16_t icon_index, const aaediclock_image& 
 }
 
 void HostAPI::AaediHAM_IconDelete (uint16_t icon_index) {
-    uint16_t owner = plugin_id + 32; // +32 goes bye bye with the final old module
+    uint16_t owner = plugin_id;
     icon_index--;
     icon_bin.icon_delete(icon_index, owner);
     return;
@@ -614,8 +683,10 @@ bool HostAPI::AaediHAM_TextureUpdate (uint16_t index, const aaediclock_image& im
     }
     index--;
     if (texture_cache[index]) {
-          // everythign seem legit
-          return (SDL_UpdateTexture(texture_cache[index], NULL, image_data.pixels, image_data.width*4));
+          // everything seems legit
+          if ((static_cast<int>(image_data.width) == texture_cache[index]->w) && (static_cast<int>(image_data.height) == texture_cache[index]->h)) {
+              return (SDL_UpdateTexture(texture_cache[index], NULL, image_data.pixels, image_data.width*4));
+          }
     }
     return false;
 }

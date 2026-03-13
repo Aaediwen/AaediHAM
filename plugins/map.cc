@@ -15,9 +15,9 @@ SDL_TimerID night_mask_timer = 0;
 aaediclock_FRect old_dims = {0,0,0,0};
 
 void load_day_map (const aaediclock_FRect& dims) {
-				//reset everything
+    //reset everything
     if (day_map.surface) {
-    				SDL_DestroySurface(day_map.surface);
+        SDL_DestroySurface(day_map.surface);
         day_map.surface = nullptr;
    }
    if (host_api->AaediHAM_TextureCheck(day_map.texture)) {
@@ -27,27 +27,27 @@ void load_day_map (const aaediclock_FRect& dims) {
    SDL_Surface* temp_surface = IMG_Load("images/Blue_Marble_2002.bmp");
 
    if (temp_surface) {
-   				day_map.surface = SDL_CreateSurface(static_cast<int>(floor(dims.w)), static_cast<int>(floor(dims.h)), SDL_PIXELFORMAT_RGBA32);
-   				if (day_map.surface) {
-   								if (SDL_BlitSurfaceScaled(temp_surface, NULL, day_map.surface, NULL, SDL_SCALEMODE_LINEAR)) {
-   												aaediclock_image new_image;
-   												new_image.width = static_cast<uint16_t>(floor(dims.w));
-   												new_image.height = static_cast<uint16_t>(floor(dims.h));
-   												new_image.pixels = static_cast<uint8_t*>(day_map.surface->pixels);
-   												day_map.texture = host_api->AaediHAM_TextureCreate(new_image);
-   												if (!host_api->AaediHAM_TextureCheck(day_map.texture)) {
-   																*(host_api->AaediHAM_LogDebug) << "Error Creating DayMap Texture "<< SDL_GetError() <<"\n";
-   																SDL_DestroySurface(day_map.surface);
-   																day_map.surface = nullptr;
-   												}
-            } else {
-                *(host_api->AaediHAM_LogDebug) << "Error Scaling DayMap: "<< SDL_GetError() <<"\n";
-            }
+       day_map.surface = SDL_CreateSurface(static_cast<int>(floor(dims.w)), static_cast<int>(floor(dims.h)), SDL_PIXELFORMAT_RGBA32);
+       if (day_map.surface) {
+           if (SDL_BlitSurfaceScaled(temp_surface, NULL, day_map.surface, NULL, SDL_SCALEMODE_LINEAR)) {
+           aaediclock_image new_image;
+           new_image.width = static_cast<uint16_t>(floor(dims.w));
+           new_image.height = static_cast<uint16_t>(floor(dims.h));
+           new_image.pixels = static_cast<uint8_t*>(day_map.surface->pixels);
+           day_map.texture = host_api->AaediHAM_TextureCreate(new_image);
+           if (!host_api->AaediHAM_TextureCheck(day_map.texture)) {
+               *(host_api->AaediHAM_LogDebug) << "Error Creating DayMap Texture "<< SDL_GetError() <<"\n";
+               SDL_DestroySurface(day_map.surface);
+               day_map.surface = nullptr;
+           }
        } else {
-           *(host_api->AaediHAM_LogDebug) << "Unable to load Day Map texture from disk\n";
+           *(host_api->AaediHAM_LogDebug) << "Error Scaling DayMap: "<< SDL_GetError() <<"\n";
        }
-       SDL_DestroySurface(temp_surface);
-       temp_surface = nullptr;
+   } else {
+           *(host_api->AaediHAM_LogDebug) << "Unable to load Day Map texture from disk\n";
+   }
+   SDL_DestroySurface(temp_surface);
+   temp_surface = nullptr;
    } else {
         *(host_api->AaediHAM_LogDebug) << "Unable to load Day Map texture from disk\n";
    }
@@ -55,56 +55,56 @@ void load_day_map (const aaediclock_FRect& dims) {
 }
 
 void load_night_map (const aaediclock_FRect& dims) {
-				if (night_map.surface) {
-								SDL_DestroySurface(night_map.surface);
+    if (night_map.surface) {
+        SDL_DestroySurface(night_map.surface);
         night_map.surface = nullptr;
-				}
-				if (host_api->AaediHAM_TextureCheck(night_map.texture)) {
-								host_api->AaediHAM_TextureDelete(night_map.texture);
-								night_map.texture = 0;
-				}
-				SDL_Surface* temp_surface = IMG_Load("images/Black_Marble_2016.bmp");
-				if (temp_surface) {
-								night_map.surface = SDL_CreateSurface(static_cast<int>(floor(dims.w)), static_cast<int>(floor(dims.h)), SDL_PIXELFORMAT_RGBA32);
-								if (night_map.surface) {
-												if (SDL_BlitSurfaceScaled(temp_surface, NULL, night_map.surface, NULL, SDL_SCALEMODE_LINEAR)) {
-																*(host_api->AaediHAM_LogDebug) << "Scaled Night Map to NightMap surface!\n";
-												} else {
-																*(host_api->AaediHAM_LogDebug) << "Error scaling Night Map to NightMap surface!\n";
-																SDL_DestroySurface(night_map.surface);
-																night_map.surface = nullptr;
-												}
-								}
-								SDL_DestroySurface(temp_surface);
-								temp_surface = nullptr;
-				} else {
+    }
+    if (host_api->AaediHAM_TextureCheck(night_map.texture)) {
+        host_api->AaediHAM_TextureDelete(night_map.texture);
+        night_map.texture = 0;
+    }
+    SDL_Surface* temp_surface = IMG_Load("images/Black_Marble_2016.bmp");
+    if (temp_surface) {
+        night_map.surface = SDL_CreateSurface(static_cast<int>(floor(dims.w)), static_cast<int>(floor(dims.h)), SDL_PIXELFORMAT_RGBA32);
+        if (night_map.surface) {
+            if (SDL_BlitSurfaceScaled(temp_surface, NULL, night_map.surface, NULL, SDL_SCALEMODE_LINEAR)) {
+                *(host_api->AaediHAM_LogDebug) << "Scaled Night Map to NightMap surface!\n";
+            } else {
+                *(host_api->AaediHAM_LogDebug) << "Error scaling Night Map to NightMap surface!\n";
+                SDL_DestroySurface(night_map.surface);
+                night_map.surface = nullptr;
+            }
+        }
+        SDL_DestroySurface(temp_surface);
+        temp_surface = nullptr;
+    } else {
         *(host_api->AaediHAM_LogDebug) << "Unable to load Night Map texture from disk\n";
-				}
-				return;
+    }
+    return;
 }
 
 void load_countries_map (const aaediclock_FRect& dims) {
-				if (countries_map.surface) {
-								SDL_DestroySurface(countries_map.surface);
+    if (countries_map.surface) {
+        SDL_DestroySurface(countries_map.surface);
         countries_map.surface = nullptr;
-				}
-				if (countries_map.texture) {
-								host_api->AaediHAM_TextureDelete(countries_map.texture);
-								countries_map.texture = 0;
-				}
-				SDL_Surface* temp_surface = IMG_Load("images/outline.bmp");
-				if (temp_surface) {
-								countries_map.surface = SDL_CreateSurface(static_cast<int>(floor(dims.w)), static_cast<int>(floor(dims.h)), SDL_PIXELFORMAT_RGBA32);
-								if (countries_map.surface) {
-												if (SDL_BlitSurfaceScaled(temp_surface, NULL, countries_map.surface, NULL, SDL_SCALEMODE_LINEAR)) {
-																// alpha mask the political map
-																int x, y;
-																x=0;
-																y=0;
-																Uint8 cg, cr, cb;
-																Uint8* country_pixels = (Uint8*)countries_map.surface->pixels;
-																const Uint8 bpp = SDL_GetPixelFormatDetails(countries_map.surface->format)->bytes_per_pixel;
-								    /*
+    }
+    if (countries_map.texture) {
+        host_api->AaediHAM_TextureDelete(countries_map.texture);
+        countries_map.texture = 0;
+    }
+    SDL_Surface* temp_surface = IMG_Load("images/outline.bmp");
+    if (temp_surface) {
+        countries_map.surface = SDL_CreateSurface(static_cast<int>(floor(dims.w)), static_cast<int>(floor(dims.h)), SDL_PIXELFORMAT_RGBA32);
+        if (countries_map.surface) {
+            if (SDL_BlitSurfaceScaled(temp_surface, NULL, countries_map.surface, NULL, SDL_SCALEMODE_LINEAR)) {
+                // alpha mask the political map
+                int x, y;
+                x=0;
+                y=0;
+                Uint8 cg, cr, cb;
+                Uint8* country_pixels = (Uint8*)countries_map.surface->pixels;
+                const Uint8 bpp = SDL_GetPixelFormatDetails(countries_map.surface->format)->bytes_per_pixel;
+            /*
             about the following FOR loop:
             --------------------------------
 
@@ -118,40 +118,40 @@ void load_countries_map (const aaediclock_FRect& dims) {
             However, Other code does check for its existance as a sanity check that this routine ran correctly
             I *could* nuke the surface and create a stub 1x1 surface, but I don't think it's worth the savings in system RAM
             */
-            				for ( y = 0; y < countries_map.surface->h ; y++) {
-            								for (x = 0 ; x < countries_map.surface->w ; x++) {
-            												// get where the pixel lives
-            												int pixel_index = countries_map.surface->pitch*y + ( bpp * x );
-            												// read its color values
-            												Uint32 *pixel_val=(Uint32*)(pixel_index+country_pixels);
-            												SDL_GetRGBA( *pixel_val, SDL_GetPixelFormatDetails(countries_map.surface->format), NULL, &cr, &cg, &cb, NULL);
-            												// write the new value back
-            												Uint32 pixel_val_out = SDL_MapRGBA(SDL_GetPixelFormatDetails(countries_map.surface->format), NULL, 0, 0, 0, (255-cg));
-            												memcpy((country_pixels + pixel_index), &pixel_val_out, bpp);
-																				}
-																}
-																aaediclock_image new_image;
-																new_image.width = static_cast<uint16_t>(floor(dims.w));
-																new_image.height = static_cast<uint16_t>(floor(dims.h));
-																new_image.pixels = static_cast<uint8_t*>(countries_map.surface->pixels);
-																countries_map.texture = host_api->AaediHAM_TextureCreate(new_image);
-																if (!host_api->AaediHAM_TextureCheck(countries_map.texture)) {
-																				*(host_api->AaediHAM_LogDebug) << "Error Creating Countries Texture "<< SDL_GetError() <<"\n";
+                for ( y = 0; y < countries_map.surface->h ; y++) {
+                    for (x = 0 ; x < countries_map.surface->w ; x++) {
+                        // get where the pixel lives
+                        int pixel_index = countries_map.surface->pitch*y + ( bpp * x );
+                        // read its color values
+                        Uint32 *pixel_val=(Uint32*)(pixel_index+country_pixels);
+                        SDL_GetRGBA( *pixel_val, SDL_GetPixelFormatDetails(countries_map.surface->format), NULL, &cr, &cg, &cb, NULL);
+                        // write the new value back
+                        Uint32 pixel_val_out = SDL_MapRGBA(SDL_GetPixelFormatDetails(countries_map.surface->format), NULL, 0, 0, 0, (255-cg));
+                        memcpy((country_pixels + pixel_index), &pixel_val_out, bpp);
+                    }
+                }
+                aaediclock_image new_image;
+                new_image.width = static_cast<uint16_t>(floor(dims.w));
+                new_image.height = static_cast<uint16_t>(floor(dims.h));
+                new_image.pixels = static_cast<uint8_t*>(countries_map.surface->pixels);
+                countries_map.texture = host_api->AaediHAM_TextureCreate(new_image);
+                if (!host_api->AaediHAM_TextureCheck(countries_map.texture)) {
+                                                                                                                                                    *(host_api->AaediHAM_LogDebug) << "Error Creating Countries Texture "<< SDL_GetError() <<"\n";
                     SDL_DestroySurface(countries_map.surface);
                     countries_map.surface = nullptr;
-																}
-												} else {
-																*(host_api->AaediHAM_LogDebug) << "Error scaling Night Map to NightMap surface!\n";
-																SDL_DestroySurface(countries_map.surface);
-																countries_map.surface = nullptr;
-												}
-								}
-								SDL_DestroySurface(temp_surface);
-								temp_surface = nullptr;
-				} else {
-								*(host_api->AaediHAM_LogDebug) << "Unable to load Countries texture from disk\n";
-				}
-				return;
+                }
+            } else {
+                *(host_api->AaediHAM_LogDebug) << "Error scaling Night Map to NightMap surface!\n";
+                SDL_DestroySurface(countries_map.surface);
+                countries_map.surface = nullptr;
+            }
+        }
+        SDL_DestroySurface(temp_surface);
+        temp_surface = nullptr;
+    } else {
+        *(host_api->AaediHAM_LogDebug) << "Unable to load Countries texture from disk\n";
+    }
+    return;
 }
 
 int SDLCALL regen_night_mask(void* userdata) {
@@ -160,7 +160,7 @@ int SDLCALL regen_night_mask(void* userdata) {
     if ((dims.h < 10) || (dims.w < 10)) {
         return 0;
     }
-
+    const std::lock_guard<std::mutex>night_mask_lock(night_mask_mutex);
     if (!night_map.surface) {
         load_night_map(dims);
     }
@@ -269,10 +269,11 @@ void map_plugin::plugin_init() const {
 }
 
 void map_plugin::plugin_exit() const {
-				std::cout << "Freeing MAP resources\n";
+    std::cout << "Freeing MAP resources\n";
     if (night_mask_timer) {
         SDL_RemoveTimer(night_mask_timer);
     }
+    const std::lock_guard<std::mutex>night_mask_lock(night_mask_mutex);
     if (night_mask.pixels != nullptr) {
         night_mask.height = 0;
         night_mask.width = 0;
@@ -320,6 +321,7 @@ void map_plugin::plugin_main(const aaediclock_FRect& dims) const {
     if ((dims.h != old_dims.h) || (dims.w != old_dims.w)) {
         old_dims.h = dims.h;
         old_dims.w = dims.w;
+        const std::lock_guard<std::mutex>night_mask_lock(night_mask_mutex);
         if (day_map.surface) {
             SDL_DestroySurface(day_map.surface);
             day_map.surface = nullptr;
@@ -374,12 +376,12 @@ void map_plugin::plugin_main(const aaediclock_FRect& dims) const {
 
     // draw equator and tropics
     aaediclock_FRect tropic;
-    tropic.x = 0;
-    tropic.y = dims.y/2;
+    tropic.x = 0.0;
+    tropic.y = dims.h/2.0;
     tropic.w = dims.w;
-    tropic.h = dims.y/2;
+    tropic.h = dims.h/2.0;
     host_api->AaediHAM_GraphicsDrawLine(aaediclock_Color{128, 128, 128, 64}, tropic);
-
+//    *(host_api->AaediHAM_LogDebug) << "Equatorial dims: " << tropic.x << ", " << tropic.y << " " << tropic.w << ", " << tropic.h << "\n";
 
 //    SDL_SetRenderDrawColor(panel.GetRenderer(), 128,128,128,64);
 //    SDL_RenderLine(panel.GetRenderer(), 0,(panel.dims.h/2), panel.dims.w, (panel.dims.h/2));
@@ -387,12 +389,13 @@ void map_plugin::plugin_main(const aaediclock_FRect& dims) const {
     tropic.y = ((-23.4f+90.0f) * dims.h)/180.0f;
     tropic.h = tropic.y;
     host_api->AaediHAM_GraphicsDrawLine(aaediclock_Color{128, 0, 0, 64}, tropic);
+//    *(host_api->AaediHAM_LogDebug) << "Tropical dims: " << tropic.x << ", " << tropic.y << " " << tropic.w << ", " << tropic.h << "\n";
 //    tropic = ((23.4f+90.0f) * panel.dims.h)/180.0f;
 //    SDL_RenderLine(panel.GetRenderer(), 0,tropic, panel.dims.w, tropic);
     tropic.y = ((23.4f+90.0f) * dims.h)/180.0f;
     tropic.h = tropic.y;
     host_api->AaediHAM_GraphicsDrawLine(aaediclock_Color{128, 0, 0, 64}, tropic);
-
+//    *(host_api->AaediHAM_LogDebug) << "Tropical dims: " << tropic.x << ", " << tropic.y << " " << tropic.w << ", " << tropic.h << "\n";
     return;
 }
 

@@ -58,12 +58,12 @@ struct plugin_mouse_event {
 };
 
 struct plugin_server_info {
-    std::string name;
+    char name[128];
     uint16_t port;
 };
 
 struct plugin_wspr_station {
-    std::string callsign;
+    char callsign[32];
     uint16_t band;
 };
 
@@ -111,7 +111,7 @@ class aaediclock_host_api {
         virtual void				AaediHAM_TextureDelete		(uint16_t index)								= 0;
 
         std::ostream* AaediHAM_LogDebug = nullptr;
-        const uint32_t API_VERSION = 0001;
+        const uint32_t API_VERSION = 0050;
 };
 
 

@@ -13,24 +13,7 @@ void panel_assignment(bool increment) {
         plugin.draw_flag = false;
         plugin.host_api->panel = &(winboxes[PANEL_NULL].panel);
     }
-/*    master_flags.map.panel          =       &(winboxes[PANEL_MAP].panel);
-    master_flags.sat_tracker.panel  =       &(winboxes[PANEL_NULL].panel);
-    master_flags.dx_spots.panel     =       &(winboxes[PANEL_NULL].panel);
-    master_flags.callsign.panel     =       &(winboxes[PANEL_NULL].panel);
-    master_flags.de.panel           =       &(winboxes[PANEL_NULL].panel);
-    master_flags.dx.panel           =       &(winboxes[PANEL_NULL].panel);
-    master_flags.pota.panel         =       &(winboxes[PANEL_NULL].panel);
-    master_flags.ncdxf.panel        =       &(winboxes[PANEL_NULL].panel);
-    master_flags.clock.panel        =       &(winboxes[PANEL_NULL].panel);
-    master_flags.kindex.panel       =       &(winboxes[PANEL_NULL].panel);
-    master_flags.solar.panel        =       &(winboxes[PANEL_NULL].panel);
-    master_flags.wspr.panel         =       &(winboxes[PANEL_NULL].panel);
-    master_flags.lunar.panel        =       &(winboxes[PANEL_NULL].panel);
-    master_flags.psk.panel          =       &(winboxes[PANEL_NULL].panel);
-    master_flags.contests.panel     =       &(winboxes[PANEL_NULL].panel);
-    master_flags.rss.panel          =       &(winboxes[PANEL_NULL].panel);
-    master_flags.aurora.panel       =       &(winboxes[PANEL_NULL].panel);
-    */
+
     // step through each screen panel
     for (auto& panel : winboxes) {
         //increment plugin counter
@@ -75,53 +58,7 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
             }
         }
 
-/*
 
-        if ((interrupt_counter % 300)==0) {     // 30 seconds
-            master_flags.callsign.draw_flag = true;
-        }
-
-        if ((interrupt_counter % 170)==0) {     // 17 seconds
-            master_flags.aurora.draw_flag = true;
-        }
-
-
-        if ((interrupt_counter % 50)==0) {      // 5 seconds
-            master_flags.de.draw_flag = true;
-            master_flags.dx.draw_flag = true;
-            master_flags.pota.draw_flag = true;
-            master_flags.ncdxf.draw_flag = true;
-        }
-
-        if ((interrupt_counter % 50)==10) {     // 5 seconds +1
-            master_flags.dx_spots.draw_flag = true;
-            master_flags.psk.draw_flag = true;
-            master_flags.contests.draw_flag = true;
-        }
-        if ((interrupt_counter % 50)==20) {     // 5 seconds +2
-
-        }
-        if ((interrupt_counter % 50)==30) {     // 5 seconds +3
-            master_flags.kindex.draw_flag = true;
-            master_flags.wspr.draw_flag = true;
-            master_flags.lunar.draw_flag = true;
-        }
-        if ((interrupt_counter % 50)==40) {     // 5 seconds    +4
-            master_flags.solar.draw_flag = true;
-        }
-        if ((interrupt_counter % 20)==0) {      // 2 seconds
-
-        }
-
-        if ((interrupt_counter % 10)==0) {      // 1 second
-            master_flags.map.draw_flag = true;
-            master_flags.sat_tracker.draw_flag = true;
-        }
-        if ((interrupt_counter % 2)==0) {       // .2 seconds
-            master_flags.clock.draw_flag = true;
-        }
-        master_flags.rss.draw_flag = true;
-        */
 //        debug_log << "FLAG_TIMER: Master flag timer done.\n";
         SDL_UnlockMutex(mutexes[MUTEX_MASTER_CLOCK]);
         return (interval);

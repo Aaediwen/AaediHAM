@@ -5,6 +5,7 @@
 #include <windows.h>
 #endif
 #include <iostream>
+#include <mutex>
 
 class debugbuf : public std::streambuf {
      public:
@@ -15,6 +16,7 @@ class debugbuf : public std::streambuf {
           int sync() override;
      private:
           std::string strbuf;
+          std::recursive_mutex debug_lock;
 };
 
 class HostAPI final : public aaediclock_host_api {
@@ -84,10 +86,10 @@ struct PluginModule {
     aaediclock_plugin_api*      (*create)()     			= 	nullptr;	// plugin constructor
     void                        (*destroy)(aaediclock_plugin_api*) 	= 	nullptr;	// plugin destructor
     bool                        draw_flag 				= 	false;		// trigger plugin this frame?
-    uint16_t				id 					=	0;		// plugin numeric ID
-    uint16_t				position				=	0;		// panel ID to use
+    uint16_t			id 					=	0;		// plugin numeric ID
+    uint16_t			position				=	0;		// panel ID to use
     uint16_t			interval				=	0;		// how often to trigger in tenths of a second
-    HostAPI*			host_api;							// plugin host API instance
+    HostAPI*			host_api				= 	nullptr;	// plugin host API instance
     std::string                 name;								// plugin description
 };
 

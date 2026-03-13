@@ -234,7 +234,7 @@ void contest_plugin::plugin_main(const aaediclock_FRect& dims) const {
 }
 
 const char* contest_plugin::getName() const {
-    return "Sample Module";
+    return "Contest Module";
 }
 
 void contest_plugin::set_host(aaediclock_host_api* host) {

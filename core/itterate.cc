@@ -1,7 +1,6 @@
 #include "aaediclock.h"
 #include "core/core.h"
 #include "utils/conversions.h"
-#include "modules/modules.h"
 #include <SDL3_image/SDL_image.h>
 #include "sdl_callbacks.h"
 
@@ -16,7 +15,7 @@ struct color_pin {
 
 std::vector<struct color_pin> push_pins;
 struct color_pin last_used_pin{};
-
+int map_owner_id = 0;
 void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
     if (!current_pin) {
         return;
@@ -147,7 +146,8 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
 
     // process the mouse event if relivant
     // this is here because it is the best place where we have the mouse target for an icon on the map
-    if (clock_mouse_event.mod_owner == MOD_MAP) {
+    if (map_owner_id == clock_mouse_event.plugin_owner) {
+//    if (clock_mouse_event.mod_owner == MOD_MAP) {
         if ( clock_mouse_event.mod_cords.y >= icon_box.y &&  clock_mouse_event.mod_cords.y <= (icon_box.y + icon_box.h)
             && clock_mouse_event.mod_cords.x >= icon_box.x &&  clock_mouse_event.mod_cords.x <= (icon_box.x + icon_box.w)   ) {
                 const std::string dxstring = current_pin->label;
@@ -254,12 +254,18 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         for (struct PluginModule& plugin : loaded_plugins ) {
             if (plugin.draw_flag) {
                 debug_log << "ITTERATE: Calling "<< plugin.name <<" with panel " << plugin.host_api->panel << "\n";
-                aaediclock_FRect module_dims;
-                module_dims.w = plugin.host_api->panel->dims.w;
-                module_dims.h = plugin.host_api->panel->dims.h;
-                module_dims.x = plugin.host_api->panel->dims.x;
-                module_dims.y = plugin.host_api->panel->dims.y;
-                plugin.plugin->plugin_main(module_dims);
+                try {
+                    aaediclock_FRect module_dims;
+                    module_dims.w = plugin.host_api->panel->dims.w;
+                    module_dims.h = plugin.host_api->panel->dims.h;
+                    module_dims.x = plugin.host_api->panel->dims.x;
+                    module_dims.y = plugin.host_api->panel->dims.y;
+                    plugin.plugin->plugin_main(module_dims);
+                } catch (std::exception& e) {
+                    debug_log << "Module Exception in "<< plugin.name << ": "<< e.what() << "\n";
+                } catch (...) {
+                    debug_log << "Unknown Exception in "<< plugin.name << "\n";
+                }
                 SDL_SetRenderTarget(clock_renderer, NULL);
                 debug_log << "ITTERATE: Module "<< plugin.name<<" -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
                 debug_log.flush();
@@ -290,6 +296,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         // new plugin pins
         ScreenFrame* pin_overlay = overlays.get_overlay(clock_renderer, 1002,  winboxes[PANEL_MAP].panel.dims);
         pin_overlay->Clear(SDL_Color{0,0,0,0});
+        map_owner_id = winboxes[PANEL_MAP].plugin_sequence[winboxes[PANEL_MAP].plugin_index];
         if (!plugin_map_pins.empty()) {
             for (auto& map_pin : plugin_map_pins) {
                 render_pin(pin_overlay, &map_pin);

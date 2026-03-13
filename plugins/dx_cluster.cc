@@ -319,7 +319,6 @@ int SDLCALL fetch_dxspots(void* data) {
                 char date[16] = {0};
                 char timez[8] = {0};
 
-
                 // process the input line
                 *(host_api->AaediHAM_LogDebug) << "DXSPOTS: buffstr " << buffstr.c_str() << "\n";
                 if (!buffstr.compare(1,5, "ogin:")) {
@@ -365,10 +364,11 @@ int SDLCALL fetch_dxspots(void* data) {
                         new_spot.timestamp = time(NULL);
                         new_spot.note="";
                     }
-//                    dxspot_mutex.lock();
+                    dxspot_mutex.lock();
                     new_spot.find_mode();
+                    dxspot_mutex.unlock();
                     duplicate_spot(new_spot);
-//                    dxspot_mutex.unlock();
+
                 } else if (sscanf(buffstr.c_str(), "%f %31s %15s %7s", &freq, call, date, timez)==4) {
                     if (date[0] =='U') {
     //              	SDL_Log("Skipping line with unexpected keyword: %s", buffstr.c_str());
