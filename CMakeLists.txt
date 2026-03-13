@@ -12,6 +12,14 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # ================================================================================
 # PROJECT SETUP
 # ================================================================================
+if(NOT DEFINED ASAN_ENABLE)
+    set(ASAN_ENABLE OFF CACHE BOOL "Enable Address Sanitizer" FORCE)
+endif()
+if (ASAN_ENABLE)
+message(STATUS "Address Sanitizer set to ... ENABLED")
+else()
+message(STATUS "Address Sanitizer set to ... DISABLED")
+endif()
 
 #
 #
@@ -47,7 +55,9 @@ set (SOURCES
 
 add_library(aaediclock_path INTERFACE)
 target_include_directories(aaediclock_path INTERFACE ${CMAKE_SOURCE_DIR})
-target_link_options(aaediclock_path INTERFACE -fsanitize=address)
+if (ASAN_ENABLE) 
+  target_link_options(aaediclock_path INTERFACE -fsanitize=address)
+endif()
 target_compile_options(aaediclock_path INTERFACE -fno-omit-frame-pointer
 -rdynamic)
 add_executable(clock ${SOURCES})
@@ -199,6 +209,7 @@ endfunction()
 # ================================================================================
 # cmake -DCMAKE_BUILD_TYPE=Release .. 	== release build
 # cmake -DCMAKE_BUILD_TYPE=Debug ..	== Debug Build
+# cmake -DASAN_ENABLE=ON ..		== Enable Address Sanitizer on Posix
 # cmake ..				== last Cmake in that dir, Release by default
 #
 # Ensure build type is always set
@@ -228,12 +239,18 @@ elseif(APPLE)
         	$<$<CONFIG:Debug>:CLOCK_DEBUG>
     	)
 else()
+if (ASAN_ENABLE)
    	target_compile_options(clock PRIVATE
-        	$<$<CONFIG:Debug>:-Wall -Wextra -Werror -Wunused -O0
--fsanitize=address -O1
+        	$<$<CONFIG:Debug>:-Wall -Wextra -Werror -Wunused -O0 -fsanitize=address -O1
 -rdynamic -pg -g -Wl,--no-undefined>
         	$<$<CONFIG:Release>:-O3 -rdynamic -DNDEBUG>
     	)
+else ()
+   	target_compile_options(clock PRIVATE
+        	$<$<CONFIG:Debug>:-Wall -Wextra -Werror -Wunused -O0 -rdynamic -pg -g -Wl,--no-undefined>
+        	$<$<CONFIG:Release>:-O3 -rdynamic -DNDEBUG>
+    	)
+endif()
 	target_compile_definitions(clock PRIVATE 
         	$<$<CONFIG:Debug>:CLOCK_DEBUG>
     	)
