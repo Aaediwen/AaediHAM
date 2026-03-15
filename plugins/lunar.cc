@@ -132,7 +132,6 @@ SDL_Surface* gen_moon_phase_mask(aaediclock_FRect size) {
 
 
 bool regen_moon_texture = false;
-//bool regen_moon_image = true;
 SDL_Surface* moon_image = nullptr;
 time_t moon_surface_age = 0;
 SDL_TimerID moon_timer = 0;
@@ -217,6 +216,7 @@ int SDLCALL regen_lunar_surface(void* data) {
                 *(host_api->AaediHAM_LogDebug) << "Success\n";
                 SDL_BlitSurface(moon_mask, nullptr, moon_image, nullptr);
                 SDL_DestroySurface(moon_mask);
+                regen_moon_texture = true;
             } else {
                 // missing phase, no phase mask to show
                 *(host_api->AaediHAM_LogDebug) << "LUNAR: We have no MOON MASK in the parent!\n";
@@ -224,10 +224,6 @@ int SDLCALL regen_lunar_surface(void* data) {
             }
             // set transparancy
             SDL_SetSurfaceColorKey(moon_image, 1, 0);
-            regen_moon_texture = true;
-        }
-
-        if (!host_api->AaediHAM_TextureCheck(moon_tex_id)) {
             regen_moon_texture = true;
         }
     } else {
@@ -342,6 +338,10 @@ void lunar_plugin::plugin_main(const aaediclock_FRect& dims) const {
     // check for image refresh
     if (moon_image) {
         if (regen_moon_texture) {
+            if (host_api->AaediHAM_IconCheck(moon_icon_id)) {
+               host_api->AaediHAM_IconDelete (moon_icon_id);
+               moon_icon_id = 1024;
+            }
             *(host_api->AaediHAM_LogDebug) << "Loaded Moon Texture\n";
             aaediclock_image new_image;
             new_image.width = moon_image->w;

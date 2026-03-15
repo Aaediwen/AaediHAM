@@ -59,13 +59,7 @@ void dxspot::find_mode () {
             break;
         }
     }
-/*    if (mode_parent.find("FT8") != std::string::npos) mode =  "FT8";
-    if (mode_parent.find("FT4") != std::string::npos) mode =  "FT4";
-    if (mode_parent.find("CW") != std::string::npos) mode = "CW";
-    if (mode_parent.find("SSB") != std::string::npos) mode =  "SSB";
-    if (mode_parent.find("USB") != std::string::npos) mode =  "USB";
-    if (mode_parent.find("LSB") != std::string::npos) mode =  "LSB";
-    if (mode_parent.find("RTTY") != std::string::npos) mode =  "RTTY"; */
+
     return;
 }
 

@@ -146,25 +146,25 @@ void sun_times(double lat, double lon, time_t* sunrise, time_t* sunset, double *
     *sunrise = now;
     *sunset = now;
    if (test_alt < 0) { // it's night right now
-        while (test_alt < 0) { // get sunrise time
+        while ((test_alt < 0) && (*sunset < (now+86400))) { // get sunrise time
             *sunrise    +=      5;
             *sunset     +=      5;
             test_time   =       gmtime(sunrise);
             test_alt    =       solar_altitude(lat, lon, test_time, solar_decl);
         }
-        while (test_alt > 0) {  // proceed to get the sunset time
+        while ((test_alt > 0) && (*sunset < (now+86400))) {  // proceed to get the sunset time
             *sunset     +=      5;
             test_time   =       gmtime(sunset);
             test_alt    =       solar_altitude(lat, lon, test_time, solar_decl);
         }
     } else {            // it's day right now
-       while (test_alt > 0) {   // get sunset time
+       while ((test_alt > 0)&& (*sunrise < (now+86400))) {   // get sunset time
             *sunrise    +=      5;
             *sunset     +=      5;
             test_time   =       gmtime(sunset);
             test_alt    =       solar_altitude(lat, lon, test_time, solar_decl);
         }
-        while (test_alt <0) {// proceed to get sunrise time
+        while ((test_alt <0) && (*sunrise < (now+86400))) {// proceed to get sunrise time
             *sunrise    +=      5;
             test_time   =       gmtime(sunrise);
             test_alt    =       solar_altitude(lat, lon, test_time, solar_decl);

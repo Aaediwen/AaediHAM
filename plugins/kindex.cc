@@ -33,6 +33,7 @@ static nlohmann::json::iterator wind_end;
 SDL_TimerID kindex_timer = 0;
 std::mutex kindex_mutex;
 aaediclock_host_api* host_api = nullptr;
+
 time_t parse_time_tag(const std::string& time_tag) {
     std::tm tm = {};
     // Adjust the format to match your time string exactly
@@ -80,7 +81,9 @@ void write_wind_cache(time_t max_timestamp) {
                   index_string = (*wind_index)[3].get<std::string>();
 //                  *(host_api->AaediHAM_LogDebug) << "KINDEX: Temp String: " << index_string.c_str()<< "\n";
                   new_node.temperature = std::stoi(index_string);
-                  solar_wind_cache.push_back(new_node);
+                  if (solar_wind_cache.empty() || new_node.timestamp > solar_wind_cache.back().timestamp) {
+                      solar_wind_cache.push_back(new_node);
+                  }
 //                  raw_points.push_back(new_node);
              } catch (const std::exception& e) {
                   *(host_api->AaediHAM_LogDebug) << "KINDEX: Skipped Wind: " << e.what() << "\n";
@@ -123,8 +126,10 @@ void merge_json (const char* k_index_list, const char* solar_wind_list) {
                     }
                }
                const std::lock_guard<std::mutex>kindex_lock(kindex_mutex);
-               write_wind_cache(new_node.timestamp);
-               kindex_cache.push_back(new_node);
+               if (kindex_cache.empty() || (new_node.timestamp > kindex_cache.back().timestamp)) {
+                   write_wind_cache(new_node.timestamp);
+                   kindex_cache.push_back(new_node);
+               }
           } catch (const std::exception& e) {
                *(host_api->AaediHAM_LogDebug) << "KINDEX: Skipped Kindex: " << e.what() << "\n";
           }
@@ -156,7 +161,22 @@ int SDLCALL fetch_kindex (void* data) {
               solar_wind_list = 0;
           }
      }
-     return 0;
+     time_t cutoff = time(NULL) - 2600000;
+     if (!kindex_cache.empty()) {
+        for (size_t c = kindex_cache.size() ; c-- > 0 ;) {
+            if ((kindex_cache[c].timestamp) < cutoff) {
+                kindex_cache.erase(kindex_cache.begin()+c);
+            }
+        }
+    }
+    if (!solar_wind_cache.empty()) {
+        for (size_t c = solar_wind_cache.size() ; c-- > 0 ;) {
+            if ((solar_wind_cache[c].timestamp) < cutoff) {
+                solar_wind_cache.erase(solar_wind_cache.begin()+c);
+            }
+        }
+    }
+    return 0;
 }
 
 Uint32 SDLCALL fetch_kindex (void *userdata, SDL_TimerID timerID, Uint32 interval) {
@@ -170,6 +190,7 @@ Uint32 SDLCALL fetch_kindex (void *userdata, SDL_TimerID timerID, Uint32 interva
       *(host_api->AaediHAM_LogDebug) << "Failed to Create Kindex Fetch Thread\n";
     }
     return (3600000); // 6 hrs
+//      return (300000);  // 5 mins for testing
   } else {
     return 0;
   }
@@ -189,9 +210,7 @@ void plot_solar_wind (aaediclock_FRect dims, const std::vector<float>&wind_prime
           chart_pts.push_back(new_point);
           new_point.x += point_width;
         }
- //       SDL_SetRenderDrawColor(panel.GetRenderer(), color.r, color.g, color.b, color.a);
           host_api->AaediHAM_GraphicsDrawLines(color, chart_pts.data(), static_cast<int>(chart_pts.size()));
-//        SDL_RenderLines(panel.GetRenderer(), chart_pts.data(), static_cast<int>(chart_pts.size()));
       }
       return;
 }

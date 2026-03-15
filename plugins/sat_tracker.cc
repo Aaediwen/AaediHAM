@@ -530,15 +530,7 @@ void sat_json_parser(const char* input_string) {
                     new_cache.color = trackcols;
                 }
             }
-/*
-            for (const std::string& stropt : clockconfig.Sats()) {
-                instring = new_cache.name;
-                if (instring.compare(0,stropt.length(),stropt)==0) {
-        	    new_cache.draw=true;
-                    new_cache.color = trackcols;
-                }
-            }
-*/
+
             if (new_cache.draw) {
                 *(host_api->AaediHAM_LogDebug) << "Setting to draw \n";
             } else {
@@ -554,9 +546,6 @@ void sat_json_parser(const char* input_string) {
 
 Uint16 pass_pager[2] = {0,0};
 std::vector<TrackedSatellite> satlist;
-/*
-  Need to change this to run as a truely independant thread
-*/
 int SDLCALL fetch_celestrak(void* data) {
   (void) data;
 
@@ -598,226 +587,6 @@ Uint32 SDLCALL fetch_celestrak (void *userdata, SDL_TimerID timerID, Uint32 inte
      return 0;
 }
 
-/*
-void sat_tracker (ScreenFrame& panel, TTF_Font* font, ScreenFrame& map) {
-    ScreenFrame* overlay;
-    std::istringstream tle_raw;
-    char* amateur_tle = 0 ;
-    Uint64 data_size;
-    time_t cache_time;
-    SDL_LockMutex(mutexes[MUTEX_CELESTRAK]);
-    if (!sat_timer) {
-        Uint32 interval;
-        interval = 3600000 ;
-
-        switch (fetch_result) {
-            case 0:
-                sat_timer = SDL_AddTimer(30000, fetch_celestrak, NULL);
-                break;
-            case 10:
-                break;
-            case 2:
-                sat_timer = SDL_AddTimer(interval * 6, fetch_celestrak, NULL);
-                break;
-            case 3:
-                sat_timer = SDL_AddTimer(interval * 2, fetch_celestrak, NULL);
-                break;
-        }
-    }
-    SDL_UnlockMutex(mutexes[MUTEX_CELESTRAK]);
-    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
-        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
-    }
-    else {
-        SDL_Log("Sat Module during resize event!");
-        return;
-    }
-    if (!font) {
-        debug_log << "SAT_TRACKER: No font defined\n";
-        return;
-    }
-    if (!panel.GetRenderer()) {
-        debug_log << "SAT_TRACKER: Missing Renderer!\n";
-        return;
-    }
-    if (!panel.texture) {
-        debug_log << "SAT_TRACKER: Missing PANEL!\n";
-        return;
-    }
-
-    SDL_FRect TextRect;
-    delete_owner_pins(MOD_SAT);
-    bool reload_flag = false;
-    data_size = cache_loader(MOD_SAT, (void**)&amateur_tle, &cache_time);
-
-    if (!data_size) {
-        reload_flag=true;
-    } else if ((time(NULL) - cache_time) > 14400) {
-        reload_flag=true;
-        if (amateur_tle) {
-            free (amateur_tle);
-            amateur_tle=0;
-        }
-    }
-    if (reload_flag) {	// fetch new
-
-    } else {	// use cache[D
-        tle_raw.clear();
-        std::string sanitized(amateur_tle, static_cast<size_t>(data_size));
-        tle_raw.str(sanitized);
-        if (amateur_tle) {
-            free(amateur_tle);
-            amateur_tle=0;
-        }
-        debug_log <<"SAT_TRACKER: Using "<< data_size << " Bytes of Cached Data!\n";
-    }
-
-    // clear the box
-    panel.Clear();
-    SDL_FRect mapsize ;
-    mapsize.w = map.dims.w;
-    mapsize.h = map.dims.h;
-    bool redraw_flag = false;
-    redraw_flag = (!overlays.overlay_check(MOD_SAT));
-
-    // render the header
-    TextRect.w=panel.dims.w/2-10;
-    TextRect.h=panel.dims.h/11;
-    TextRect.x=5;
-    TextRect.y=2;
-    panel.render_text(TextRect, font, {128,128,0,255}, "SAT TRACKERS");
-    TextRect.w=panel.dims.w-10;
-    TextRect.y += ((panel.dims.h/11)+(panel.dims.h/150));
-
-    if (data_size) {
-        debug_log << "SAT_TRACKER: We have tracking data: "<< data_size << " Bytes";
-    } else {
-        debug_log <<"SAT_TRACKER: Tracking Data Fetch Error!\n";
-        TextRect.w=panel.dims.w-10;
-        TextRect.h=panel.dims.h/11;
-        TextRect.x=5;
-        TextRect.y=panel.dims.h/10;
-        if (TextRect.w > 5) {
-            panel.render_text(TextRect, font, {128,128,0,255}, "NO SAT DATA");
-        }
-        return;
-    }
-
-    libsgp4::Observer obs(clockconfig.DE().latitude, clockconfig.DE().longitude, 0.27); // need a way to manage altitude here (last arg)
-    // read the TLE data from Celestrak
-    debug_log << "SAT_TRACKER: Reading Sat lists from Celestrak\n";
-    struct tle_cache temp;
-    while (tle_raw.read(reinterpret_cast<char*>(&temp), sizeof(temp))) {
-        temp.name[49]=0;
-        temp.line1[69]=0;
-        temp.line2[69]=0;
-        // read the TLE for a sat
-        // is it one we want to show?
-        debug_log << "SAT_TRACKER: Read Sat " << temp.name << " with draw=" << temp.draw << "\n";
-        bool draw_flag=temp.draw;
-        // check if the sat exists in satlist
-        TrackedSatellite *nextsat = nullptr;
-        if (draw_flag) {
-
-            std::string name(temp.name);
-            std::string line1(temp.line1);
-            std::string line2(temp.line2);
-            SDL_LockMutex(mutexes[MUTEX_CELESTRAK]);
-            for (TrackedSatellite& sat : satlist) {
-                if (name.compare(0,sat.get_name().length(),sat.get_name())==0) {
-                    nextsat = &sat;
-                }
-            }
-
-            if (nextsat) {
-                debug_log << "SAT_TRACKER: Found NextSat: " << temp.name << "\n";
-                if (reload_flag) {
-                    nextsat->new_tracking(name, line1, line2);
-                    nextsat->gen_telemetry(30, obs);
-                    redraw_flag = true;
-                }
-            } else {
-                debug_log << "SAT_TRACKER:Creating New Sat entry with:\nSAT_TRACKER: "
-                          << temp.name << "\nSAT_TRACKER: "
-                          << temp.line1 << "\nSAT TRACKER: "
-                          << temp.line2 << "\n";
-                try {
-                    nextsat = new TrackedSatellite(temp.name, temp.line1, temp.line2);
-                    nextsat->color=temp.color;
-                    debug_log << "SAT_TRACKER: Regenerate track for " << temp.name << "\n";
-                    if (nextsat->gen_telemetry(30, obs)) {
-                        satlist.push_back(std::move(*nextsat));
-                        delete (nextsat);
-                        nextsat = nullptr;
-                        redraw_flag= true;
-                    }
-                } catch (const std::exception& e){
-                    SDL_Log ("Failed to create Satellite tracking entry for %s\n%s", temp.name, e.what());
-                    debug_log << "SAT_TRACKER: Failed to create Satellite tracking entry for " << temp.name
-                              << "\nSAT_TRACKER: " << e.what() << "\n";
-                }
-            }
-            SDL_UnlockMutex(mutexes[MUTEX_CELESTRAK]);
-        }
-//        SDL_Log ("Done with Sar %s", temp.name);
-    } // read from Celestrak
-    if (amateur_tle) {
-        free(amateur_tle);
-        amateur_tle = nullptr;
-    }
-    debug_log << "SAT_TRACKER: Displaying Selected Satellites\n";
-    // display the selected satellites
-    SDL_LockMutex(mutexes[MUTEX_CELESTRAK]);
-    if (!satlist.empty()){
-        if (pass_pager[0] >= satlist.size()) {
-            pass_pager[0]=0;
-        }
-        pass_tracker(panel, satlist[pass_pager[0]]);
-        if (pass_pager[1] >5) {
-            pass_pager[0]++;
-            pass_pager[1]=0;
-        }
-        pass_pager[1]++;
-        for (TrackedSatellite& Sat : satlist) {
-            const time_t time_now = time(NULL);
-            if ((Sat.telemetry_age() - time_now) < 60) {
-                Sat.gen_telemetry(30, obs);
-                redraw_flag = true;
-            }
-        }
-        overlay = overlays.get_overlay(panel.GetRenderer(), MOD_SAT, mapsize);
-        if (redraw_flag) {
-            overlay->Clear(SDL_Color{0,0,0,0});
-        }
-        for (TrackedSatellite& Sat : satlist) {
-            if (redraw_flag) {
-                debug_log << "SAT_TRACKER: Redrawing track for " << Sat.get_name().c_str() << "\n";
-                Sat.draw_telemetry(*overlay);
-            }
-            // plot the sat's current location
-            struct map_pin sat_pin;
-            SDL_FPoint sat_loc;
-            Sat.location(&sat_loc);
-            sat_pin.owner   =               MOD_SAT;
-            sprintf(sat_pin.label, "%s", Sat.get_name().c_str());
-            sat_pin.lat     =               sat_loc.x;
-            sat_pin.lon     =               sat_loc.y;
-            sat_pin.icon    =               icon_bin.get_icon(map_icons::ICON_SAT);
-            debug_log << "SAT_TRACKER: got pin " <<  sat_pin.icon << "\n";
-            sat_pin.color   =               Sat.color;;
-            sat_pin.tooltip[0]      =               0;
-            add_pin(&sat_pin);
-        }
-
-        debug_log << "SAT_TRACKER: Loaded "<< satlist.size() << " SATS\n";
-    } else {
-        panel.render_text(SDL_FRect {panel.dims.w/20, panel.dims.h/4, (panel.dims.w/10)*8, panel.dims.h/10}, font, {128,128,0,255}, "NO SELECTED SATS");
-    }
-    SDL_UnlockMutex(mutexes[MUTEX_CELESTRAK]);
-    return;
-}
-*/
-
 
 
 extern "C" DllExport aaediclock_plugin_api* createPlugin() {
@@ -844,11 +613,6 @@ void sat_tracker_plugin::plugin_exit() const {
 }
 
 void sat_tracker_plugin::plugin_main(const aaediclock_FRect& dims) const {
-//    ScreenFrame* overlay;
-//    std::istringstream tle_raw;
-//    char* amateur_tle = 0 ;
-//    Uint64 data_size;
-//    time_t cache_time;
     if (!sat_timer) {
         const std::lock_guard<std::mutex>sat_lock(sat_tracker_mutex);
         Uint32 interval;
@@ -996,7 +760,6 @@ void sat_tracker_plugin::plugin_main(const aaediclock_FRect& dims) const {
             sprintf(sat_pin.label, "%s", Sat.get_name().c_str());
             sat_pin.lat     =               sat_loc.x;
             sat_pin.lon     =               sat_loc.y;
-            // holding off on the icon migration for now
             sat_pin.icon = 0;
             if (!host_api->AaediHAM_IconCheck(icon)) {
                 SDL_Surface* loadsurface = IMG_Load("images/satellite.png");

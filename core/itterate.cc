@@ -154,6 +154,7 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
                 clockconfig.set_DX(GeoCoord{current_pin->lat, current_pin->lon}, dxstring);
         }
     }
+
     return;
 }
 
@@ -301,6 +302,9 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             for (auto& map_pin : plugin_map_pins) {
                 render_pin(pin_overlay, &map_pin);
             }
+        }
+        if (map_owner_id == clock_mouse_event.plugin_owner) {
+            clock_mouse_event.plugin_owner = -1;
         }
         draw_overlays(winboxes[PANEL_MAP].panel);
 
