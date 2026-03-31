@@ -81,6 +81,7 @@ class aaediclock_host_api {
         // config calls
         virtual const char* 			AaediHAM_ConfigGetQRZKey	(bool refresh) 									= 0;
         virtual const char* 			AaediHAM_ConfigGetCall		() 										= 0;
+        virtual const char* 			AaediHAM_ConfigGetPSKCall	() 										= 0;
         virtual struct aaediclock_dx 		AaediHAM_ConfigGetDE		() 										= 0;
         virtual void 				AaediHAM_ConfigSetDX		(struct aaediclock_dx new_dx) 							= 0;
         virtual struct aaediclock_dx 		AaediHAM_ConfigGetDX		() 										= 0;

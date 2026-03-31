@@ -1,13 +1,16 @@
 #include "pskreporter.h"
-#include "aaediclock.h"
+//#include "aaediclock.h"
 #include "utils/http_fetch.h"
 #include "utils/conversions.h"
 //#include "core/utils.h"
 //#include <iostream>
 #include <sstream>
+#include <mutex>
 #include "MQTTClient.h"
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
+aaediclock_host_api* host_api = nullptr;
+
 
 //https://retrieve.pskreporter.info/query?senderCallsign=requestedcall // appcontact=myemailaddress
 // per https://groups.google.com/g/psk-reporter/c/iGbkpc9cpQ4
@@ -57,7 +60,8 @@ https://github.com/eclipse-paho/paho.mqtt.c
 */
 MQTTClient mqtt_client = 0;
 const int max_age=1800;
-SDL_Mutex* psk_mutex = nullptr;
+//SDL_Mutex* psk_mutex = nullptr;
+std::mutex psk_mutex;
 std::vector<struct psk_spot>psk_reports;
 
 int msgarrvd(void *context, char *topicName, int topicLen, MQTTClient_message *message)
@@ -65,12 +69,12 @@ int msgarrvd(void *context, char *topicName, int topicLen, MQTTClient_message *m
     (void)context;
     (void)topicName;
     (void)topicLen;
-    debug_log << "PSK: MQTT Message arrived\t";
+    *(host_api->AaediHAM_LogDebug) << "PSK: MQTT Message arrived\t";
 //    debug_log << "topic: "<< topicName;
 //    debug_log << "\tmessage: " << (char*)(message->payload) << "\n";
     json psk_report;
     if (message->payloadlen <=0) {
-        debug_log << "PSK: Invalid MQTT Payload Length\n";
+         *(host_api->AaediHAM_LogDebug)<< "PSK: Invalid MQTT Payload Length\n";
         return 0;
     }
     try {
@@ -143,17 +147,18 @@ int msgarrvd(void *context, char *topicName, int topicLen, MQTTClient_message *m
         } else {
               new_spot.band		=	"";
         }
-        SDL_LockMutex(psk_mutex);
+//        SDL_LockMutex(psk_mutex);
+        const std::lock_guard<std::mutex>psk_lock(psk_mutex);
         SDL_Log("PSK Reporter adding contact %s", new_spot.rx_call.c_str());
         psk_reports.push_back(new_spot);
 
-        SDL_UnlockMutex(psk_mutex);
+//        SDL_UnlockMutex(psk_mutex);
     } catch (const json::parse_error &e) {
         (void)e;
-        debug_log << "PSK: Report JSON Parse Error " << message->payloadlen << " bytes \n";
+        *(host_api->AaediHAM_LogDebug) << "PSK: Report JSON Parse Error " << message->payloadlen << " bytes \n";
         return 0;
     } catch (const std::exception& e) {
-        debug_log << "PSK: Exception while processing report: " << e.what() << "\n";
+        *(host_api->AaediHAM_LogDebug) << "PSK: Exception while processing report: " << e.what() << "\n";
     }
     MQTTClient_freeMessage(&message);
     MQTTClient_free(topicName);
@@ -163,12 +168,12 @@ int msgarrvd(void *context, char *topicName, int topicLen, MQTTClient_message *m
 
 void connlost(void* context, char* cause) {
     (void)context;
-    debug_log << "PSK: MQTT Connection lost";
+    *(host_api->AaediHAM_LogDebug) << "PSK: MQTT Connection lost";
     if (cause && cause[0]) {
-        debug_log << "\tcause: " << cause << "\n";
+        *(host_api->AaediHAM_LogDebug) << "\tcause: " << cause << "\n";
     }
     else {
-        debug_log << "\t Bad Cause definition\n";
+        *(host_api->AaediHAM_LogDebug) << "\t Bad Cause definition\n";
     }
     if (mqtt_client) {
          MQTTClient_destroy(&mqtt_client);
@@ -195,12 +200,14 @@ void init_mqtt() {
      MQTTClient_global_init (&inits);
      MQTTClient_connectOptions conn_opts = MQTTClient_connectOptions_initializer;
      int rc;
-     std::string mqtt_client_id = clockconfig.CallSign() + "-clock-Agent-";
+     const std::string callsign = host_api->AaediHAM_ConfigGetCall();
+     const std::string PSKCall = host_api->AaediHAM_ConfigGetPSKCall();
+     std::string mqtt_client_id = callsign + "-clock-Agent-";
      std::string mqtt_topic;
-     if (clockconfig.PSKCall().empty()) {
-         mqtt_topic = "pskr/filter/v2/+/+/"+clockconfig.CallSign()+"/#";
+     if (PSKCall.empty()) {
+         mqtt_topic = "pskr/filter/v2/+/+/"+callsign+"/#";
      } else {
-         mqtt_topic = "pskr/filter/v2/+/+/"+clockconfig.PSKCall()+"/#";
+         mqtt_topic = "pskr/filter/v2/+/+/"+PSKCall+"/#";
      }
 //     std::string mqtt_topic = "pskr/filter/v2/+/+/K1KPC/#";
      // create MQTT object
@@ -209,13 +216,13 @@ void init_mqtt() {
      }
      if ((rc = MQTTClient_create(&mqtt_client, "mqtt.pskreporter.info", mqtt_client_id.c_str(),
         MQTTCLIENT_PERSISTENCE_NONE, NULL)) != MQTTCLIENT_SUCCESS) {
-             debug_log << "PSK: Unable to create MQTT client.\n";
+             *(host_api->AaediHAM_LogDebug) << "PSK: Unable to create MQTT client.\n";
              mqtt_client = 0;
              return;
      }
      // set callback functions
      if ((rc = MQTTClient_setCallbacks(mqtt_client, NULL, connlost, msgarrvd, NULL)) != MQTTCLIENT_SUCCESS) {
-             debug_log << "PSK: Failed to set callbacks, return code " << rc << "\n";
+             *(host_api->AaediHAM_LogDebug) << "PSK: Failed to set callbacks, return code " << rc << "\n";
              rc = EXIT_FAILURE;
              MQTTClient_destroy(&mqtt_client);
              mqtt_client = 0;
@@ -225,17 +232,17 @@ void init_mqtt() {
      conn_opts.keepAliveInterval = 20;
      conn_opts.cleansession = 1;
      if ((rc = MQTTClient_connect(mqtt_client, &conn_opts)) != MQTTCLIENT_SUCCESS) {
-             debug_log << "PSK: MQTT Failed to connect, return code "<< rc << "\n";
+             *(host_api->AaediHAM_LogDebug) << "PSK: MQTT Failed to connect, return code "<< rc << "\n";
              rc = EXIT_FAILURE;
              MQTTClient_destroy(&mqtt_client);
              mqtt_client = 0;
              return;
     }
     // subscribe
-    debug_log << "PSK: Subscribing to topic -"<< mqtt_topic<<"- for client -"<< mqtt_client_id << "- \n";
+    *(host_api->AaediHAM_LogDebug) << "PSK: Subscribing to topic -"<< mqtt_topic<<"- for client -"<< mqtt_client_id << "- \n";
     if ((rc = MQTTClient_subscribe(mqtt_client, mqtt_topic.c_str(), 0)) != MQTTCLIENT_SUCCESS)
     {
-        debug_log << "PSK: Failed to subscribe, return code "<< rc << "\n";
+        *(host_api->AaediHAM_LogDebug) << "PSK: Failed to subscribe, return code "<< rc << "\n";
         rc = EXIT_FAILURE;
         MQTTClient_destroy(&mqtt_client);
         mqtt_client = 0;
@@ -244,83 +251,108 @@ void init_mqtt() {
     }
 }
 
-void display_spot(ScreenFrame& panel, float y, struct psk_spot spot) {
+void display_spot(aaediclock_FRect dims, float y, struct psk_spot spot) {
     // add to screen list
        char tempstr[128];
-       SDL_Color tempcolor={128,128,0,0};
-       SDL_FRect TextRect;
+       aaediclock_Color tempcolor={128,128,0,0};
+       aaediclock_FRect TextRect;
        TextRect.x=2;
        TextRect.y= y * 1.0f;
-       TextRect.w=panel.dims.w/4;
-       TextRect.h=panel.dims.h/16;
+       TextRect.w=dims.w/4;
+       TextRect.h=dims.h/16;
 
-       SDL_FRect age_rect;
+       aaediclock_FRect age_rect;
        age_rect.h = TextRect.h/8;
        age_rect.y = y+((TextRect.h/8)*7);
        age_rect.x = 2;
-       age_rect.w = (panel.dims.w-4)*(static_cast<float>(time(NULL)-spot.timestamp)/max_age);
+       age_rect.w = (dims.w-4)*(static_cast<float>(time(NULL)-spot.timestamp)/max_age);
        if (age_rect.w <0) {
            age_rect.w = 0;
        }
-       debug_log << "PSK: Spot age: "<< (time(NULL)-spot.timestamp) << " Seconds, Bar width: "<< age_rect.w<< " pixels\n";
-       SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
-       SDL_SetRenderDrawColor(panel.GetRenderer(), 128, 128, 0, 255);
-       SDL_RenderFillRect(panel.GetRenderer(), &age_rect );
-       SDL_SetRenderTarget(panel.GetRenderer(), NULL);
-       panel.render_text(TextRect, Sans, tempcolor, spot.rx_call.c_str());
-       TextRect.x += (panel.dims.w/4)+2;
+       *(host_api->AaediHAM_LogDebug) << "PSK: Spot age: "<< (time(NULL)-spot.timestamp) << " Seconds, Bar width: "<< age_rect.w<< " pixels\n";
+       host_api->AaediHAM_GraphicsDrawRect(aaediclock_Color{128, 128, 0, 255}, age_rect, true);
+       host_api->AaediHAM_GraphicsDrawText(spot.rx_call.c_str(), tempcolor, TextRect);
+//       SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
+//       SDL_SetRenderDrawColor(panel.GetRenderer(), 128, 128, 0, 255);
+//       SDL_RenderFillRect(panel.GetRenderer(), &age_rect );
+//       SDL_SetRenderTarget(panel.GetRenderer(), NULL);
+//       panel.render_text(TextRect, Sans, tempcolor, spot.rx_call.c_str());
+       TextRect.x += (dims.w/4)+2;
        sprintf(tempstr, "%4.3f", (spot.frequency/1000000.0));
-       panel.render_text(TextRect, Sans, tempcolor, tempstr);
-       TextRect.x += (panel.dims.w/4)+2;
+       host_api->AaediHAM_GraphicsDrawText(tempstr, tempcolor, TextRect);
+//       panel.render_text(TextRect, Sans, tempcolor, tempstr);
+       TextRect.x += (dims.w/4)+2;
        TextRect.w /=2;
        if (spot.mode.size() >0) {
-            panel.render_text(TextRect, Sans, tempcolor, spot.mode.c_str());
+            host_api->AaediHAM_GraphicsDrawText(spot.mode.c_str(), tempcolor, TextRect);
+//            panel.render_text(TextRect, Sans, tempcolor, spot.mode.c_str());
        }
-       TextRect.x += (panel.dims.w/8)+2;
+       TextRect.x += (dims.w/8)+2;
        TextRect.w *=2;
-       panel.render_text(TextRect, Sans, tempcolor, spot.tx_call.c_str());
-       TextRect.w += (panel.dims.w/4)-(panel.dims.w/20);
-       TextRect.x += (panel.dims.w/8)+1;
-       TextRect.y += ((panel.dims.h/11)+(panel.dims.h/150));
+       host_api->AaediHAM_GraphicsDrawText(spot.tx_call.c_str(), tempcolor, TextRect);
+//       panel.render_text(TextRect, Sans, tempcolor, spot.tx_call.c_str());
+       TextRect.w += (dims.w/4)-(dims.w/20);
+       TextRect.x += (dims.w/8)+1;
+       TextRect.y += ((dims.h/11)+(dims.h/150));
+       return;
 }
 
 
-void psk_reporter(ScreenFrame& panel) {
-    if (!psk_mutex) {
-         psk_mutex = SDL_CreateMutex();
+extern "C" DllExport aaediclock_plugin_api* createPlugin() {
+    return new psk_reporter_plugin();
+}
+extern "C" DllExport void destroyPlugin(aaediclock_plugin_api* target) {
+    if (target) {
+        delete target;
     }
+}
+
+void psk_reporter_plugin::plugin_init() const {
+    if (!mqtt_client) {
+         init_mqtt();
+    }
+    return;
+}
+
+void psk_reporter_plugin::plugin_exit() const {
+    psk_cleanup();
+    return;
+}
+
+void psk_reporter_plugin::plugin_main(const aaediclock_FRect& dims) const {
     if (!mqtt_client) {
          init_mqtt();
     }
     time_t currenttime = time(NULL);
 
-    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
+/*    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
          SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     } else {
          SDL_Log("PSK Reporter DRAW during resize event!");
          return;
     }
     if (!Sans) {
-        debug_log << "PSK: No font defined\n";
+        *(host_api->AaediHAM_LogDebug) << "PSK: No font defined\n";
         return;
     }
     if (!panel.GetRenderer()) {
-        debug_log << "PSK: Missing Renderer!\n";
+        *(host_api->AaediHAM_LogDebug) << "PSK: Missing Renderer!\n";
         return;
     }
     if (!panel.texture) {
-        debug_log << "PSK: Missing PANEL!\n";
+        *(host_api->AaediHAM_LogDebug) << "PSK: Missing PANEL!\n";
         return;
     }
-
-    panel.Clear();
-
-
-    SDL_LockMutex(psk_mutex);
+*/
+//    panel.Clear();
+host_api->AaediHAM_GraphicsClear();
+host_api->AaediHAM_MapPinDelete();
+//    SDL_LockMutex(psk_mutex);
+    const std::lock_guard<std::mutex>psk_lock(psk_mutex);
     if (!psk_reports.empty()) {
          for (size_t c = psk_reports.size() ; c-- > 0 ;) {
               if ((currenttime - psk_reports[c].timestamp) > max_age) {
-                   debug_log << "PSK: Erasing entry "<< psk_reports[c].rx_call.c_str() << "\n";
+                   *(host_api->AaediHAM_LogDebug) << "PSK: Erasing entry "<< psk_reports[c].rx_call.c_str() << "\n";
                    psk_reports.erase(psk_reports.begin()+c);
               }
          }
@@ -328,14 +360,16 @@ void psk_reporter(ScreenFrame& panel) {
 
 
     // display to panel
-    panel.render_text(SDL_FRect{2,2, panel.dims.w, panel.dims.h/16}, Sans, SDL_Color{128,128,0,255}, "PSK Reporter");
-    float y=2+panel.dims.h/16;
+     host_api->AaediHAM_SetTarget();
+    host_api->AaediHAM_GraphicsDrawText("PSK Reporter", aaediclock_Color{128,128,0,255}, aaediclock_FRect{2,2, dims.h/16,  dims.w});
+//    panel.render_text(SDL_FRect{2,2, panel.dims.w, panel.dims.h/16}, Sans, SDL_Color{128,128,0,255}, "PSK Reporter");
+    float y=2+dims.h/16;
     size_t start = psk_reports.size() > 15 ? psk_reports.size() - 15 : 0;
     for (size_t n=start ; n < psk_reports.size(); n++) {
-        if (y < panel.dims.h) {
+        if (y < dims.h) {
 //            dxspots[n].display_spot(panel, y, max_age);
-            display_spot(panel, y, psk_reports[n]);
-            y+= panel.dims.h/16;
+            display_spot(dims, y, psk_reports[n]);
+            y+= dims.h/16;
         }
     }
 
@@ -346,7 +380,7 @@ void psk_reporter(ScreenFrame& panel) {
     if (!psk_reports.empty()) {
         for (auto& current_spot : psk_reports) {
             if (current_spot.rx_geo.latitude || current_spot.rx_geo.longitude ) {
-                struct map_pin psk_pin;
+                struct aaediclock_map_pin psk_pin;
                 psk_pin.owner       =               MOD_PSK;
                 snprintf(psk_pin.label, sizeof(psk_pin.label), "%s", current_spot.rx_call.c_str());
                 psk_pin.label[15]=0;
@@ -355,6 +389,7 @@ void psk_reporter(ScreenFrame& panel) {
                 psk_pin.icon        =               0;
                 psk_pin.color           =            {128,128,0,255};
                 psk_pin.tooltip[0]  =        0;
+                host_api->AaediHAM_MapPinAdd(psk_pin);
 //                add_pin(&psk_pin);
 
             }
@@ -362,7 +397,27 @@ void psk_reporter(ScreenFrame& panel) {
 
     }
 
+/*    host_api->AaediHAM_GraphicsClear();
+    aaediclock_Color fontcolor;
+    fontcolor.r=128;
+    fontcolor.g=128;
+    fontcolor.b=255;
+    fontcolor.a=0;
 
-    SDL_UnlockMutex(psk_mutex);
-    return;
+    aaediclock_FRect TextRect;
+    TextRect.x=2;
+    TextRect.y=2;
+    TextRect.h=(dims.h)-4;
+    TextRect.w=(dims.w)-4;
+    const char* callsign = host_api->AaediHAM_ConfigGetCall();
+    host_api->AaediHAM_GraphicsDrawText(callsign, fontcolor, TextRect); */
 }
+
+const char* psk_reporter_plugin::getName() const {
+    return "PSK Module";
+}
+
+void psk_reporter_plugin::set_host(aaediclock_host_api* host) {
+    host_api = host;
+}
+

@@ -160,11 +160,12 @@ target_link_libraries(lunar_plugin PRIVATE aaediclock_path SDL3::SDL3 SDL3_image
 #)
 #target_link_libraries(rss_plugin PRIVATE aaediclock_path LibXml2::LibXml2)
 
-#add_library(pskreporter_plugin SHARED
-#    plugins/psk_reporter.cc
-#    utils/http_fetch.cc
-#)
-#target_link_libraries(rss_plugin PRIVATE aaediclock_path LibXml2::LibXml2)
+add_library(pskreporter_plugin SHARED
+    plugins/pskreporter.cc
+    utils/http_fetch.cc
+    utils/conversions.cc
+)
+target_link_libraries(pskreporter_plugin PRIVATE aaediclock_path paho-mqtt3c LibXml2::LibXml2)
 
 add_library(map_plugin SHARED
 	plugins/map.cc
