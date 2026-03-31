@@ -1,8 +1,19 @@
 #include "aaediclock.h"
+#include "core/event.h"
 #include "core.h"
 #include "quit.h"
 #include "panels.h"
 #include "sdl_callbacks.h"
+
+void interrupt_handler(int signal) {
+    if ((signal == SIGINT) || (signal = SIGTERM)) {
+        interrupt_flag = true;
+//    	window_destroy();
+    }
+//    window_destroy();
+    return;
+}
+
     // SDL Event Handler
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
  (void)appstate;

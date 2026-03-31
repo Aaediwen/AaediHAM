@@ -289,8 +289,8 @@ void kindex_plugin::plugin_main(const aaediclock_FRect& dims) const {
     std::vector<SolarWindPoint>::iterator wind_index;
 //    float klast, dlast, slast;
     float klast = 0.0;
-    uint8_t type;
-    size_t kindex_count;
+//    uint8_t type;
+//    size_t kindex_count;
     const std::lock_guard<std::mutex>kindex_lock(kindex_mutex);
     if (kindex_cache.empty() || solar_wind_cache.empty()) {
       *(host_api->AaediHAM_LogDebug) << "Missing Solar Data!\n";

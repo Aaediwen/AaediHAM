@@ -155,7 +155,7 @@ void pota_plugin::plugin_main(const aaediclock_FRect& dims) const {
     pota_color.g = 128;
     pota_color.b = 0;
     pota_color.a = 0;
-    Uint64 data_size;
+//    Uint64 data_size;
     int reload_flag =0;
     std::istringstream spots_raw;
     // fetch the POTA spot data
@@ -241,7 +241,7 @@ void pota_plugin::plugin_main(const aaediclock_FRect& dims) const {
         TextRect.h=dims.h/11;
         TextRect.x=5+(dims.w/2);
         TextRect.y=2;
-        sprintf(tempstr, "%i", active_spots.size());
+        sprintf(tempstr, "%zu", active_spots.size());
         host_api->AaediHAM_GraphicsDrawText(tempstr, pota_color, TextRect);
     } else {
         // no legitimate POTA Data :(

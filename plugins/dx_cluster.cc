@@ -398,15 +398,18 @@ int SDLCALL fetch_dxspots(void* data) {
                         new_time.tm_year = year - 1900;
                         new_time.tm_mon = month_to_int(month_str);
                         new_spot.timestamp = timegm(&new_time);
-
-                        tempstring=buffstr.substr(consumed,std::string::npos);
-                        buffstr= tempstring;
-                        size_t note_end = buffstr.find_last_of('<', (std::string::npos-1));
-                        size_t spotter_end = buffstr.find_last_of('>', (std::string::npos));
-                        new_spot.spotter = buffstr.substr(note_end+1, (spotter_end-note_end+1) );
-                        new_spot.note=buffstr.substr(1, note_end-1 );
-                        new_spot.find_mode();
-                        duplicate_spot(new_spot);
+                        if ((consumed != std::string::npos) && (consumed < buffstr.size())) {
+                            tempstring=buffstr.substr(consumed,std::string::npos);
+                            buffstr= tempstring;
+                            size_t note_end = buffstr.find_last_of('<', (std::string::npos-1));
+                            size_t spotter_end = buffstr.find_last_of('>', (std::string::npos));
+                            new_spot.spotter = buffstr.substr(note_end+1, (spotter_end-note_end+1) );
+                            new_spot.note=buffstr.substr(1, note_end-1 );
+                            new_spot.find_mode();
+                            duplicate_spot(new_spot);
+                        } else {
+                            *(host_api->AaediHAM_LogDebug) << "Invalid Spot: " << buffstr << "\n";
+                        }
                     }
 
 

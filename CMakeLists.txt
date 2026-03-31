@@ -172,6 +172,24 @@ add_library(map_plugin SHARED
 )
 target_link_libraries(map_plugin PRIVATE aaediclock_path  SDL3::SDL3 SDL3_image::SDL3_image)
 
+set(PLUGIN_TARGETS
+    ncdxf_plugin 
+    callsign_plugin
+    clock_plugin
+    pota_plugin
+    de_plugin
+    dx_plugin
+    dx_cluster_plugin
+    sat_tracker_plugin
+    aurora_plugin
+    sdo_plugin
+    contest_plugin
+    kindex_plugin
+    wspr_plugin
+    lunar_plugin
+    map_plugin
+)
+
 # ================================================================================
 # CUSTOM DEPENDANCY FUNCTION
 # ================================================================================
@@ -299,6 +317,7 @@ endif()
 	set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 	find_build(SDL3 "https://github.com/libsdl-org/SDL.git" release-3.2.x .)
 	find_build(SDL3_ttf "https://github.com/libsdl-org/SDL_ttf.git" release-3.2.2 .)
+    set(SDL3IMAGE_AVIF OFF)
 	find_build(SDL3_image "https://github.com/libsdl-org/SDL_image.git" release-3.2.4 sdl3_image-src/include)
 	set(MAHO_MQTTC_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 	set(MAHO_MQTTC_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
@@ -321,6 +340,55 @@ if(WIN32)
     	target_include_directories(clock PRIVATE ${sgp4_SOURCE_DIR})
     	target_link_libraries(clock PRIVATE winhttp sgp4 SDL3::SDL3
     	SDL3_image::SDL3_image SDL3_ttf::SDL3_ttf ${SGP4_LIB} paho-mqtt3c LibXml2::LibXml2)
+        set(BINARY_TREE ${CMAKE_BINARY_DIR}/binary)
+        add_custom_command(TARGET clock POST_BUILD 
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${BINARY_TREE}")
+        add_custom_command(TARGET clock POST_BUILD 
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:clock>
+            ${BINARY_TREE}
+        )
+        add_custom_command(TARGET clock POST_BUILD 
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_PDB_FILE:clock>
+            ${BINARY_TREE}
+        )
+        add_custom_command(TARGET clock POST_BUILD 
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:SDL3::SDL3>
+            ${BINARY_TREE}
+        )
+        add_custom_command(TARGET clock POST_BUILD 
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:SDL3_image::SDL3_image>
+            ${BINARY_TREE}
+        )
+        add_custom_command(TARGET clock POST_BUILD 
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:SDL3_ttf::SDL3_ttf>
+            ${BINARY_TREE}
+        )
+        add_custom_command(TARGET clock POST_BUILD 
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:paho-mqtt3c>
+            ${BINARY_TREE}
+        )
+        foreach(plugin IN LISTS PLUGIN_TARGETS)
+            add_custom_command(TARGET ${plugin} POST_BUILD 
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${BINARY_TREE}")
+            add_custom_command(TARGET ${plugin} POST_BUILD 
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${BINARY_TREE}/plugins/" )
+            add_custom_command(TARGET ${plugin} POST_BUILD 
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:${plugin}>
+                ${BINARY_TREE}/plugins/
+            )
+            add_custom_command(TARGET ${plugin} POST_BUILD 
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_PDB_FILE:${plugin}>
+                ${BINARY_TREE}/plugins/
+            )
+        endforeach()
 
 elseif(APPLE)
     	target_link_libraries(clock PRIVATE SDL3::SDL3 SDL3_ttf::SDL3_ttf 

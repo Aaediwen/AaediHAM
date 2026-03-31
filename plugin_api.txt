@@ -1,0 +1,330 @@
+This document intends to document the plugin API for AaediHAM, and how to
+use it.
+
+In the API, there are two pieces, one is what AaediHAM expects from the API,
+and the other is the host API provided to the plugin. sample.h and sample.cc
+provide a basic example of this structure:
+
+Sample.h:
+
+#include "aaediclock.h"
+#include "plugin_api.h"
+
+
+class DllExport sample_plugin : public aaediclock_plugin_api {
+        void plugin_init() const override;
+        void plugin_main(const aaediclock_FRect& dims) const override;
+        const char* getName() const override;
+        void plugin_exit() const override;
+        void set_host(aaediclock_host_api* host);
+};
+
+
+// client calls //
+
+#include aaediclock.h
+	May not actually be needed in a plugin, I need to check this
+
+#include "pligin_api.h"
+	This provides the core plugin API classes. This is both the
+plugin_api and host_api definition the plugin can work with
+
+The plugin is then expected to provide some interfaces to the host program:
+
+extern "C" DllExport aaediclock_plugin_api* createPlugin();
+	This is called by AaediHAM to create an instance of the plugin
+within program memory. This expects something it can use to call the
+following functions also provided by the plugin:
+	void plugin_init() const override;
+        void plugin_main(const aaediclock_FRect& dims) const override;
+        const char* getName() const override;
+        void plugin_exit() const override;
+        void set_host(aaediclock_host_api* host);
+
+extern "C" DllExport void destroyPlugin(aaediclock_plugin_api* plugin);
+	This is called by AaediHAM to destroy and clean up an instance of a
+plugin
+
+void plugin_init() const override;
+	This is called to allow the plugin to initialize variable space or
+set up anything it may need, such as a thread timer or mutex for example
+
+
+void plugin_main(const aaediclock_FRect& dims) const override;
+	This is the main entry point to the plugin. It is called from
+AppItterate() to actually trigger the plugin. dims is filled with the
+geometry of the panel to which the plugin is currently assigned.  This may
+not be the same from call to call due to resizes or plugin paging
+	
+const char* getName() const override;
+	This is intended for the plugin to provide a name back to the parent
+program by which it wants to be called.  This name is then used in the
+system logs to identify the plugin.
+
+void plugin_exit() const override;
+	This is called to allow the plugin to clean up its memory space
+before being destroied on program exit
+
+void set_host(aaediclock_host_api* host);
+	This is called to tell the plugin where it can find its instance of the Host API
+calls in order to make requests of the main program
+
+
+// host API //
+
+Below begins documentation for the API calls provided to a plugin by
+AaediHAM. These are accessable via the host API pointer provided to the
+plugin. It should be noted that calling the graphics call routines before
+calling SetTarget() or GetOverlay() could yield some unintended results as
+there is no way then to know where your draw call may go. (future update
+will probably fix this)
+
+// graphics calls
+
+void AaediHAM_SetTarget();
+	Request the host program to point subsequent draw calls to the panel
+to which the plugin has been assigned at this time.
+
+void AaediHAM_GraphicsDrawText(const char* string, const aaediclock_Color color, const aaediclock_FRect dims);
+	Request that the host render the text in string using the color defined in color, within the box 
+defined by dims on the currently active target
+
+void AaediHAM_GraphicsDrawRect(const aaediclock_Color color, const aaediclock_FRect dims, bool filled);
+	Request that the host render a rectangle to the currently active
+target, using the geometry and color given. The filled flag determines if
+the host uses SDL_RenderDrawRect or SDL_RenderDrawRectFilled
+
+void AaediHAM_GraphicsDrawLine(const aaediclock_Color color, const aaediclock_FRect line);
+	Request that the host draw a 1px wide line on the screen in the
+given color. within line: x, y start coordinates, w,h end coordinates
+
+void AaediHAM_GraphicsDrawLines(const aaediclock_Color color, const aaediclock_FPoint* point_list, int count);
+	Request the host to draw a series of connected lines, this directly
+calls SDL_DrawLines() after converting point_list to SDL_FPoint*
+
+void AaediHAM_GraphicsClear(const aaediclock_Color& color = {0, 0, 0, 255});
+	Request that the host attempt to clear the current context panel.
+
+void AaediHAM_GraphicsDrawImage(uint16_t index);
+	Request that the host render the indicated texture to the target. 
+index needs to refer to a texture that was previously sent to the host via
+TextureCreate(), or nothing will happen.  There is currently no provision
+for only drawing partial textures or to only part of the target.  SDL
+definately supports this functionality, but it is not currently exposed here
+
+
+        // config calls
+
+const char* AaediHAM_ConfigGetQRZKey(bool refresh);
+	Request the current QRZ key hash in order to request data from QRZ.
+alternatively, request the host try to get a new key from QRZ.
+
+const char* AaediHAM_ConfigGetCall();
+	Request the currently configured call sign for the user
+
+struct aaediclock_dx AaediHAM_ConfigGetDE();
+	Request the currently configured DE/QTH location for the user
+
+void AaediHAM_ConfigSetDX(struct aaediclock_dx new_dx);
+	Set the program wide DX target. This will then be returned by
+subsequent calls to ConfigGetDX, but is NOT written to the config file on
+disk
+
+struct aaediclock_dx AaediHAM_ConfigGetDX();
+	Get the program wide DX target as set by the last call to
+ConfigSetDX
+
+struct plugin_server_info AaediHAM_ConfigGetDXServer();
+	Get the currently configred DX Cluster server settings
+
+struct plugin_wspr_station AaediHAM_ConfigGetNextWspr();
+	Itterate through configured WSPR stations from the config file, This
+returns each one in turn and then returns an empty name at the end
+
+int AaediHAM_ConfigGetSatCount();
+	Get how many satellites are configured for tracking
+
+const char* AaediHAM_ConfigGetSat(int index);
+	Get the configured satellite name from the config file at index,
+index can be anywhere up to ConfigGetSatCount
+
+        // program state calls
+const struct plugin_mouse_event AaediHAM_GetMouseEvent();
+	Get the latest mouse event from the host, translated to the active
+panel in which the click event occured.
+
+const struct aaediclock_FRect AaediHAM_GetMapSize();
+	Get the current size of the map panel, this is intended for creating
+and drawing to overlays 
+
+	// map pins
+
+void AaediHAM_MapPinDelete();
+	Delete all map pins owned by this plugin
+
+void AaediHAM_MapPinAdd(struct aaediclock_map_pin);
+	Add a map pin to the queue to be plotted 
+
+        // overlay calls
+bool AaediHAM_OverlayCheck();
+	Check if there is a valid map overlay for this plugin
+
+void AaediHAM_OverlaySet(aaediclock_FRect dims);
+	Set the render target to this plugin's overlay and create it with
+dims if need be. The overlay will then be scaled to the map size when it is
+rendered. If the overlay already exists, then dims is unused.
+
+void AaediHAM_OverlayRemove();
+	Request to destroy this plugin's map overlay if it exists
+
+void AaediHAM_OverlayClear(const aaediclock_Color& color = {0, 0, 0, 255});
+	Request to clear and reset this plugin's map overlay
+
+        // icon calls
+bool AaediHAM_IconCheck(uint16_t icon_index);
+	Verify if an icon index is still valid in the system
+
+uint16_t AaediHAM_IconCreate(const aaediclock_image& image_data);
+	Create an icon texture for later use via MapPinAdd()
+
+bool AaediHAM_IconUpdate(uint16_t index, const aaediclock_image& image_data);
+	Update an icon texture with image_data
+
+void AaediHAM_IconDelete(uint16_t index);
+	Request to destroy a given icon index
+
+        // texture cache calls
+bool AaediHAM_TextureCheck(uint16_t icon_index);
+	Verify if a texture index is valid for this plugin
+
+uint16_t AaediHAM_TextureCreate(const aaediclock_image& image_data);
+	Request a texture be created for later use by this plugin
+
+bool AaediHAM_TextureUpdate(uint16_t index, const aaediclock_image& image_data);
+	Request an existing texture be updated with new image_data
+
+void AaediHAM_TextureDelete(uint16_t index);
+	Request a plugin's texture at index be destroied.
+
+std::ostream* AaediHAM_LogDebug = nullptr;
+	write only access to the system debug_log. in debug builds, text
+sent here gets prepended with the plugin name and sent to clock_debug.log.
+in a release build, this gets sent to the bit bucket
+
+const uint32_t API_VERSION = 0050;
+	Theoretically, the version of this API provided by the host
+
+
+// Types //
+
+struct aaediclock_FRect { 
+    float x;
+    float y;
+    float h;
+    float w;
+};
+
+Defines a rectangle in a similar fashion to SDL_FRect (although I think I
+put mine in a different order so they are not directly assignable)
+in AaediHAM_GraphicsDrawLine, h,w are treated as the second set of end
+points (x2,y2)
+
+struct aaediclock_FPoint {
+    float x;
+    float y;
+};
+
+Defines a single point, similar to SDL_FPoinr
+
+struct aaediclock_Color {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    uint8_t a;
+};
+
+8 bit RGBA color definition
+
+struct aaediclock_map_pin {
+    int owner;
+    double lat;
+    double lon;
+    uint16_t icon;
+    aaediclock_Color color;
+    char label[32];
+    char tooltip[512];
+};
+
+Defines a map pin to be plotted
+	int owner:	The index of the plugin's owner. The host will
+overwrite this with the host side ID of the plugin.
+	double lat, lon: Geographic coordinates for the pin
+	uint16_t icon:  if the plugin has previously registered an icon
+texture it wants to use, specify the ID of that icon here
+	aaediclock_Color color:  What color to use for the pin if icon does
+not exist or is not specified
+	char label: a short space for a basic label (shown by DE)
+	char: tooltip: currently unused, eventually I want to add a hover
+box on the map with the contents of this field
+
+struct aaediclock_image {
+    // image width, height, and RGBA format
+    uint16_t width;
+    uint16_t height;
+    uint8_t*  pixels;
+};
+
+Used to pass image data across the API
+	uint16_t width: the width of the image included
+	uint16_t height: the height of the image included
+	uint8_t pixels: a pointer to the image data
+
+It is up to the plugin to make sure the image data is correct, The host can
+check that it exists, but has no way to verify the plugin is providing as
+much data as it is claiming.  The image data should be in 8 bit RGBA format,
+as a raw bitmap.
+
+struct aaediclock_dx {
+    double lat;
+    double lon;
+    char label[32];
+};
+
+A container for passing DE information between the host and plugin
+	double lat, lon: Geographic coordinates of the DX location
+	char label: the label for the location
+
+struct plugin_mouse_event {
+    struct aaediclock_FRect coords;
+    int click_count;
+    bool valid = false;
+};
+
+This contains translated information of a mouse click event
+	coords: the translated click coordinates relative to the panel in
+which the event occured
+	int click_count: how many clicks occured for the event
+	bool valid: is this event relivant to the plugin requesting it or
+for someone else?
+
+struct plugin_server_info {
+    char name[128];
+    uint16_t port;
+};
+
+This is a way to pass host/port data between host and plugin
+	char name: the server name
+	uint26_t port: the service port
+
+struct plugin_wspr_station {
+    char callsign[32];
+    uint16_t band;
+};
+
+This is a way to specify a WSPR station between host and plugin
+	char callsign: the station's callsign
+	uint16_t band: an integer representing the band by frequency 
+	-- 14 for 20 Meters
+	-- 7 for 40 Meters
+
+

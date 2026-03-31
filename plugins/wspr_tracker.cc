@@ -362,7 +362,7 @@ int SDLCALL update_wspr (void *userdata) {
     aaediclock_Color wsprcolor;
     wsprcolor = {128, 128, 128, 255};
     std::string callsign;
-    int band;
+//    int band;
     struct plugin_wspr_station  wspr_station =  host_api->AaediHAM_ConfigGetNextWspr();
     wsprlist.clear();
     while (wspr_station.callsign[0] !=0) {

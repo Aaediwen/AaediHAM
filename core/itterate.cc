@@ -1,5 +1,6 @@
 #include "aaediclock.h"
 #include "core/core.h"
+#include "core/quit.h"
 #include "utils/conversions.h"
 #include <SDL3_image/SDL_image.h>
 #include "sdl_callbacks.h"
@@ -220,6 +221,7 @@ void draw_overlays(ScreenFrame& panel) {
 
 bool resizing = false;
 bool reload_flag = false;
+std::string tempfile;
 SDL_AppResult SDL_AppIterate(void *appstate) {
     (void)appstate;
     SDL_Delay(10);                      // slow down the program
@@ -228,6 +230,10 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     _ASSERTE(_CrtCheckMemory());
 #endif
 #endif
+    if (interrupt_flag) {
+        window_destroy();
+        return(SDL_APP_SUCCESS);
+    }
 //mutex_checker();
     if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
         SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
@@ -323,10 +329,18 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 //        if (headless && (!outfile.empty())) {
         if (!outfile.empty()) {
             // dump surface to image file here
+            if (tempfile.empty()) {
+                tempfile = outfile + ".tmp";
+            }
             int width, height;
             SDL_GetCurrentRenderOutputSize(clock_renderer, &width, &height);
             SDL_Surface* savesurface = SDL_RenderReadPixels(clock_renderer, NULL);
-            IMG_SaveJPG(savesurface, outfile.c_str(), 75);
+            IMG_SaveJPG(savesurface, tempfile.c_str(), 75);
+            #ifdef _WIN32
+            MoveFileExA(tempfile.c_str(), outfile.c_str(), MOVEFILE_REPLACE_EXISTING);
+            #else
+            rename(tempfile.c_str(), outfile.c_str());
+            #endif
 //            SDL_SaveBMP(savesurface, outfile.c_str());  // output_file_path from --output
             SDL_DestroySurface(savesurface);
         }
