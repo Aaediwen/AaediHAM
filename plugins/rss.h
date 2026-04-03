@@ -1,10 +1,11 @@
+
+
 #ifndef RSS_H
 #define RSS_H
 #include "aaediclock.h"
 #include "plugin_api.h"
 #include <libxml/parser.h>
 #include <mutex>
-
 
 class rss_feed {
     public:
@@ -35,7 +36,7 @@ class rss_feed {
         void parse_rss(xmlNode* start_node, enum parser_state parent_name);
         void SDLCALL fetch_rss();
         static int SDLCALL thread_launcher(void* data);
-
+//        void fetch_rss();
 };
 
 

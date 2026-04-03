@@ -77,7 +77,6 @@ class aaediclock_host_api {
         virtual void 				AaediHAM_GraphicsDrawLines	(const aaediclock_Color color, const aaediclock_FPoint* point_list, int count)	= 0;
         virtual void 				AaediHAM_GraphicsClear		(const aaediclock_Color& color = {0, 0, 0, 255}) 				= 0;
         virtual void				AaediHAM_GraphicsDrawImage	(uint16_t index)								= 0;
-//        virtual struct aaediclock_image		AaediHAM_GraphicsGetText	(const char* string, const aaediclock_Color foreground, const aaediclock_Color background) = 0;
         // config calls
         virtual const char* 			AaediHAM_ConfigGetQRZKey	(bool refresh) 									= 0;
         virtual const char* 			AaediHAM_ConfigGetCall		() 										= 0;
@@ -87,6 +86,7 @@ class aaediclock_host_api {
         virtual struct aaediclock_dx 		AaediHAM_ConfigGetDX		() 										= 0;
         virtual struct plugin_server_info	AaediHAM_ConfigGetDXServer	() 										= 0;
         virtual struct plugin_wspr_station	AaediHAM_ConfigGetNextWspr	()										= 0;
+        virtual const char*			AaediHAM_ConfigGetNextRss	()										= 0;
         virtual int				AaediHAM_ConfigGetSatCount	()										= 0;
         virtual const char*			AaediHAM_ConfigGetSat		(int index)									= 0;
         // program state calls
@@ -110,6 +110,11 @@ class aaediclock_host_api {
         virtual uint16_t			AaediHAM_TextureCreate		(const aaediclock_image& image_data)						= 0;
         virtual bool				AaediHAM_TextureUpdate		(uint16_t index, const aaediclock_image& image_data)				= 0;
         virtual void				AaediHAM_TextureDelete		(uint16_t index)								= 0;
+        // scroller calls
+        virtual const struct aaediclock_FRect	AaediHAM_ScrollerInit		(const char* string, aaediclock_Color fg, aaediclock_Color bg)			= 0;
+        virtual void				AaediHAM_ScrollerPosition	(const aaediclock_FRect source, const aaediclock_FRect dest)			= 0;
+        virtual void				AaediHAM_ScrollerDelete		()										= 0;
+
 
         std::ostream* AaediHAM_LogDebug = nullptr;
         const uint32_t API_VERSION = 0050;

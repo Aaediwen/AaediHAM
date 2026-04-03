@@ -234,6 +234,8 @@ HostAPI::HostAPI(uint16_t new_id) {
     AaediHAM_LogDebug 	= new std::ostream(&debug_log_buffer);
     plugin_id = new_id;
     texture_cache.clear();
+    text_surface = nullptr;
+    rss_feed_index = 0;
 }
 
 HostAPI::~HostAPI() {
@@ -243,6 +245,10 @@ HostAPI::~HostAPI() {
     if (AaediHAM_LogDebug) {
         delete (AaediHAM_LogDebug);
     }
+    if (text_surface) {
+        SDL_DEstroySurface(text_surface);
+    }
+    text_surface = nullptr;
     if (!texture_cache.empty()) {
         for (SDL_Texture*& tex : texture_cache) {
             if (tex) {
@@ -382,19 +388,7 @@ void HostAPI::AaediHAM_GraphicsClear(const aaediclock_Color& color) {
     textcolor.a = color.a;
     this->panel->Clear(textcolor);
 }
-/*
-struct aaediclock_image AaediHAM_GraphicsGetText      (const char* string, const aaediclock_Color foreground, const aaediclock_Color background) {
-    struct aaediclock_image result;
-    std::string text = string;
-    SDL_Surface* text_surface =  TTF_RenderText_Shaded(Sans, text.c_str(), text.size(), static_cast<SDL_Color>(foreground), static_cast<SDL_Color>(background));
-    if (text_surface) {
-        result.height = text_surface->h;
-        result.width = test_surface->w;
-        result.pixels = static_cast<uint8_t*>(text_surface->pixels);
-    }
-    return result;
-}
-*/
+
 //********************************************************************************
 // Host Queries
 //********************************************************************************
@@ -505,6 +499,18 @@ struct plugin_wspr_station HostAPI::AaediHAM_ConfigGetNextWspr() {
     }
     return result;
 }
+
+const char* HostAPI::AaediHAM_ConfigGetNextRss() {
+    if ((clockconfig.Rss().empty()) || (rss_feed_index >= clockconfig.Rss().size())) {
+        rss_feed_index = 0;
+        return 0;
+    } else {
+        const char* result = clockconfig.Rss()[rss_feed_index].c_str();
+        rss_feed_index++;
+        return result;
+    }
+}
+
 
 
 //********************************************************************************
@@ -773,16 +779,54 @@ void HostAPI::AaediHAM_TextureDelete(uint16_t index) {
     }
     return;
 }
-/*
 
-//     this code here is a flag for stability on Pi2
-//     May need to keep a host-side cache of textures to prevent churn
-//     much like overlays or icons are handled
-//
+//********************************************************************************
+// Scroller Calls
+//********************************************************************************
 
-    SDL_Texture* image_tex = SDL_CreateTextureFromSurface(this->panel->GetRenderer(), new_image);
-    SDL_RenderTexture(this->panel->GetRenderer(), image_tex, nullptr, nullptr);
-    SDL_DestroyTexture(image_tex);
+const struct aaediclock_FRect HostAPI::AaediHAM_ScrollerInit (const char* string, aaediclock_Color fg, aaediclock_Color bg) {
+     aaediclock_FRect result;
+     result = aaediclock_FRect{0.0, 0.0, 0.0, 0.0};
+     std::string str = string;
+     text_surface = TTF_RenderText_Shaded(Sans, str.c_str(), str.size(), fg, bg);
+     if (text_surface) {
+         result.x = static_cast<float>(text_surface.w);
+         result.w = static_cast<float>(text_surface.w);
+         result.y = static_cast<float>(text_surface.h);
+         result.h = static_cast<float>(text_surface.h);
+     } else {
+         text_surface = nullptr;
+     }
+     return result;
+}
+
+
+void HostAPI::AaediHAM_ScrollerPosition(const aaediclock_FRect source, const aaediclock_FRect dest) {
+    if ((source.x < 0)||source.y < 0)) {
+        return;
+    }
+    if (!text_surface) {
+        return;
+    }
+    SDL_Texture* current_renderer = SDL_GetRenderTarget(clock_renderer);
+    SDL_Rect srcrect;
+    srcrect.x = static_cast<int>(source.x);
+    srcrect.y = static_cast<int>(source.y);
+    srcrect.w = static_cast<int>(source.w);
+    srcrect.h = static_cast<int>(source.h);
+    SDL_Rect dstrect;
+    dstrect.x = static_cast<int>(dest.x);
+    dstrect.y = static_cast<int>(dest.y);
+    dstrect.w = static_cast<int>(dest.w);
+    dstrect.h = static_cast<int>(dest.h);
+    SDL_BlitSurfaceScaled(text_surface, &srcrect, SDL_Surface *dst, &dstrect, SDL_SCALEMODE_LINEAR);
     return;
 }
-*/
+
+void HostAPI::AaediHAM_ScrollerDelete() {
+    if (text_surface) {
+        SDL_DestroySurface(text_surface);
+        text_surface = nullptr;
+    }
+    return;
+}

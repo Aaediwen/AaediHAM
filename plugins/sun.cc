@@ -17,8 +17,8 @@ int SDLCALL  fetch_sdo (void *data) {
      Uint64 data_size = 0;
      char* raw_image = 0 ;
      *(host_api->AaediHAM_LogDebug) << "Fetching SDO image from NASA --  ";
-     data_size = http_loader("https://soho.nascom.nasa.gov/data/realtime/hmi_igr/1024/latest.jpg", (void**)&raw_image);                           // live
-//     data_size = http_loader("https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg", (void**)&raw_image);                           // live
+//     data_size = http_loader("https://soho.nascom.nasa.gov/data/realtime/hmi_igr/1024/latest.jpg", (void**)&raw_image);                           // live
+     data_size = http_loader("https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg", (void**)&raw_image);                           // live
      if (data_size > 10) {
      	SDL_Surface* temp;
           try {

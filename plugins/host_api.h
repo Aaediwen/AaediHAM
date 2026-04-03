@@ -43,6 +43,7 @@ class HostAPI final : public aaediclock_host_api {
           struct aaediclock_dx AaediHAM_ConfigGetDX		() override;
           struct plugin_server_info AaediHAM_ConfigGetDXServer	() override;
           struct plugin_wspr_station AaediHAM_ConfigGetNextWspr () override;
+          const char* AaediHAM_ConfigGetNextRss       		() override;
           int AaediHAM_ConfigGetSatCount			() override;
           const char* AaediHAM_ConfigGetSat			(int index) override;
           // map pins
@@ -66,6 +67,11 @@ class HostAPI final : public aaediclock_host_api {
           uint16_t AaediHAM_TextureCreate                       (const aaediclock_image& image_data) override;
           bool AaediHAM_TextureUpdate                           (uint16_t index, const aaediclock_image& image_data) override;
           void AaediHAM_TextureDelete                           (uint16_t index) override;
+          // scroller calls
+          const struct aaediclock_FRect AaediHAM_ScrollerInit	(const char* string, aaediclock_Color fg, aaediclock_Color bg) override;
+          void AaediHAM_ScrollerPosition       			(const aaediclock_FRect source, const aaediclock_FRect dest) override;
+          void AaediHAM_ScrollerDelete				() override;
+
           // internal state
           ScreenFrame*	panel = nullptr;
           void set_plugin_name(const std::string& new_name);
@@ -75,6 +81,7 @@ class HostAPI final : public aaediclock_host_api {
           SDL_Surface*  text_surface;
           uint16_t plugin_id;
           std::vector<SDL_Texture*>texture_cache;
+          size_t rss_feed_index;
 };
 
 

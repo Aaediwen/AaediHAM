@@ -154,11 +154,11 @@ add_library(lunar_plugin SHARED
 target_link_libraries(lunar_plugin PRIVATE aaediclock_path SDL3::SDL3 SDL3_image::SDL3_image)
 
 
-#add_library(rss_plugin SHARED
-#    plugins/rss.cc
-#    utils/http_fetch.cc
-#)
-#target_link_libraries(rss_plugin PRIVATE aaediclock_path LibXml2::LibXml2)
+add_library(rss_plugin SHARED
+    plugins/rss.cc
+    utils/http_fetch.cc
+)
+target_link_libraries(rss_plugin PRIVATE aaediclock_path LibXml2::LibXml2)
 
 add_library(pskreporter_plugin SHARED
     plugins/pskreporter.cc

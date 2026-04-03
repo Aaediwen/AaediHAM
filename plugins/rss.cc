@@ -1,21 +1,24 @@
 #include "rss.h"
-//#include "core/utils.h"
 #include "utils/http_fetch.h"
 #include <algorithm>
-//#include <iostream>
 #include <libxml/parser.h>
 #include <libxml/HTMLparser.h>
 #include <libxml/tree.h>
 
+// RSS Class definitions
+
+
 std::vector<rss_feed> rss_feeds;
-
-
 aaediclock_host_api* host_api = nullptr;
 
 rss_feed::rss_feed(std::string new_url) {
      m_url.clear();
      m_url = new_url;
      m_entries.clear();
+//     this->m_rss_lock = SDL_CreateMutex();
+//     if (!this->m_rss_lock) {
+//          SDL_Log("Failed to create RSS mutex: %s", SDL_GetError());
+//     }
      m_current_index = 0;
      fetch_state = 0;
 }
@@ -28,11 +31,11 @@ rss_feed::~rss_feed() {
 //     }
 }
 
-rss_feed::rss_feed(rss_feed&& source) noexcept {			// move new
+rss_feed::rss_feed(rss_feed&& source) noexcept {                        // move new
 //     if (m_rss_lock) {
 //          SDL_DestroyMutex(m_rss_lock);
 //     }
-//     m_rss_lock = std::move(source.m_rss_lock);
+//     m_rss_lock = source.m_rss_lock;
 //     source.m_rss_lock = nullptr;
      m_url = std::move(source.m_url);
      m_title = std::move(source.m_title);
@@ -42,12 +45,12 @@ rss_feed::rss_feed(rss_feed&& source) noexcept {			// move new
      return;
 }
 
-rss_feed& rss_feed::operator=(rss_feed&& source) noexcept {		// move existing
+rss_feed& rss_feed::operator=(rss_feed&& source) noexcept {             // move existing
      if (this != &source) {
 //          if (m_rss_lock) {
 //               SDL_DestroyMutex(m_rss_lock);
 //          }
-//          m_rss_lock = std::move(source.m_rss_lock);
+//          m_rss_lock = source.m_rss_lock;
 //          source.m_rss_lock = nullptr;
           m_url = std::move(source.m_url);
           m_title = std::move(source.m_title);
@@ -58,11 +61,10 @@ rss_feed& rss_feed::operator=(rss_feed&& source) noexcept {		// move existing
      return *this;
 }
 
-rss_feed::rss_feed(const rss_feed& source) {				// copy new
+rss_feed::rss_feed(const rss_feed& source) {                            // copy new
 //     if (!m_rss_lock) {
 //          m_rss_lock = SDL_CreateMutex();
 //     }
-//     m_rss_lock = source.m_rss_lock;
      m_url = source.m_url;
      m_title = source.m_title;
      m_entries = source.m_entries;
@@ -71,12 +73,11 @@ rss_feed::rss_feed(const rss_feed& source) {				// copy new
      return;
 }
 
-rss_feed& rss_feed::operator=(const rss_feed& source) {			// copy existing
+rss_feed& rss_feed::operator=(const rss_feed& source) {                 // copy existing
      if (this != &source) {
 //          if (!m_rss_lock) {
 //               m_rss_lock = SDL_CreateMutex();
 //          }
-//          m_rss_lock = source.m_rss_lock;
           m_url = source.m_url;
           m_title = source.m_title;
           m_entries = source.m_entries;
@@ -141,7 +142,7 @@ void rss_feed::parse_rss(xmlNode* start_node, enum parser_state parent) {
                 } else if (NodeName == "description") {
                      if (parent == parser_state::item) {
                           fetch_description(current_node);
-                     }	// inside item
+                     }  // inside item
 
                 } else if (NodeName == "title") {
                      if (parent == parser_state::channel) {
@@ -154,6 +155,7 @@ void rss_feed::parse_rss(xmlNode* start_node, enum parser_state parent) {
      return;
 }
 
+
 void rss_feed::fetch_rss() {
      char* raw_xml = 0 ;
      Uint64 data_size = 0;
@@ -161,12 +163,12 @@ void rss_feed::fetch_rss() {
      SDL_Log("RSS: Fetching RSS feed for: %s", m_url.c_str());
      data_size = http_loader(m_url.c_str(), (void**)&raw_xml);
      if (data_size > 50) {
-          debug_log << "RSS: Calling XML ReadMemory\n";
+          *(host_api->AaediHAM_LogDebug) << "RSS: Calling XML ReadMemory\n";
           xml_tree = xmlReadMemory(raw_xml, static_cast<int>(data_size), nullptr, nullptr, 0);
           if (!xml_tree) {
-               debug_log << "RSS: Failed to parse RSS Feed XML\n";
+               *(host_api->AaediHAM_LogDebug) << "RSS: Failed to parse RSS Feed XML\n";
           } else {
-              const std::lock_guard<std::mutex>rss_lock(m_rss_lock);
+               const std::lock_guard<std::mutex>rss_lock(m_rss_lock);
 //               SDL_LockMutex(this->m_rss_lock);
                m_entries.clear();
                parse_rss(xmlDocGetRootElement(xml_tree), parser_state::none);
@@ -177,7 +179,7 @@ void rss_feed::fetch_rss() {
 //               SDL_UnlockMutex(this->m_rss_lock);
           }
      } else {
-          debug_log << "RSS: Skipped Parsing bad RSS feed\n";
+          *(host_api->AaediHAM_LogDebug) << "RSS: Skipped Parsing bad RSS feed\n";
      }
      if (raw_xml) {
           free (raw_xml);
@@ -198,8 +200,8 @@ std::string rss_feed::next() {
      result.clear();
      SDL_Thread* thread = nullptr;
      if (fetch_state == 0) {
-            if (m_rss_lock.try_lock()) {
-  //        if (SDL_TryLockMutex(this->m_rss_lock)) {
+          if (this->m_rss_lock.try_lock()) {
+//          if (SDL_TryLockMutex(this->m_rss_lock)) {
                if (m_entries.empty() || (m_current_index >= m_entries.size())) {
                     thread = SDL_CreateThread(thread_launcher, "RSS Fetcher", this);
                     SDL_DetachThread(thread);
@@ -208,16 +210,20 @@ std::string rss_feed::next() {
                     result = m_title+": "+m_entries[m_current_index];
                     m_current_index++;
                }
-               m_rss_lock.unlock();
+               this->m_rss_lock.unlock();
 //               SDL_UnlockMutex(this->m_rss_lock);
           } else {
-               debug_log << "RSS: Mutex Lock Fail, no fetch attempted: "<< SDL_GetError()<<"\n";
+               *(host_api->AaediHAM_LogDebug) << "RSS: Mutex Lock Fail, no fetch attempted: "<< SDL_GetError()<<"\n";
           }
      }
      return result;
 }
 
 
+
+// end RSS feed class definitions
+
+// plugin class definitions
 
 extern "C" DllExport aaediclock_plugin_api* createPlugin() {
     return new rss_plugin();
@@ -231,12 +237,23 @@ extern "C" DllExport void destroyPlugin(aaediclock_plugin_api* target) {
 void rss_plugin::plugin_init() const {
     // populate the feeds from config if needed
     if (rss_feeds.empty()) {
-        if (!clockconfig.Rss().empty()) {
-            for (const std::string& stropt : clockconfig.Rss()) {
-                 rss_feeds.emplace_back(stropt);
+        std::string feed_url;
+        const char* temp = host_api->AaediHAM_ConfigGetNextRss();
+        if (temp) {
+            feed_url = temp;
+        }
+        if (!feed_url.empty()) {
+            while (!feed_url.empty()) {
+                 rss_feeds.emplace_back(feed_url);
+                 feed_url.clear();
+                 temp = host_api->AaediHAM_ConfigGetNextRss();
+                 if (temp) {
+                     feed_url = temp;
+                 }
             }
         }
     }
+
     return;
 }
 
@@ -244,208 +261,48 @@ void rss_plugin::plugin_exit() const {
     return;
 }
 
-
-
 size_t feed_index = 0;
-SDL_Surface* ticker_surface = nullptr;
-//SDL_Texture* active_ticker_texture = nullptr;
-aaediclock_FRect source_rect, dest_rect;
-//, max_rect;
-aaediclock_FRect ticker_texture_size = {0, 0, 0, 0};
-//SDL_Texture* streaming_ticker = nullptr;
-uint16_t streaming_ticker = 0;
-float feed_rate = 20.0f;
+
 void rss_plugin::plugin_main(const aaediclock_FRect& dims) const {
-       if ((dims.h < 10) || (dims.w < 10)) {
-           return;
-       }
-       if (rss_feeds.empty()) {
-           return;
-       }
-/*     // input validation
-     if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
-         SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
-     }
-     else {
-         SDL_Log("RSS DRAW during resize event!");
-         return;
-     }
-     if (!Sans) {
-        debug_log << "RSS: No font defined\n";
-        return;
-    }
-    if (!panel.GetRenderer()) {
-        debug_log << "RSS: Missing Renderer!\n";
-        return;
-    }
-    if (!panel.texture) {
-        debug_log << "RSS: Missing PANEL!\n";
-        return;
-    }
-*/
-
     // go ahead and bail if none are configured
-
-    // Init and clear the overlay
-    aaediclock_FRect mapsize ;
-    aaediclock_FRect ticker_box;
-    mapsize.w = dims.w;
-    mapsize.h = dims.h;
-//    ScreenFrame* overlay = overlays.get_overlay(panel.GetRenderer(), MOD_RSS, mapsize);
-    host_api->AaediHAM_OverlaySet(mapsize);
-    host_api->AaediHAM_OverlayClear(aaediclock_Color{0,0,0,0});
-//    overlay->Clear(SDL_Color{0,0,0,0});
-    ticker_box.x = 0;
-    ticker_box.y = (mapsize.h/16)*15;
-    ticker_box.w = mapsize.w;
-    ticker_box.h = (mapsize.h/16);
-    dest_rect.h = ticker_box.h;
-    dest_rect.y = ticker_box.y;
-//    int_ticker_box.x=static_cast<int>(ticker_box.x);
-//    int_ticker_box.y=static_cast<int>(ticker_box.y);
-//    int_ticker_box.h=static_cast<int>(ticker_box.h);
-//    int_ticker_box.w=static_cast<int>(ticker_box.w);
-    feed_rate = ticker_box.w/100;
-    if ((ticker_texture_size.h != ticker_box.h) &&(ticker_texture_size.w != ticker_box.w)) {
-        if (host_api->AaediHAM_TextureCheck(streaming_ticker)) {
-            host_api->AaediHAM_TextureDelete(streaming_ticker);
-            streaming_ticker=0;
-        }
-        struct aaediclock_image new_texture;
-        new_texture.width = ticker_box.w;
-        new_texture.height = ticker_box.h;
-        new_texture.pixels = static_cast<uint8_t*>(malloc(ticker_box.w*ticker_box.h*4));
-        streaming_ticker =  host_api->AaediHAM_TextureCreate(new_texture);
-//        streaming_ticker = SDL_CreateTexture(panel.GetRenderer(), overlay->texture->format, SDL_TEXTUREACCESS_STREAMING, int_ticker_box.w, int_ticker_box.h);
-        if (streaming_ticker) {
-            ticker_texture_size = ticker_box;
-        }
+    if (rss_feeds.empty()) {
+        return;
     }
-    // get the next headline as needed
-    if (!ticker_surface) {
-        std::cout << "RSS: Getting next headline\n";
-        std::string next_text;
-        // get the next ticker headline
-        if (!rss_feeds.empty()) {
-             next_text = rss_feeds[feed_index].next();
-             feed_index++;
-             if (feed_index >= rss_feeds.size()) {
-                  feed_index = 0;
-             }
-        }
-        // build the text texture
-        if (!next_text.empty()) {
-             // surface first
-//             SDL_Log (next_text.c_str());
-//             std::cout << "RSS: Rendering Headline text to surface\n";
-             ticker_surface = TTF_RenderText_Shaded(Sans, next_text.c_str(), next_text.size(), SDL_Color{128,64,64,255}, SDL_Color{0,0,0,0});
 
-             if (ticker_surface) {
-                   // init source and dest boxes
-//                   SDL_SetSurfaceColorKey(ticker_surface, 1, 0);
-                   source_rect.h = static_cast<float>(ticker_surface->h);
-                   source_rect.w = 0;
-                   source_rect.x = 0;
-                   source_rect.y = 0;
-                   dest_rect.h = ticker_box.h;
-                   dest_rect.w = 0;
-//                   dest_rect.x = ticker_surface->w;
-                   dest_rect.x = ticker_box.w;
-                   dest_rect.y = 0;
-             }  else {
-                        debug_log << "RSS: Unable to create Ticker Surface: "<< SDL_GetError()<< "\n";
-                   }
-
+    std::string next_text;
+    // get the next ticker headline
+    if (!rss_feeds.empty()) {
+        next_text = rss_feeds[feed_index].next();
+        *(host_api->AaediHAM_LogDebug) << "headline: " << next_text << "\n";
+        feed_index++;
+        if (feed_index >= rss_feeds.size()) {
+            feed_index = 0;
         }
     }
 
-    // bail if there isn't an avtive headline at this point
-    if (!ticker_surface) {
-         std::cout << "RSS: No Ticker text to render\n";
-         return;
-    }
 
-    // draw the background
-    host_api->AaediHAM_OverlaySet(mapsize);
-     host_api->AaediHAM_GraphicsDrawRect(aaediclock_Color {255,128,128,128}, ticker_box, 1);
-//    SDL_SetRenderTarget(panel.GetRenderer(), overlay->texture);
-//    SDL_SetRenderDrawColor (panel.GetRenderer(), 255,128,128,128);
-//    SDL_RenderFillRect(panel.GetRenderer(), &ticker_box);
+/*    host_api->AaediHAM_GraphicsClear();
+    aaediclock_Color fontcolor;
+    fontcolor.r=128;
+    fontcolor.g=128;
+    fontcolor.b=255;
+    fontcolor.a=0;
 
-    if (ticker_surface) {
-         // we have an active headline here
-//         std::cout << "RSS: Attempting to render headline to overlay\n";
-         SDL_Surface* texture_surface;
-         SDL_Rect int_source_box;
-         int_source_box.x = static_cast<int>(source_rect.x);
-         int_source_box.y = static_cast<int>(source_rect.y);
-         int_source_box.h = static_cast<int>(source_rect.h);
-         int_source_box.w = static_cast<int>(source_rect.w);
-//         SDL_Rect int_dest_box;
-//         int_dest_box.x = static_cast<int>(dest_rect.x);
-//         int_dest_box.y = static_cast<int>(dest_rect.y);
-//         int_dest_box.h = static_cast<int>(dest_rect.h);
-//         int_dest_box.w = static_cast<int>(dest_rect.w);
-
-         if (streaming_ticker) {
-//              std::cout << "RSS: Locking Streaming Texture\n";
-              if (SDL_LockTextureToSurface(streaming_ticker, NULL, &texture_surface)) {
-                   SDL_ClearSurface(texture_surface, 0, 0, 0, 0);
-                   if (SDL_BlitSurfaceScaled(ticker_surface, &int_source_box, texture_surface, NULL, SDL_SCALEMODE_NEAREST)) {
-//                      std::cout << "RSS: Blitted Texture " << int_source_box.x << "," <<int_source_box.w << " " <<int_dest_box.x << ", " << int_dest_box.w << "\n";
-                   }
-                   SDL_UnlockTexture(streaming_ticker);
-//                   std::cout << "RSS: UnLocked Streaming Texture --- rendering\n";
-                   if (SDL_RenderTexture(panel.GetRenderer(), streaming_ticker, NULL, &dest_rect)) {
-//                        std::cout << "RSS: Rendered to Overlay Surface: " << SDL_GetError() << "\n";
-                   } else {
-                       std::cout << "RSS: Unable to render to Overlay Surface: " << SDL_GetError() << "\n";
-                   }
-              } else {
-                   std::cout << "RSS: Unable to lock Overlay Surface: " << SDL_GetError() << "\n";
-              }
-         }
-         // update the scroller
-         // scroll output left
-         if (dest_rect.x >0) {
-             dest_rect.x -= feed_rate;
-             if (dest_rect.x < 0) { dest_rect.x = 0; }
-         }
-         // if output is at the far left, then scroll input start right
-         if (dest_rect.x == 0 && (source_rect.x < ticker_surface->w)) {
-              source_rect.x += feed_rate;
-              if (source_rect.x > ticker_surface->w) {
-                   source_rect.x = static_cast<float>(ticker_surface->w);
-              }
-         }
-         // calculate source string width
-         source_rect.w = ticker_surface->w - source_rect.x;
-         // calculate dest string width
-         dest_rect.w = ticker_box.w - dest_rect.x ;
-         if (dest_rect.w > source_rect.w) {
-             dest_rect.w = source_rect.w;
-         } else {
-             source_rect.w = dest_rect.w;
-         }
-         // nuke the headline to load the next
-         if ((dest_rect.x == 0) && (source_rect.w ==0)) {
-              SDL_DestroySurface(ticker_surface);
-              ticker_surface = nullptr;
-         }
-
-
-    } else {
-        std::cout << "Scroller seems to be missing the ticker_surface\n";
-    }
-     return;
-
+    aaediclock_FRect TextRect;
+    TextRect.x=2;
+    TextRect.y=2;
+    TextRect.h=(dims.h)-4;
+    TextRect.w=(dims.w)-4;
+    const char* callsign = host_api->AaediHAM_ConfigGetCall();
+    host_api->AaediHAM_GraphicsDrawText(callsign, fontcolor, TextRect);*/
 }
 
 const char* rss_plugin::getName() const {
-    return "RSS Module";
+    return "Rss Module";
 }
 
 void rss_plugin::set_host(aaediclock_host_api* host) {
     host_api = host;
 }
 
+// end plugin definition
