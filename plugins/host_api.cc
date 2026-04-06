@@ -246,7 +246,7 @@ HostAPI::~HostAPI() {
         delete (AaediHAM_LogDebug);
     }
     if (text_surface) {
-        SDL_DEstroySurface(text_surface);
+        SDL_DestroySurface(text_surface);
     }
     text_surface = nullptr;
     if (!texture_cache.empty()) {
@@ -787,13 +787,57 @@ void HostAPI::AaediHAM_TextureDelete(uint16_t index) {
 const struct aaediclock_FRect HostAPI::AaediHAM_ScrollerInit (const char* string, aaediclock_Color fg, aaediclock_Color bg) {
      aaediclock_FRect result;
      result = aaediclock_FRect{0.0, 0.0, 0.0, 0.0};
+     if (!string || !string[0]) {
+         return result;
+     }
      std::string str = string;
-     text_surface = TTF_RenderText_Shaded(Sans, str.c_str(), str.size(), fg, bg);
+     debug_log << "Created Scroller stack for " << str << "\n";
+     SDL_Color foreground, background;
+     foreground.r = fg.r;
+     foreground.g = fg.g;
+     foreground.b = fg.b;
+     foreground.a = fg.a;
+     background.r = bg.r;
+     background.g = bg.g;
+     background.b = bg.b;
+     background.a = bg.a;
+     this->AaediHAM_ScrollerDelete();
+//     text_surface = TTF_RenderText_Shaded(Sans, str.c_str(), str.size(), foreground, background);
+     text_surface = TTF_RenderText_Blended(Sans, str.c_str(), str.size(), foreground);
+     background = background;
      if (text_surface) {
-         result.x = static_cast<float>(text_surface.w);
-         result.w = static_cast<float>(text_surface.w);
-         result.y = static_cast<float>(text_surface.h);
-         result.h = static_cast<float>(text_surface.h);
+         result.x = 0;
+         result.w = static_cast<float>(text_surface->w);
+         result.y = 0;
+         result.h = static_cast<float>(text_surface->h);
+
+         int offset = 0;
+         int width = 500;
+         while (offset < text_surface->w) {
+             if (offset + width > text_surface->w) {
+                 width = text_surface->w - offset;
+             }
+             SDL_Texture* new_segment_tex = nullptr;
+             SDL_Surface* new_segment_surf = nullptr;
+             new_segment_surf = SDL_CreateSurface(width, text_surface->h, text_surface->format);
+             if (new_segment_surf) {
+                 SDL_Rect srcrect;
+                 srcrect.x=offset;
+                 srcrect.y = 0;
+                 srcrect.w = width;
+                 srcrect.h = text_surface->h;
+                 SDL_BlitSurfaceScaled(text_surface, &srcrect, new_segment_surf, NULL, SDL_SCALEMODE_LINEAR);
+                 new_segment_tex = SDL_CreateTextureFromSurface(clock_renderer, new_segment_surf);
+                 if (new_segment_tex) {
+                     struct scroller_section new_section ;
+                     new_section.segment = new_segment_tex;
+                     SDL_SetTextureBlendMode(new_section.segment, SDL_BLENDMODE_BLEND);
+                     scroll_buffer.emplace_back(new_section);
+                 }
+                 SDL_DestroySurface(new_segment_surf);
+             }
+             offset += width;
+         }
      } else {
          text_surface = nullptr;
      }
@@ -802,24 +846,53 @@ const struct aaediclock_FRect HostAPI::AaediHAM_ScrollerInit (const char* string
 
 
 void HostAPI::AaediHAM_ScrollerPosition(const aaediclock_FRect source, const aaediclock_FRect dest) {
-    if ((source.x < 0)||source.y < 0)) {
+    if ((source.x < 0)||(source.y < 0)) {
         return;
     }
     if (!text_surface) {
         return;
     }
-    SDL_Texture* current_renderer = SDL_GetRenderTarget(clock_renderer);
-    SDL_Rect srcrect;
-    srcrect.x = static_cast<int>(source.x);
-    srcrect.y = static_cast<int>(source.y);
-    srcrect.w = static_cast<int>(source.w);
-    srcrect.h = static_cast<int>(source.h);
-    SDL_Rect dstrect;
-    dstrect.x = static_cast<int>(dest.x);
-    dstrect.y = static_cast<int>(dest.y);
-    dstrect.w = static_cast<int>(dest.w);
-    dstrect.h = static_cast<int>(dest.h);
-    SDL_BlitSurfaceScaled(text_surface, &srcrect, SDL_Surface *dst, &dstrect, SDL_SCALEMODE_LINEAR);
+    (void)source;
+    SDL_FRect target_source;
+    SDL_FRect target_dest;
+    target_dest.x = dest.x;
+    target_dest.y = dest.y;
+    target_source.x = 0;
+    target_source.y = 0;
+    float string_offset = source.x;
+    debug_log << "Showing Scroller Overlay\n";
+    for (auto& segment : scroll_buffer) {
+        target_source.x = 0;
+        target_source.y = 0;
+        target_dest.w = segment.segment->w;
+        target_dest.h = dest.h;
+        target_source.w = segment.segment->w;
+        target_source.h = segment.segment->h;
+        float segment_offset = 0;
+        if (string_offset >0) {
+            if (string_offset > target_source.w) {
+                segment_offset = target_source.w;
+                string_offset -= segment_offset;
+                target_source.x = segment_offset;
+                target_source.w = 0;
+                target_dest.w = 0;
+            } else {
+                segment_offset = string_offset;
+                string_offset = 0;
+                target_source.x = segment_offset;
+                target_source.w -= segment_offset;
+                target_dest.w -= segment_offset;
+            }
+        }
+
+//        SDL_SetRenderDrawColor(this->panel->GetRenderer(), 255, 0, 0, 64);
+//        SDL_RenderFillRect(this->panel->GetRenderer(), &target_dest);
+//        debug_log << "Showing Scroller segment\n";
+        SDL_RenderTexture(this->panel->GetRenderer(), segment.segment, &target_source, &target_dest);
+//        float rendered_width = target_source.w - segment_offset;
+        target_dest.x += target_source.w;
+    }
+
     return;
 }
 
@@ -828,5 +901,12 @@ void HostAPI::AaediHAM_ScrollerDelete() {
         SDL_DestroySurface(text_surface);
         text_surface = nullptr;
     }
+    for (auto& segment : scroll_buffer) {
+        if (segment.segment) {
+            SDL_DestroyTexture(segment.segment);
+            segment.offset = 0;
+        }
+    }
+    scroll_buffer.clear();
     return;
 }

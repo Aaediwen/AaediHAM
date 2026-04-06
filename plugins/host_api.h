@@ -76,9 +76,14 @@ class HostAPI final : public aaediclock_host_api {
           ScreenFrame*	panel = nullptr;
           void set_plugin_name(const std::string& new_name);
      private:
+          struct scroller_section {
+              int offset = 0;
+              SDL_Texture* segment;
+          };
           debugbuf debug_log_buffer;
           std::istream* api_debug_log;
           SDL_Surface*  text_surface;
+          std::deque<struct scroller_section>scroll_buffer;
           uint16_t plugin_id;
           std::vector<SDL_Texture*>texture_cache;
           size_t rss_feed_index;

@@ -262,7 +262,9 @@ void rss_plugin::plugin_exit() const {
 }
 
 size_t feed_index = 0;
-
+bool restart_flag = false;
+aaediclock_FRect scroller_size = {0.0, 0.0, 0.0, 0.0};
+float scroller_start_pos = 0.0;
 void rss_plugin::plugin_main(const aaediclock_FRect& dims) const {
     // go ahead and bail if none are configured
     if (rss_feeds.empty()) {
@@ -271,30 +273,45 @@ void rss_plugin::plugin_main(const aaediclock_FRect& dims) const {
 
     std::string next_text;
     // get the next ticker headline
+    if (!restart_flag) {
     if (!rss_feeds.empty()) {
         next_text = rss_feeds[feed_index].next();
         *(host_api->AaediHAM_LogDebug) << "headline: " << next_text << "\n";
+        if (!next_text.empty()) {
+            scroller_size = host_api->AaediHAM_ScrollerInit (next_text.c_str(), aaediclock_Color{128, 128, 192, 255}, aaediclock_Color{128,0,0,0});
+            restart_flag = true;
+            scroller_start_pos = host_api->AaediHAM_GetMapSize().w;
+        }
         feed_index++;
         if (feed_index >= rss_feeds.size()) {
             feed_index = 0;
         }
     }
+    }
+    aaediclock_FRect mapsize = host_api->AaediHAM_GetMapSize();
+    host_api->AaediHAM_OverlaySet(mapsize);
+    host_api->AaediHAM_OverlayClear(aaediclock_Color{0,0,0,0});
+    aaediclock_FRect ticker_box;
+    ticker_box.x = 0;
+    ticker_box.y = (mapsize.h/16)*15;
+    ticker_box.w = mapsize.w;
+    ticker_box.h = (mapsize.h/16);
+    host_api->AaediHAM_GraphicsDrawRect (aaediclock_Color{128,0,0,128}, ticker_box, 1);
+//    aaediclock_FRect ticker_box;
+    ticker_box.x = scroller_start_pos;
+    ticker_box.y = (mapsize.h/16)*15;
+    ticker_box.w = mapsize.w;
+    ticker_box.h = (mapsize.h/16);
+    host_api->AaediHAM_ScrollerPosition(scroller_size, ticker_box);
+    scroller_start_pos -=3;
+    if (scroller_start_pos < 0.0) {
+       scroller_size.x -= scroller_start_pos;
+       scroller_start_pos = 0.0;
+    }
+    if (scroller_size.x > scroller_size.w) {
+        restart_flag = false;
+    }
 
-
-/*    host_api->AaediHAM_GraphicsClear();
-    aaediclock_Color fontcolor;
-    fontcolor.r=128;
-    fontcolor.g=128;
-    fontcolor.b=255;
-    fontcolor.a=0;
-
-    aaediclock_FRect TextRect;
-    TextRect.x=2;
-    TextRect.y=2;
-    TextRect.h=(dims.h)-4;
-    TextRect.w=(dims.w)-4;
-    const char* callsign = host_api->AaediHAM_ConfigGetCall();
-    host_api->AaediHAM_GraphicsDrawText(callsign, fontcolor, TextRect);*/
 }
 
 const char* rss_plugin::getName() const {

@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <sstream>
+#include <deque>
 
 struct aaediclock_FRect {
     float x;
