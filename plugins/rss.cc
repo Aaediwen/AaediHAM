@@ -265,6 +265,7 @@ size_t feed_index = 0;
 bool restart_flag = false;
 aaediclock_FRect scroller_size = {0.0, 0.0, 0.0, 0.0};
 float scroller_start_pos = 0.0;
+SDL_Time last_update_time = 0;
 void rss_plugin::plugin_main(const aaediclock_FRect& dims) const {
     // go ahead and bail if none are configured
     if (rss_feeds.empty()) {
@@ -281,6 +282,7 @@ void rss_plugin::plugin_main(const aaediclock_FRect& dims) const {
             scroller_size = host_api->AaediHAM_ScrollerInit (next_text.c_str(), aaediclock_Color{128, 128, 192, 255}, aaediclock_Color{128,0,0,0});
             restart_flag = true;
             scroller_start_pos = host_api->AaediHAM_GetMapSize().w;
+            SDL_GetCurrentTime(&last_update_time);
         }
         feed_index++;
         if (feed_index >= rss_feeds.size()) {
@@ -303,11 +305,15 @@ void rss_plugin::plugin_main(const aaediclock_FRect& dims) const {
     ticker_box.w = mapsize.w;
     ticker_box.h = (mapsize.h/16);
     host_api->AaediHAM_ScrollerPosition(scroller_size, ticker_box);
-    scroller_start_pos -=3;
+    SDL_Time currenttime;
+    SDL_GetCurrentTime(&currenttime);
+    SDL_Time time_offset = (currenttime - last_update_time)/100000000;
+    scroller_start_pos -= (3 * time_offset);
     if (scroller_start_pos < 0.0) {
        scroller_size.x -= scroller_start_pos;
        scroller_start_pos = 0.0;
     }
+    last_update_time = currenttime;
     if (scroller_size.x > scroller_size.w) {
         restart_flag = false;
     }
