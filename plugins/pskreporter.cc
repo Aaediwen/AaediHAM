@@ -10,6 +10,7 @@
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
 aaediclock_host_api* host_api = nullptr;
+bool connlost_flag = true;
 
 
 //https://retrieve.pskreporter.info/query?senderCallsign=requestedcall // appcontact=myemailaddress
@@ -176,8 +177,9 @@ void connlost(void* context, char* cause) {
         *(host_api->AaediHAM_LogDebug) << "\t Bad Cause definition\n";
     }
     if (mqtt_client) {
-         MQTTClient_destroy(&mqtt_client);
-         mqtt_client = 0;
+//         MQTTClient_destroy(&mqtt_client);
+//         mqtt_client = 0;
+        connlost_flag = true;
     }
 }
 
@@ -308,8 +310,9 @@ extern "C" DllExport void destroyPlugin(aaediclock_plugin_api* target) {
 }
 
 void psk_reporter_plugin::plugin_init() const {
-    if (!mqtt_client) {
+    if (!mqtt_client || connlost_flag) {
          init_mqtt();
+         connlost_flag = false;
     }
     return;
 }
