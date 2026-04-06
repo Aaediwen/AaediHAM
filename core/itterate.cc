@@ -257,7 +257,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         }
         SDL_LockMutex(mutexes[MUTEX_MASTER_CLOCK]);
 
-        winboxes[PANEL_MAP].panel.draw_border();
+
         for (struct PluginModule& plugin : loaded_plugins ) {
             if (plugin.draw_flag) {
                 debug_log << "ITTERATE: Calling "<< plugin.name <<" with panel " << plugin.host_api->panel << "\n";
@@ -279,6 +279,17 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
                 plugin.draw_flag = false;
             }
         }
+        winboxes[PANEL_MAP].panel.draw_border();
+//        winboxes[PANEL_CALLSIGN].panel.draw_border();
+//        winboxes[PANEL_CLOCK].panel.draw_border();
+//        winboxes[PANEL_MAP].panel.draw_border();
+//        winboxes[PANEL_DE].panel.draw_border();
+//        winboxes[PANEL_DX].panel.draw_border();
+//        winboxes[PANEL_FLEXBOX1].panel.draw_border();
+//        winboxes[PANEL_FLEXBOX2].panel.draw_border();
+//        winboxes[PANEL_FLEXBOX3].panel.draw_border();
+//        winboxes[PANEL_FLEXBOX4].panel.draw_border();
+//        winboxes[PANEL_FLEXBOX5].panel.draw_border();
 
 /*
         if (master_flags.rss.draw_flag) {
@@ -303,10 +314,12 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         // new plugin pins
         ScreenFrame* pin_overlay = overlays.get_overlay(clock_renderer, 1002,  winboxes[PANEL_MAP].panel.dims);
         pin_overlay->Clear(SDL_Color{0,0,0,0});
-        map_owner_id = winboxes[PANEL_MAP].plugin_sequence[winboxes[PANEL_MAP].plugin_index];
-        if (!plugin_map_pins.empty()) {
-            for (auto& map_pin : plugin_map_pins) {
-                render_pin(pin_overlay, &map_pin);
+        if (!winboxes[PANEL_MAP].plugin_sequence.empty()) {
+            map_owner_id = winboxes[PANEL_MAP].plugin_sequence[winboxes[PANEL_MAP].plugin_index];
+            if (!plugin_map_pins.empty()) {
+                for (auto& map_pin : plugin_map_pins) {
+                    render_pin(pin_overlay, &map_pin);
+                }
             }
         }
         if (map_owner_id == clock_mouse_event.plugin_owner) {

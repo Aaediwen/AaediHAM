@@ -861,6 +861,7 @@ void HostAPI::AaediHAM_ScrollerPosition(const aaediclock_FRect source, const aae
     target_source.y = 0;
     float string_offset = source.x;
     debug_log << "Showing Scroller Overlay\n";
+    SDL_Texture* current_texture = SDL_GetRenderTarget(this->panel->GetRenderer());
     for (auto& segment : scroll_buffer) {
         target_source.x = 0;
         target_source.y = 0;
@@ -888,9 +889,12 @@ void HostAPI::AaediHAM_ScrollerPosition(const aaediclock_FRect source, const aae
 //        SDL_SetRenderDrawColor(this->panel->GetRenderer(), 255, 0, 0, 64);
 //        SDL_RenderFillRect(this->panel->GetRenderer(), &target_dest);
 //        debug_log << "Showing Scroller segment\n";
-        SDL_RenderTexture(this->panel->GetRenderer(), segment.segment, &target_source, &target_dest);
-//        float rendered_width = target_source.w - segment_offset;
-        target_dest.x += target_source.w;
+
+        if (current_texture && target_dest.x <= current_texture->w) {
+            SDL_RenderTexture(this->panel->GetRenderer(), segment.segment, &target_source, &target_dest);
+//          float rendered_width = target_source.w - segment_offset;
+            target_dest.x += target_source.w;
+        }
     }
 
     return;
