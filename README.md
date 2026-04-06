@@ -297,13 +297,17 @@ CMake will attempt to fetch the direct dependancies as listed above. However, it
       cmake .. 
       make
       cp -r ../images . 
-      cp -r ../aaediclock_config.json . 
+      cp -r ../aaediclock_config.json .
+      mkdir plugins
+      cp *.so plugins/
+      edit aaediclock_config.json to reflect how you want the plugins configured
       ./clock
 ```
   I actually recommend creating another directory where you place 
   - clock
   - aaediclock_config.json
   - images/ (image assets)
+  - plugins/ (plugin module libraries)
   
   However, it's not a big deal if you choose to do that in the source tree as shown above, and run from there. That's what I do a lot during development
       
@@ -318,8 +322,9 @@ CMake will attempt to fetch the direct dependancies as listed above. However, it
       Build --> Build All
 
       after building:
-      Collect the compiled `clock.exe` and Dependancy DLL files from `out/build/...` into a common directory
+      The binaries will be collected to a binary/ directory in the build tree
       Copy the `images` directory into the same folder as `clock.exe`
+      Copy the plugin DLL files where you want them to live, and add them to your aaediclock_config.json
       Copy or create an aaediclock_config.json file in the same directory
   ```
       
@@ -334,5 +339,6 @@ The directory that contains the clock or clock.exe binary must also contain:
   - Countries Map
   - Moon image
   - Satellite icon images
+- plugin libraries for the plugins you want to load
 
 If these are missing, the program will fail to render the corresponding assets.
