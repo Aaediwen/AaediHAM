@@ -53,6 +53,7 @@ set (SOURCES
 	plugins/host_api.cc
 )
 
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 add_library(aaediclock_path INTERFACE)
 target_include_directories(aaediclock_path INTERFACE ${CMAKE_SOURCE_DIR})
 if (ASAN_ENABLE) 
