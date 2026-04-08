@@ -185,7 +185,7 @@ void aurora_plugin::plugin_main(const aaediclock_FRect& dims) const {
         }
     }
     if (aurora_tex_id) {
-         host_api->AaediHAM_OverlaySet(map_dims);
+         host_api->AaediHAM_OverlaySet(map_dims, OVERLAY_BASE);
          host_api->AaediHAM_OverlayClear(aaediclock_Color{0,0,0,0});
          host_api->AaediHAM_GraphicsDrawImage(aurora_tex_id);
     }

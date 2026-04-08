@@ -787,7 +787,7 @@ void map_overlay::clear() {
     zorder = 0;
     return;
 }
-ScreenFrame* map_overlay::get_overlay(SDL_Renderer* renderer, uint16_t owner, SDL_FRect dims) {
+ScreenFrame* map_overlay::get_overlay(SDL_Renderer* renderer, uint16_t owner, SDL_FRect dims, uint8_t z_layer = 1) {
     if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
         SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
@@ -808,6 +808,11 @@ ScreenFrame* map_overlay::get_overlay(SDL_Renderer* renderer, uint16_t owner, SD
         }
         struct transparancy new_overlay;
         new_overlay.owner = owner;
+        if (z_layer > 2) {
+            debug_log << "OVERLAY: Clamping invalid Z order request.";
+            z_layer = 1;
+        }
+        new_overlay.z_order = z_layer;
         new_overlay.panel.Create(renderer, dims);
         if (!new_overlay.panel.texture) {
             SDL_Log("Failed to create overlay texture: %s", SDL_GetError());
@@ -838,13 +843,16 @@ void map_overlay::set_zorder(Uint8 priority) {
     zorder = priority;
 }
 
-ScreenFrame* map_overlay::next_overlay() {
+ScreenFrame* map_overlay::next_overlay(uint8_t z_layer) {
     if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
         SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
     }
     else {
         SDL_Log("Overlay call during resize event!");
         return (nullptr);
+    }
+    while (index < overlay_list.size() && overlay_list[index].z_order != z_layer) {
+        index++;
     }
     if (index < overlay_list.size()) {
         index++;

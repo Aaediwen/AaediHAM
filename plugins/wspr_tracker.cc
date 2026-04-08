@@ -316,7 +316,7 @@ void TrackedWSPR::draw_telemetry(aaediclock_FRect dims) {
         render_size++;
 //         SDL_SetRenderDrawColor(map.GetRenderer(), 128, 128, 255, 255);
          aaediclock_FRect visirect = {SDLPoints[index].x, SDLPoints[index].y, 4.0, 4.0};
-         host_api->AaediHAM_OverlaySet(dims);
+         host_api->AaediHAM_OverlaySet(dims, OVERLAY_BASE);
          host_api->AaediHAM_GraphicsDrawRect(aaediclock_Color{128,128,255,255},visirect,1);
 //         SDL_RenderFillRect(map.GetRenderer(), &visirect);
          if (index > 1) {

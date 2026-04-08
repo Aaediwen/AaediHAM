@@ -559,7 +559,7 @@ bool HostAPI::AaediHAM_OverlayCheck() {
     return (overlays.overlay_check(static_cast<enum mod_name>(owner)));
 }
 
-void HostAPI::AaediHAM_OverlaySet(aaediclock_FRect dims) {
+void HostAPI::AaediHAM_OverlaySet(aaediclock_FRect dims, uint8_t z_layer) {
     if (SDL_GetCurrentThreadID() != main_thread_id) {
            debug_log << debug_log_buffer.plugin_name << ": Texture call from non-parent thread. ignoring\n";
            return;
@@ -570,7 +570,7 @@ void HostAPI::AaediHAM_OverlaySet(aaediclock_FRect dims) {
     host_dims.y = dims.y;
     host_dims.h = dims.h;
     host_dims.w = dims.w;
-    ScreenFrame* overlay = overlays.get_overlay(this->panel->GetRenderer(), static_cast<enum mod_name>(owner), host_dims);
+    ScreenFrame* overlay = overlays.get_overlay(this->panel->GetRenderer(), static_cast<enum mod_name>(owner), host_dims, z_layer);
     if (overlay && overlay->texture) {
         SDL_SetRenderTarget(this->panel->GetRenderer(), overlay->texture);
     }
@@ -600,7 +600,7 @@ void HostAPI::AaediHAM_OverlayClear(const aaediclock_Color& color) {
     clearcolor.b = color.b;
     clearcolor.a = color.a;
     if (overlays.overlay_check(static_cast<enum mod_name>(owner))) {
-        ScreenFrame* overlay = overlays.get_overlay(this->panel->GetRenderer(), owner, SDL_FRect{0,0,0,0});
+        ScreenFrame* overlay = overlays.get_overlay(this->panel->GetRenderer(), owner, SDL_FRect{0,0,0,0}, OVERLAY_DEFAULT);
         overlay->Clear(clearcolor);
     }
     return;

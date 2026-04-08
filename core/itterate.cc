@@ -192,24 +192,24 @@ void draw_overlays(ScreenFrame& panel) {
 //    ScreenFrame* overlay = overlays.get_overlay(panel.GetRenderer(), map_overlays::map, mapsize);
 //    ScreenFrame* pins_overlay = overlays.get_overlay(panel.GetRenderer(), map_overlays::pins, mapsize);
        /// draw the rest of the overlays, skip the map one
-
-    ScreenFrame* render_overlay;
-    render_overlay = overlays.next_overlay();
-//    SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
-//    SDL_SetTextureBlendMode(render_overlay->texture, SDL_BLENDMODE_BLEND);
-//    SDL_RenderTexture(panel.GetRenderer(), render_overlay->texture, NULL, NULL);
-//    render_overlay = pins_overlay;
-//    SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
-//    SDL_SetTextureBlendMode(render_overlay->texture, SDL_BLENDMODE_BLEND);
-//    SDL_RenderTexture(panel.GetRenderer(), render_overlay->texture, NULL, NULL);
-    while (render_overlay) {
-//         if ((render_overlay != overlay) && (render_overlay != pins_overlay)) {
-              SDL_SetTextureBlendMode(render_overlay->texture, SDL_BLENDMODE_BLEND);
-              SDL_RenderTexture(panel.GetRenderer(), render_overlay->texture, NULL, NULL);
-//         }
-         render_overlay = overlays.next_overlay();
+    for (uint8_t layer = 0 ; layer < 3 ; layer++) {
+        ScreenFrame* render_overlay;
+        render_overlay = overlays.next_overlay(layer);
+    //    SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
+    //    SDL_SetTextureBlendMode(render_overlay->texture, SDL_BLENDMODE_BLEND);
+    //    SDL_RenderTexture(panel.GetRenderer(), render_overlay->texture, NULL, NULL);
+    //    render_overlay = pins_overlay;
+    //    SDL_SetRenderTarget(panel.GetRenderer(), panel.texture);
+    //    SDL_SetTextureBlendMode(render_overlay->texture, SDL_BLENDMODE_BLEND);
+    //    SDL_RenderTexture(panel.GetRenderer(), render_overlay->texture, NULL, NULL);
+        while (render_overlay) {
+    //         if ((render_overlay != overlay) && (render_overlay != pins_overlay)) {
+                  SDL_SetTextureBlendMode(render_overlay->texture, SDL_BLENDMODE_BLEND);
+                  SDL_RenderTexture(panel.GetRenderer(), render_overlay->texture, NULL, NULL);
+    //         }
+             render_overlay = overlays.next_overlay(layer);
+        }
     }
-
     // reset the render target
     SDL_SetRenderTarget(panel.GetRenderer(), NULL);
     return;
@@ -312,7 +312,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 */
 
         // new plugin pins
-        ScreenFrame* pin_overlay = overlays.get_overlay(clock_renderer, 1002,  winboxes[PANEL_MAP].panel.dims);
+        ScreenFrame* pin_overlay = overlays.get_overlay(clock_renderer, 1002,  winboxes[PANEL_MAP].panel.dims, OVERLAY_BASE);
         pin_overlay->Clear(SDL_Color{0,0,0,0});
         if (!winboxes[PANEL_MAP].plugin_sequence.empty()) {
             map_owner_id = winboxes[PANEL_MAP].plugin_sequence[winboxes[PANEL_MAP].plugin_index];

@@ -291,7 +291,7 @@ void rss_plugin::plugin_main(const aaediclock_FRect& dims) const {
     }
     }
     aaediclock_FRect mapsize = host_api->AaediHAM_GetMapSize();
-    host_api->AaediHAM_OverlaySet(mapsize);
+    host_api->AaediHAM_OverlaySet(mapsize, OVERLAY_FOREGROUND);
     host_api->AaediHAM_OverlayClear(aaediclock_Color{0,0,0,0});
     aaediclock_FRect ticker_box;
     ticker_box.x = 0;

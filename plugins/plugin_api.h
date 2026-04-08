@@ -10,6 +10,11 @@
 #include <sstream>
 #include <deque>
 
+static const uint8_t OVERLAY_BACKGROUND = 0;
+static const uint8_t OVERLAY_BASE       = 1;
+static const uint8_t OVERLAY_DEFAULT	= 1;
+static const uint8_t OVERLAY_FOREGROUND = 2;
+
 struct aaediclock_FRect {
     float x;
     float y;
@@ -98,7 +103,7 @@ class aaediclock_host_api {
         virtual void 				AaediHAM_MapPinAdd		(struct aaediclock_map_pin) 							= 0;
         // overlay calls
         virtual bool 				AaediHAM_OverlayCheck		()		 								= 0;
-        virtual void 				AaediHAM_OverlaySet		(aaediclock_FRect dims) 							= 0;
+        virtual void 				AaediHAM_OverlaySet		(aaediclock_FRect dims, uint8_t z_layer = 1)					= 0;
         virtual void 				AaediHAM_OverlayRemove		() 										= 0;
         virtual void				AaediHAM_OverlayClear		(const aaediclock_Color& color = {0, 0, 0, 255}) 				= 0;
         // icon calls

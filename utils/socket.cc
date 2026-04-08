@@ -64,10 +64,13 @@ dx_socket_t init_fd(const struct plugin_server_info dx_server, aaediclock_host_a
     int addrerr =getaddrinfo(serverip.c_str(), serverport.c_str(), &hints, &serveraddr);
     if (addrerr !=0) {
         *(host_api->AaediHAM_LogDebug) << "DXSPOTS: DX Spots connection error: " << gai_strerror(addrerr) << "\n";
+        return 0;
     }
     dxsocket = socket(serveraddr->ai_family, serveraddr->ai_socktype, serveraddr->ai_protocol);
-    if (!dxsocket) {
+    if (dxsocket < 0) {
         *(host_api->AaediHAM_LogDebug) << "DXSPOTS: Bad DX socket" << errno << "\n";
+        freeaddrinfo(serveraddr);
+        return 0;
     }
 /*
     if (connect(dxsocket, serveraddr->ai_addr, serveraddr->ai_addrlen) == -1) {

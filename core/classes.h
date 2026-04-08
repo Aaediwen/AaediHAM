@@ -140,6 +140,7 @@ class map_overlay {
         struct transparancy {
             ScreenFrame panel;
             uint16_t owner;
+            uint8_t z_order = 1;
         };
         std::vector<struct transparancy> overlay_list;
         Uint8 zorder;
@@ -147,11 +148,11 @@ class map_overlay {
     public:
         map_overlay();
         ~map_overlay();
-        ScreenFrame* get_overlay(SDL_Renderer* renderer, uint16_t owner, SDL_FRect dims); // return existing if present, or create a new and retu
+        ScreenFrame* get_overlay(SDL_Renderer* renderer, uint16_t owner, SDL_FRect dims, uint8_t z_layer); // return existing if present, or create a new and retu
         bool overlay_check(uint16_t owner);        // check if a overlay exists
         void set_zorder(Uint8 priority);
         void remove_overlay(uint16_t owner); // remove any overlay owned by owner
-        ScreenFrame* next_overlay();   // somehow get or use a read-only itterator through overlay_list
+        ScreenFrame* next_overlay(uint8_t z_layer);   // somehow get or use a read-only itterator through overlay_list
         void reset_index();
         void clear(); // nuke all overlays
 };

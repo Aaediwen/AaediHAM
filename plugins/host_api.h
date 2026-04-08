@@ -54,7 +54,7 @@ class HostAPI final : public aaediclock_host_api {
           const struct plugin_mouse_event AaediHAM_GetMouseEvent() override;
           // overlay calls
           bool AaediHAM_OverlayCheck				() override;
-          void AaediHAM_OverlaySet				(aaediclock_FRect dims) override;
+          void AaediHAM_OverlaySet				(aaediclock_FRect dims, uint8_t z_layer = OVERLAY_DEFAULT) override;
           void AaediHAM_OverlayRemove				() override;
           void AaediHAM_OverlayClear				(const aaediclock_Color& color = {0, 0, 0, 255}) override;
           // icon calls

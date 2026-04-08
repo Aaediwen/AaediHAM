@@ -355,7 +355,7 @@ void map_plugin::plugin_main(const aaediclock_FRect& dims) const {
     if (!host_api->AaediHAM_TextureCheck(countries_map.texture)) {
         load_countries_map(dims);
     }
-    host_api->AaediHAM_OverlaySet(dims);
+    host_api->AaediHAM_OverlaySet(dims,OVERLAY_BACKGROUND);
     host_api->AaediHAM_OverlayClear({0,0,0,255});
     if (host_api->AaediHAM_TextureCheck(day_map.texture)) {
         host_api->AaediHAM_GraphicsDrawImage(day_map.texture);
