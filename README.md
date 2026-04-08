@@ -42,10 +42,10 @@ The program now requires a config file (aaediclock_config.json) in the Current D
      "CallSign": "N0CALL",             // your callsign here
      "PSKCall": "N0CALL",             // Optional -- if you want  PSK Reporter to show for a callsign other than your own
      "DE": {                           // your location
-          "Latitude": 37.978,         
-          "Longitude": -84.495
+          "Latitude": 36.978,         
+          "Longitude": -82.495
      },
-     "DX": {                          // the location you want in the DX box
+     "DX": {                          // the default location you want in the DX box
           "Latitude": 0.0,
           "Longitude": 0.0
      },
@@ -89,10 +89,98 @@ The program now requires a config file (aaediclock_config.json) in the Current D
                "callsign": "KQ4SIZ",
                "band": 28
           }
-     ]
+     ],
+    "Plugins": [                         // plugin loading, refresh intervals, and screen configuration
+        {
+            "plugin": "plugins/libmap_plugin.so",     // plugin library file name relative to the current directory
+            "panel": 2,                               // Screen panel ID to use for this plugin. See the Screen Map JPG for details
+            "interval": 10                            // how often to trigger this plugin, in 1/10s
+        },
+       {
+            "plugin": "plugins/libclock_plugin.so",
+            "panel": 1,
+            "interval": 2
+        },
+        {
+            "plugin": "plugins/libcallsign_plugin.so",
+            "panel": 0,
+            "interval": 300
+        },
+        {
+            "plugin": "plugins/libncdxf_plugin.so",
+            "panel": 5,
+            "interval": 50
+        },
+        {
+            "plugin": "plugins/libpota_plugin.so",
+            "panel": 5,
+            "interval": 50
+        },
+        {
+            "plugin": "plugins/libde_plugin.so",
+            "panel": 3,
+            "interval": 50
+        },
+        {
+            "plugin": "plugins/libdx_plugin.so",
+            "panel": 4,
+            "interval": 50
+        },
+        {
+            "plugin": "plugins/libdx_cluster_plugin.so",
+            "panel": 7,
+            "interval": 50
+        },
+        {
+            "plugin": "plugins/libsat_tracker_plugin.so",
+            "panel": 6,
+            "interval": 10
+        },
+        {
+            "plugin": "plugins/libaurora_plugin.so",
+            "panel": 10,
+            "interval": 170
+        },
+        {
+            "plugin": "plugins/librss_plugin.so",
+            "panel": 10,
+            "interval": 1
+        },
+        {
+            "plugin": "plugins/libsdo_plugin.so",
+            "panel": 9,
+            "interval": 50
+        },
+        {
+            "plugin": "plugins/libcontest_plugin.so",
+            "panel": 8,
+            "interval": 50
+        },
+        {
+            "plugin": "plugins/libkindex_plugin.so",
+            "panel": 8,
+            "interval": 50
+        },
+        {
+            "plugin": "plugins/liblunar_plugin.so",
+            "panel": 9,
+            "interval": 50
+        },
+        {
+            "plugin": "plugins/libwspr_plugin.so",
+            "panel": 9,
+            "interval": 50
+        },
+        {
+            "plugin": "plugins/libpskreporter_plugin.so",
+            "panel": 6,
+            "interval": 50
+        }
+    ]
 }
 ```
-
+## Screen Map
+![Screen Map](/images/ScreenMap.jpg "Screen Map of Panel IDs")
 ---
 
 ## Library dependancies:
@@ -209,13 +297,17 @@ CMake will attempt to fetch the direct dependancies as listed above. However, it
       cmake .. 
       make
       cp -r ../images . 
-      cp -r ../aaediclock_config.json . 
+      cp -r ../aaediclock_config.json .
+      mkdir plugins
+      cp *.so plugins/
+      edit aaediclock_config.json to reflect how you want the plugins configured
       ./clock
 ```
   I actually recommend creating another directory where you place 
   - clock
   - aaediclock_config.json
   - images/ (image assets)
+  - plugins/ (plugin module libraries)
   
   However, it's not a big deal if you choose to do that in the source tree as shown above, and run from there. That's what I do a lot during development
       
@@ -230,8 +322,9 @@ CMake will attempt to fetch the direct dependancies as listed above. However, it
       Build --> Build All
 
       after building:
-      Collect the compiled `clock.exe` and Dependancy DLL files from `out/build/...` into a common directory
+      The binaries will be collected to a binary/ directory in the build tree
       Copy the `images` directory into the same folder as `clock.exe`
+      Copy the plugin DLL files where you want them to live, and add them to your aaediclock_config.json
       Copy or create an aaediclock_config.json file in the same directory
   ```
       
@@ -246,5 +339,6 @@ The directory that contains the clock or clock.exe binary must also contain:
   - Countries Map
   - Moon image
   - Satellite icon images
+- plugin libraries for the plugins you want to load
 
 If these are missing, the program will fail to render the corresponding assets.

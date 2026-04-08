@@ -1,24 +1,27 @@
+
 #pragma once
-#ifndef AAEDICLOCK
-#define AAEDICLOCK
-//#define SDL_MAIN_USE_CALLBACKS
-#include <time.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <fstream>
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#endif
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
+#include <iostream>
+#include <string>
 #include <vector>
 #include <array>
-#include "classes.h"
+#include "core/classes.h"
+#include "plugins/host_api.h"
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
 #ifdef _DEBUG
 #define _CRTDBG_MAP_ALLOC
 #include <crtdbg.h>
 #endif
 #endif
 
+
+struct PluginModule;
+/*
 struct regen_mask_args {
     SDL_Surface* source;
     SDL_Surface* dest;
@@ -26,29 +29,34 @@ struct regen_mask_args {
 };
 
 extern struct regen_mask_args* night_mask_args;
-
+*/
+extern SDL_Renderer		*clock_renderer;
 enum mutex_name {
-    MUTEX_NIGHT_MASK	,
-    MUTEX_RESIZE	,
-    MUTEX_CACHE		,
-    MUTEX_HTTP		,
-    MUTEX_MASTER_CLOCK	,
-    MUTEX_CELESTRAK	,
-    MUTEX_WSPR		,
-    MUTEX_CONTESTS	,
+    MUTEX_NIGHT_MASK    ,
+    MUTEX_RESIZE        ,
+    MUTEX_CACHE         ,
+    MUTEX_HTTP          ,
+    MUTEX_MASTER_CLOCK  ,
+    MUTEX_CELESTRAK     ,
+    MUTEX_WSPR          ,
+    MUTEX_CONTESTS      ,
     MUTEX_AURORA
 };
 extern std::array<SDL_Mutex*, 10> mutexes;
-extern SDL_TimerID map_timer;
+//extern SDL_TimerID map_timer;
 extern TTF_Font* Sans;
 extern std::ostream& debug_log;
 
 extern Sint64 max_tex_size;
+extern SDL_ThreadID main_thread_id;
+extern bool interrupt_flag;
 
 struct pager_node {
     std::vector<enum mod_name> sequence;
+    std::vector<int> plugin_sequence;
     ScreenFrame panel;
     unsigned int index=0;
+    unsigned int plugin_index = 0;
     SDL_FPoint clickpoint;
     int clickcount = 0;
 };
@@ -58,26 +66,12 @@ struct internal_mouse_event {
     SDL_FPoint mod_cords;
     int mod_count;
     enum mod_name mod_owner;
+    int plugin_owner;
 };
 extern struct internal_mouse_event clock_mouse_event;
-
-
-struct Celestial_Coordinates {
-        time_t timestamp= 0;
-        double RA	= 0.0;
-        double Dec	= 0.0;
-        double Lon	= 0.0;
-        double Lat	= 0.0;
-        double Dist	= 0.0;
-};
-struct celest_coords {
-    struct Celestial_Coordinates moon;
-    struct Celestial_Coordinates sun;
-};
-extern struct celest_coords g_celestials;
-
 struct map_pin {
     enum mod_name owner;
+    int plugin_owner;
     double lat;
     double lon;
     SDL_Texture* icon;
@@ -86,7 +80,7 @@ struct map_pin {
     char tooltip[512];
     struct map_pin *next;
 }  extern *map_pins;
-
+extern std::vector<struct map_pin>plugin_map_pins;
 struct data_blob {
     enum mod_name owner;
     time_t fetch_time;
@@ -94,5 +88,3 @@ struct data_blob {
     void *data;
     struct data_blob *next;
 } extern *data_cache;
-
-#endif
