@@ -5,6 +5,7 @@
 #include <sstream>
 //#include "modules.h"
 #include "classes.h"
+#include <libxml/tree.h>
 #include <nlohmann/json.hpp>
 #include <SDL3_image/SDL_image.h>
 
@@ -401,6 +402,39 @@ bool ScreenFrame::valid() const {
     return (magic == MAGIC_SCREENFRAME);
 }
 
+void config::parse_qrz(void* node) {
+     xmlNode* start_node = static_cast<xmlNode*>(node);
+     xmlNode* current_node = nullptr;
+     for (current_node = start_node; current_node; current_node = current_node->next) {
+          if (current_node->type == XML_ELEMENT_NODE) {
+               std::string NodeName(reinterpret_cast<const char*>(current_node->name));
+//               std::cout << "QRZ XML Node Name: "<< NodeName << "\n";
+               std::transform(NodeName.begin(), NodeName.end(), NodeName.begin(), ::tolower);
+                if ((NodeName == "qrzdatabase")||(NodeName == "session")) {
+                     parse_qrz(current_node->children);
+                } else if (NodeName == "key") {
+                        std::string content;
+                        content.clear();
+                        // extract the node content
+                        xmlChar* raw = xmlNodeGetContent(current_node);
+                        if (raw) {
+                            content = reinterpret_cast<char*>(raw);
+                            m_QRZ.Key = content;
+                            xmlFree(raw);
+                            // attempt to clean up HTML
+                        }
+                    } else if (NodeName == "error") {
+                         xmlChar* raw = xmlNodeGetContent(current_node);
+
+                        std::string QRZ_Err =  reinterpret_cast<char*>(raw);
+                        printf ("QRZ Session Key Error: %s\n", QRZ_Err.c_str());
+                    }
+          } // XML_ELEMENT_NODE
+     }
+     return;
+}
+
+
 void config::qrz_sesskey() {
     char* xml = 0 ;
     Uint64 key_size =0;
@@ -413,6 +447,17 @@ void config::qrz_sesskey() {
     }
     if (key_size) {
         // parse XML for session key
+        xmlDocPtr xml_tree = 0;
+        debug_log << "Calling XML ReadMemory\n";
+        xml_tree = xmlReadMemory(xml, static_cast<int>(key_size), nullptr, nullptr, 0);
+        if (!xml_tree) {
+             debug_log << "RSS: Failed to parse QRZ Feed XML\n";
+        } else {
+//            xmlNode* current_node = nullptr;
+//            xmlNode* start_node = xmlDocGetRootElement(xml_tree);
+            parse_qrz(xmlDocGetRootElement(xml_tree));
+        }
+/*
         std::istringstream stream(xml);
         std::string keyline;
         size_t tag_start, tag_stop;
@@ -434,7 +479,7 @@ void config::qrz_sesskey() {
 //                debug_log << "CONFIG: QRZ Session Key Error: " << QRZ_Err.c_str() << "\n";
             }
         }
-
+*/
     }
     if (xml) {
         free(xml);

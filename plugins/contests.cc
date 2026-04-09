@@ -1,14 +1,16 @@
 #include "aaediclock.h"
 #include "utils/http_fetch.h"
 #include "contests.h"
+#include <algorithm>
 #include <sstream>
 #include <mutex>
+#include <libxml/tree.h>
 
 SDL_TimerID contest_timer = 0;
 std::vector<struct contest> contest_feed;
 std::mutex contest_mutex;
 aaediclock_host_api* host_api = nullptr;
-
+/*
 void parse_contests(char* xml) {
     if (!xml || ! xml[0]) {
          return;
@@ -96,6 +98,63 @@ void parse_contests(char* xml) {
     }
     return;
 }
+*/
+struct contest temp;
+bool in_item = false;
+void parse_contests(xmlNode* start_node) {
+     xmlNode* current_node = nullptr;
+     for (current_node = start_node; current_node; current_node = current_node->next) {
+          if (current_node->type == XML_ELEMENT_NODE) {
+               std::string NodeName(reinterpret_cast<const char*>(current_node->name));
+//               *(host_api->AaediHAM_LogDebug) << "XML Node Name: "<< NodeName << "\n";
+               std::transform(NodeName.begin(), NodeName.end(), NodeName.begin(), ::tolower);
+               if ((NodeName == "rss") || NodeName == "channel") {
+                    parse_contests(current_node->children);
+               }
+               if (NodeName == "item") {
+                    temp.title.clear();
+                    temp.link.clear();
+                    temp.description.clear();
+                    temp.guid.clear();
+                    in_item = true;
+                    parse_contests(current_node->children);
+                    in_item = false;
+                    bool found = false;
+                    if (!contest_feed.empty()) {
+                         for (const auto& contest : contest_feed) {
+                              if (contest.guid == temp.guid) {
+                                  found = true;
+                                  break;
+                              }
+                         }
+                    }
+                    if (!found) {
+                         contest_feed.push_back(temp);
+                    }
+               } else if (NodeName == "title") {
+                    if (in_item) {
+                         std::string xml_content(reinterpret_cast<const char*>(xmlNodeGetContent(current_node)));
+                         temp.title = xml_content;
+                    }
+               } else if (NodeName == "link") {
+                    if (in_item) {
+                         std::string xml_content(reinterpret_cast<const char*>(xmlNodeGetContent(current_node)));
+                         temp.link = xml_content;
+                    }
+               } else if (NodeName == "description") {
+                    if (in_item) {
+                         std::string xml_content(reinterpret_cast<const char*>(xmlNodeGetContent(current_node)));
+                         temp.description = xml_content;
+                    }
+               } else if (NodeName == "guid") {
+                    if (in_item) {
+                         std::string xml_content(reinterpret_cast<const char*>(xmlNodeGetContent(current_node)));
+                         temp.guid = xml_content;
+                    }
+               }
+          }
+     }
+}
 
 int SDLCALL fetch_contests (void* data) {
      (void)data;
@@ -106,7 +165,16 @@ int SDLCALL fetch_contests (void* data) {
      SDL_Log("Fetching contests from WA7BNM via timer");
      data_size = http_loader("https://www.contestcalendar.com/calendar.rss", (void**)&fetch_spots);
      if (data_size) {
-          parse_contests(fetch_spots);
+          xmlDocPtr xml_tree = 0;
+          xml_tree = xmlReadMemory(fetch_spots, static_cast<int>(data_size), nullptr, nullptr, 0);
+          if (!xml_tree) {
+               *(host_api->AaediHAM_LogDebug) << "Failed to parse Context Feed XML\n";
+          } else {
+               parse_contests(xmlDocGetRootElement(xml_tree));
+               xmlFreeDoc (xml_tree);
+               xml_tree = nullptr;
+          }
+//          parse_contests(fetch_spots);
      }
      if(fetch_spots) {
           free (fetch_spots);

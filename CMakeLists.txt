@@ -62,7 +62,7 @@ endif()
 target_compile_options(aaediclock_path INTERFACE -fno-omit-frame-pointer
 -rdynamic)
 add_executable(clock ${SOURCES})
-target_link_libraries(clock PRIVATE aaediclock_path)
+target_link_libraries(clock PRIVATE aaediclock_path LibXml2::LibXml2)
 
 add_library(ncdxf_plugin SHARED
     plugins/ncdxf.cc
@@ -131,7 +131,7 @@ add_library(contest_plugin SHARED
     plugins/contests.cc
     utils/http_fetch.cc
 )
-target_link_libraries(contest_plugin PRIVATE aaediclock_path SDL3::SDL3)
+target_link_libraries(contest_plugin PRIVATE aaediclock_path SDL3::SDL3 LibXml2::LibXml2)
 
 add_library(kindex_plugin SHARED
     plugins/kindex.cc

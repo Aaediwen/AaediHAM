@@ -1,6 +1,7 @@
 #ifndef CLASSES_H
 #define CLASSES_H
 #include <mutex>
+
 enum mod_name {
     MOD_MAP             ,
     MOD_DE              ,
@@ -131,6 +132,7 @@ public:
         void qrz_sesskey();
         void write_config();
         void load_config();
+        void parse_qrz(void* node);
 };
 extern config clockconfig;
 
