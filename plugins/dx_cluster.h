@@ -4,6 +4,7 @@
 #include "plugin_api.h"
 #include "utils/conversions.h"
 #include "utils/socket.h"
+#include <libxml/tree.h>
 
 
 #ifdef _WIN32
@@ -39,6 +40,7 @@ class dxspot {
         void display_spot(const aaediclock_FRect& dims, float y);
         void print_spot();
     private:
+       void parse_qrz(xmlNode* node);
        void query_qrz ();
 
 };

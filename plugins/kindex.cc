@@ -93,7 +93,7 @@ void write_wind_cache(time_t max_timestamp) {
 //                  *(host_api->AaediHAM_LogDebug) << "KINDEX: Temp String: " << index_string.c_str()<< "\n";
                   new_node.temperature = std::stoi(index_string);
                   if (solar_wind_cache.empty() || new_node.timestamp > solar_wind_cache.back().timestamp) {
-                      *(host_api->AaediHAM_LogDebug) << "Adding Solar Wind cache entry\n";
+//                      *(host_api->AaediHAM_LogDebug) << "Adding Solar Wind cache entry\n";
                       solar_wind_cache.push_back(new_node);
                   }
 //                  raw_points.push_back(new_node);
@@ -121,7 +121,7 @@ void merge_json (const char* k_index_list, const char* solar_wind_list) {
      wind_end   = solar_index.end();
 
      for (const auto& spot : k_list) {
-          *(host_api->AaediHAM_LogDebug) << "Processing Kindex entry\n";
+//          *(host_api->AaediHAM_LogDebug) << "Processing Kindex entry\n";
           std::string index_string;
           struct KIndexPoint new_node;
           if (spot.is_array() && spot.size() >=4) {
@@ -139,9 +139,9 @@ void merge_json (const char* k_index_list, const char* solar_wind_list) {
                         }
                    }
                    const std::lock_guard<std::mutex>kindex_lock(kindex_mutex);
-                   *(host_api->AaediHAM_LogDebug) << "Kindex cache entry ready\n";
+//                   *(host_api->AaediHAM_LogDebug) << "Kindex cache entry ready\n";
                    if (kindex_cache.empty() || (new_node.timestamp > kindex_cache.back().timestamp)) {
-                       *(host_api->AaediHAM_LogDebug) << "Adding Kindex cache entry\n";
+//                       *(host_api->AaediHAM_LogDebug) << "Adding Kindex cache entry\n";
                        write_wind_cache(new_node.timestamp);
                        kindex_cache.push_back(new_node);
                    }
@@ -162,12 +162,12 @@ void merge_json (const char* k_index_list, const char* solar_wind_list) {
                         }
                    }
                    const std::lock_guard<std::mutex>kindex_lock(kindex_mutex);
-                   *(host_api->AaediHAM_LogDebug) << "Kindex cache entry ready "<< new_node.timestamp <<" \n";
+//                   *(host_api->AaediHAM_LogDebug) << "Kindex cache entry ready "<< new_node.timestamp <<" \n";
                    if (kindex_cache.empty() || (new_node.timestamp > kindex_cache.back().timestamp)) {
-                       *(host_api->AaediHAM_LogDebug) << "Adding Kindex cache entry\n";
+//                       *(host_api->AaediHAM_LogDebug) << "Adding Kindex cache entry\n";
                        write_wind_cache(new_node.timestamp);
                        kindex_cache.push_back(new_node);
-                       *(host_api->AaediHAM_LogDebug) << "Kindex Cache address: " << &kindex_cache << "\t size " << kindex_cache.size() << "\n";
+//                       *(host_api->AaediHAM_LogDebug) << "Kindex Cache address: " << &kindex_cache << "\t size " << kindex_cache.size() << "\n";
                    }
 
 

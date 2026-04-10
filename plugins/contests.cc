@@ -3,6 +3,7 @@
 #include "contests.h"
 #include <algorithm>
 #include <sstream>
+#include <fstream>
 #include <mutex>
 #include <libxml/tree.h>
 
@@ -160,11 +161,53 @@ int SDLCALL fetch_contests (void* data) {
      (void)data;
      char* fetch_spots = 0 ;
      Uint64 data_size = 0;
+     bool file_valid = false;
+     std::fstream disk_file;
+     if (contest_feed.empty()) {
+         SDL_PathInfo fileinfo;
 
-     *(host_api->AaediHAM_LogDebug) <<"CONTESTS: Fetching Spots from WA7BNM via timer\n";
-     SDL_Log("Fetching contests from WA7BNM via timer");
-     data_size = http_loader("https://www.contestcalendar.com/calendar.rss", (void**)&fetch_spots);
+         if (SDL_GetPathInfo("contests.cache", &fileinfo)) {
+             SDL_Time sdl_now;
+             SDL_GetCurrentTime(&sdl_now);
+             if ((sdl_now - fileinfo.modify_time) < 10800000000000  ) { // 3 Hours in ns
+                 data_size = fileinfo.size;
+                 disk_file.open("contests.cache", (std::fstream::binary | std::fstream::in ));
+                 if (disk_file.is_open()) {
+                      fetch_spots = (char*)malloc(fileinfo.size+1);
+                      if (fetch_spots) {
+                          if (disk_file.read(fetch_spots, fileinfo.size)) {
+                              fetch_spots[fileinfo.size] = '\0';
+                              *(host_api->AaediHAM_LogDebug) <<"Reading Contests from WA7BNM Disk Cache via timer\n";
+                              file_valid = true;
+                          } else {
+                              free(fetch_spots);
+                              fetch_spots = 0;
+                          }
+                      }
+                      disk_file.close();
+                 }
+             }
+        }
+
+     }
+     if (!file_valid) {
+          *(host_api->AaediHAM_LogDebug) <<"Fetching Contests from WA7BNM via timer\n";
+          SDL_Log("Fetching contests from WA7BNM via timer");
+          data_size = http_loader("https://www.contestcalendar.com/calendar.rss", (void**)&fetch_spots);
+     }
      if (data_size) {
+          if (!file_valid) {
+            disk_file.open("contests.cache", (std::fstream::binary | std::fstream::out | std::fstream::trunc));
+            if (disk_file.is_open()) {
+                disk_file.write(fetch_spots, data_size);
+                if (!disk_file.good()) {
+                     *(host_api->AaediHAM_LogDebug) << "Cache write failed\n";
+
+                }
+            }
+            disk_file.close();
+
+          }
           xmlDocPtr xml_tree = 0;
           xml_tree = xmlReadMemory(fetch_spots, static_cast<int>(data_size), nullptr, nullptr, 0);
           if (!xml_tree) {

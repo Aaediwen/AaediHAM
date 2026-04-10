@@ -1,7 +1,9 @@
 #include <libsgp4/CoordTopocentric.h>
 #include <mutex>
 #include <vector>
+#include <fstream>
 #include <SDL3_image/SDL_image.h>
+
 #include "sat_tracker.h"
 #include "utils/http_fetch.h"
 #include "utils/conversions.h"
@@ -38,7 +40,7 @@ void TrackedSatellite::new_tracking(const std::string& source_name, const std::s
     try {
        new_sgp4  = new libsgp4::SGP4(*new_sat_tle);
     } catch (std::exception& e) {
-        *(host_api->AaediHAM_LogDebug) << "SAT_TRACKER: SGP4 Exception "<< e.what() << "Regenerating " << source_name << "\n";
+        *(host_api->AaediHAM_LogDebug) << "SGP4 Exception "<< e.what() << "Regenerating " << source_name << "\n";
         delete(new_sat_tle);
         throw;
     }
@@ -114,7 +116,7 @@ TrackedSatellite& TrackedSatellite::operator=(const TrackedSatellite& source) { 
         try {
            new_sgp4  = new libsgp4::SGP4(*new_sat_tle);
         } catch (std::exception& e) {
-            *(host_api->AaediHAM_LogDebug) << "SAT_TRACKER: SGP4 Exception "<< e.what() << "Assigning " << source.name << "\n";
+            *(host_api->AaediHAM_LogDebug) << "SGP4 Exception "<< e.what() << "Assigning " << source.name << "\n";
             delete(new_sat_tle);
             throw;
         }
@@ -196,7 +198,7 @@ void TrackedSatellite::draw_pass(const time_t pass_start, const time_t pass_end,
             pass_samples++;
         }
     }
-    *(host_api->AaediHAM_LogDebug) << "SAT TRACKER: Rendering "<< pass_samples << " samples for pass path of " << this->name.c_str() << "\n";
+    *(host_api->AaediHAM_LogDebug) << "Rendering "<< pass_samples << " samples for pass path of " << this->name.c_str() << "\n";
     */
     float max_radius = size->w/2;
     if (size->h < size->w) {
@@ -312,7 +314,7 @@ void TrackedSatellite::draw_telemetry(aaediclock_FRect& dims) {
     }
 */
 
-    *(host_api->AaediHAM_LogDebug) << "SAT_TRACKER: Draw telemetry on overlay\n";
+    *(host_api->AaediHAM_LogDebug) << "Draw telemetry on overlay\n";
     host_api->AaediHAM_OverlaySet(dims);
 //    SDL_SetRenderTarget(map.GetRenderer(), map.texture);
 //    SDL_SetRenderDrawColor(map.GetRenderer(), this->color.r, this->color.g, this->color.b, this->color.a);
@@ -520,7 +522,7 @@ void sat_json_parser(const char* input_string) {
             trackcols.r -= 20;
             trackcols.g += 20;
             trackcols.b += 10;
-            *(host_api->AaediHAM_LogDebug) << "SAT_TRACKER: Processing: " << new_cache.name << " ";
+            *(host_api->AaediHAM_LogDebug) << "Processing: " << new_cache.name << " ";
             int sat_count = host_api->AaediHAM_ConfigGetSatCount();
             for (int x = 0 ; x < sat_count ; x++) {
                 instring = new_cache.name;
@@ -547,26 +549,69 @@ void sat_json_parser(const char* input_string) {
 Uint16 pass_pager[2] = {0,0};
 std::vector<TrackedSatellite> satlist;
 int SDLCALL fetch_celestrak(void* data) {
-  (void) data;
+    (void) data;
 
-  char* amateur_tle = 0 ;
-  Uint64 data_size;
-        SDL_Log ("Fetching Satellite telemetry from Celestrak");
-        *(host_api->AaediHAM_LogDebug) << "SAT_TRACKER: Fetching Satellite telemetry from Celestrak\n";
-        data_size = http_loader("https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle", (void**)&amateur_tle);   //
-        satlist.clear();
-        if (data_size) {
-            *(host_api->AaediHAM_LogDebug) << "SAT_TRACKER: Fetched New Sat data\n";
-            sat_json_parser(amateur_tle);
-            satlist.clear();
-            if (amateur_tle) {
-                free(amateur_tle);
-                amateur_tle=0;
+    char* amateur_tle = 0 ;
+    Uint64 data_size = 0;
+    SDL_PathInfo fileinfo;
+    bool file_valid = false;
+    std::fstream disk_file;
+    if (SDL_GetPathInfo("celestrak.cache", &fileinfo)) {
+        SDL_Time sdl_now;
+        SDL_GetCurrentTime(&sdl_now);
+        if ((sdl_now - fileinfo.modify_time) < 10800000000000  ) { // 3 Hours in ns
+            data_size = fileinfo.size;
+            disk_file.open("celestrak.cache", (std::fstream::binary | std::fstream::in ));
+            if (disk_file.is_open()) {
+                amateur_tle = (char*)malloc(fileinfo.size+1);
+                if (amateur_tle) {
+                    if (disk_file.read(amateur_tle, fileinfo.size)) {
+                        amateur_tle[fileinfo.size] = '\0';
+                        file_valid = true;
+                    } else {
+                        free(amateur_tle);
+                        amateur_tle = 0;
+                    }
+                }
+                disk_file.close();
             }
-            fetch_result = 2;
-        } // we got input data
-        else { fetch_result = 3; }
-        return 0;
+        }
+    }
+    if (!file_valid) {
+        SDL_Log ("Fetching Satellite telemetry from Celestrak");
+        *(host_api->AaediHAM_LogDebug) << "Fetching Satellite telemetry from Celestrak\n";
+        data_size = http_loader("https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle", (void**)&amateur_tle);   //
+        *(host_api->AaediHAM_LogDebug) << "Celestrak Fetch returned\n";
+        if (data_size > 256) {
+            disk_file.open("celestrak.cache", (std::fstream::binary | std::fstream::out | std::fstream::trunc));
+            if (disk_file.is_open()) {
+                disk_file.write(amateur_tle, data_size);
+                if (!disk_file.good()) {
+                     *(host_api->AaediHAM_LogDebug) << "Cache write failed\n";
+
+                }
+            }
+            disk_file.close();
+        }
+    }
+    satlist.clear();
+    if (data_size) {
+        *(host_api->AaediHAM_LogDebug) << "Fetched New Sat data\n";
+        satlist.clear();
+        sat_json_parser(amateur_tle);
+
+        if (amateur_tle) {
+            free(amateur_tle);
+            amateur_tle=0;
+        }
+        fetch_result = 2;
+    } // we got input data
+    else {
+        *(host_api->AaediHAM_LogDebug) << "No New Sat data from Celestrak\n";
+        fetch_result = 3;
+    }
+    *(host_api->AaediHAM_LogDebug) << "Fetch returned "<< data_size <<" bytes\n";
+    return 0;
 }
 
 Uint32 SDLCALL fetch_celestrak (void *userdata, SDL_TimerID timerID, Uint32 interval) {
@@ -579,7 +624,7 @@ Uint32 SDLCALL fetch_celestrak (void *userdata, SDL_TimerID timerID, Uint32 inte
           if (thread) {
               SDL_DetachThread(thread);
           } else {
-              *(host_api->AaediHAM_LogDebug) << "SAT_TRACKER: Failed to Create Sat Data Fetch Thread\n";
+              *(host_api->AaediHAM_LogDebug) << "Failed to Create Sat Data Fetch Thread\n";
           }
 
      }
@@ -701,7 +746,7 @@ void sat_tracker_plugin::plugin_main(const aaediclock_FRect& dims) const {
                     redraw_flag = true;
                 }
             } else {
-                *(host_api->AaediHAM_LogDebug) << "Creating New Sat entry with:\nSAT_TRACKER: "
+                *(host_api->AaediHAM_LogDebug) << "Creating New Sat entry with:\n "
                           << temp.name << "\n"
                           << temp.line1 << "\n"
                           << temp.line2 << "\n";
@@ -749,7 +794,7 @@ void sat_tracker_plugin::plugin_main(const aaediclock_FRect& dims) const {
         }
         for (TrackedSatellite& Sat : satlist) {
             if (redraw_flag) {
-                *(host_api->AaediHAM_LogDebug) << "SAT_TRACKER: Redrawing track for " << Sat.get_name().c_str() << "\n";
+                *(host_api->AaediHAM_LogDebug) << "Redrawing track for " << Sat.get_name().c_str() << "\n";
                 Sat.draw_telemetry(mapsize);
             }
             // plot the sat's current location
@@ -775,13 +820,13 @@ void sat_tracker_plugin::plugin_main(const aaediclock_FRect& dims) const {
             sat_pin.icon  	=	icon;
 //
 //            sat_pin.icon    =               icon_bin.get_icon(map_icons::ICON_SAT);
-            *(host_api->AaediHAM_LogDebug) << "SAT_TRACKER: got pin " <<  sat_pin.icon << "\n";
+            *(host_api->AaediHAM_LogDebug) << "got pin " <<  sat_pin.icon << "\n";
             sat_pin.color   =               Sat.color;
             sat_pin.tooltip[0]      =               0;
             host_api->AaediHAM_MapPinAdd(sat_pin);
         }
 
-        *(host_api->AaediHAM_LogDebug) << "SAT_TRACKER: Loaded "<< satlist.size() << " SATS\n";
+        *(host_api->AaediHAM_LogDebug) << "Loaded "<< satlist.size() << " SATS\n";
     } else {
         host_api->AaediHAM_GraphicsDrawText("NO SELECTED SATS", aaediclock_Color{128,128,0,255}, aaediclock_FRect {dims.w/20, dims.h/4, (dims.w/10)*8, dims.h/10});
     }

@@ -105,7 +105,7 @@ add_library(dx_cluster_plugin SHARED
     utils/socket.cc
     utils/conversions.cc
 )
-target_link_libraries(dx_cluster_plugin PRIVATE aaediclock_path SDL3::SDL3)
+target_link_libraries(dx_cluster_plugin PRIVATE aaediclock_path SDL3::SDL3 LibXml2::LibXml2)
 
 add_library(sat_tracker_plugin SHARED
     plugins/sat_tracker.cc

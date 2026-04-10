@@ -124,13 +124,62 @@ void dxspot::print_spot() {
 //    SDL_Log ("Time: %s\nNote: %s", timestr, note.c_str());
 };
 
+bool lat_valid, lon_valid;
+void dxspot::parse_qrz(xmlNode* start_node) {
+     xmlNode* current_node = nullptr;
+     for (current_node = start_node; current_node; current_node = current_node->next) {
+          if (current_node->type == XML_ELEMENT_NODE) {
+               std::string NodeName(reinterpret_cast<const char*>(current_node->name));
+               *(host_api->AaediHAM_LogDebug) << "XML Node Name: "<< NodeName << "\n";
+               std::transform(NodeName.begin(), NodeName.end(), NodeName.begin(), ::tolower);
+               if (NodeName == "lat") {
+                     try {
+                          std::string xml_content(reinterpret_cast<const char*>(xmlNodeGetContent(current_node)));
+                          lat = std::stod(xml_content);
+                          lat_valid = true;
+                     }  catch (std::exception& e) {
+                          (void) e;
+                          lat = 0;
+                          lat_valid = false;
+                     }
+                } else if (NodeName == "lon") {
+                     try {
+                          std::string xml_content(reinterpret_cast<const char*>(xmlNodeGetContent(current_node)));
+                          lon = std::stod(xml_content);
+                          lon_valid = true;
+                     }  catch (std::exception& e) {
+                          (void) e;
+                          lon = 0;
+                          lon_valid = false;
+                     }
+                } else if (NodeName == "country") {
+                     std::string xml_content(reinterpret_cast<const char*>(xmlNodeGetContent(current_node)));
+                     country = xml_content;
+                } else if (NodeName == "error") {
+                     std::string xml_content(reinterpret_cast<const char*>(xmlNodeGetContent(current_node)));
+                     std::string QRZ_Err = xml_content;
+                     printf("QRZ Call Lookup Error: %s\n", QRZ_Err.c_str());
+                     *(host_api->AaediHAM_LogDebug) << "QRZ Call Lookup Error: " << QRZ_Err.c_str() << "\n";
+                     if (!QRZ_Err.compare(0,15, "Session Timeout")) {
+                         *(host_api->AaediHAM_LogDebug) << "Getting new QRZ session key\n";
+                         host_api->AaediHAM_ConfigGetQRZKey(true);
+                     }
+                } else {
+                     parse_qrz(current_node->children);
+                }
+
+          }
+     }
+
+    return;
+}
+
 void dxspot::query_qrz () {
     // query QRZ for a call location
     char* xml = 0 ;
     lat = 0.0;
     lon = 0.0;
     country.clear();
-    bool lat_valid, lon_valid;
     lat_valid=false;
     lon_valid=false;
     Uint64 xml_size;
@@ -143,7 +192,18 @@ void dxspot::query_qrz () {
         std::string url = "https://xmldata.qrz.com/xml?s=" + qrz_key + ";callsign=" + dx;
         xml_size = http_loader(url.c_str(), (void**)&xml);
         if (xml_size) {
+          xmlDocPtr xml_tree = 0;
+          xml_tree = xmlReadMemory(xml, static_cast<int>(xml_size), nullptr, nullptr, 0);
+          if (!xml_tree) {
+               *(host_api->AaediHAM_LogDebug) << "Failed to parse QRZ XML\n";
+          } else {
+               parse_qrz(xmlDocGetRootElement(xml_tree));
+               xmlFreeDoc (xml_tree);
+               xml_tree = nullptr;
+          }
+
             // parse XML for session key
+/*
             std::istringstream stream(xml);
             std::string keyline;
             size_t tag_start, tag_stop;
@@ -195,6 +255,7 @@ void dxspot::query_qrz () {
                     }
                 }
             }
+            */
         }
         if (xml) {
             free(xml);
@@ -304,7 +365,7 @@ int SDLCALL fetch_dxspots(void* data) {
                     readcount = 0;
                 }
             }
-            *(host_api->AaediHAM_LogDebug) << "DXSPOTS: DONE Reading " << dxbuffer.size()<< " lines of input\n";
+            *(host_api->AaediHAM_LogDebug) << "DONE Reading " << dxbuffer.size()<< " lines of input\n";
 
             for (std::string& buffstr : dxbuffer) {
                 // scan variables for line ID
@@ -314,15 +375,15 @@ int SDLCALL fetch_dxspots(void* data) {
                 char timez[8] = {0};
 
                 // process the input line
-                *(host_api->AaediHAM_LogDebug) << "DXSPOTS: buffstr " << buffstr.c_str() << "\n";
+                *(host_api->AaediHAM_LogDebug) << "buffstr " << buffstr.c_str() << "\n";
                 if (!buffstr.compare(1,5, "ogin:")) {
                     std::string callsign =  host_api->AaediHAM_ConfigGetCall();
                     send(dxsocket, callsign.c_str(), static_cast<int>(callsign.length()),0);
                     send(dxsocket, "\n", 1,0);
-                    *(host_api->AaediHAM_LogDebug) << "DXSPOTS: Sent Callsign\n";
+                    *(host_api->AaediHAM_LogDebug) << "Sent Callsign\n";
                 } else if (!buffstr.compare(0,5, "Hello")) {
                     send(dxsocket, "SH/DX 15\n", 9,0);
-                    *(host_api->AaediHAM_LogDebug) << "DXSPOTS: Sent SH15\n";
+                    *(host_api->AaediHAM_LogDebug) << "Sent SH15\n";
                 } else if (buffstr.rfind("DX de ", 0) == 0) {
                     *(host_api->AaediHAM_LogDebug) << "DXSPOTS: Got DX entry\nDXSPOTS: %s" <<  buffstr.c_str() << "\n";
                     dxspot new_spot;
@@ -333,14 +394,14 @@ int SDLCALL fetch_dxspots(void* data) {
                     new_spot.spotter = buffstr.substr(6, spotter_end-7 );
                     tempstring=buffstr.substr(spotter_end+1,std::string::npos);
                     buffstr = tempstring;
-                    *(host_api->AaediHAM_LogDebug) << "DXSPOTS: Extracted Spotter " << new_spot.spotter.c_str() << "\n";
+                    *(host_api->AaediHAM_LogDebug) << "Extracted Spotter " << new_spot.spotter.c_str() << "\n";
                     if (sscanf(buffstr.c_str(), "%lf %13s %n", &(new_spot.frequency), call, &consumed)==2) {
-                        *(host_api->AaediHAM_LogDebug) << "DXSPOTS: Extracted Frequency " << new_spot.frequency << "\n";
+                        *(host_api->AaediHAM_LogDebug) << "Extracted Frequency " << new_spot.frequency << "\n";
                     }
                     tempstring = buffstr.substr(consumed,std::string::npos);
                     buffstr = tempstring;
                     new_spot.dx = call;
-                    *(host_api->AaediHAM_LogDebug) << "DXSPOTS: Extracted DX " << new_spot.dx.c_str() << "\n";
+                    *(host_api->AaediHAM_LogDebug) << "Extracted DX " << new_spot.dx.c_str() << "\n";
                     spotter_end = buffstr.find_last_of('Z', (std::string::npos));
                     if (spotter_end != std::string::npos) {
                         tempstring = buffstr.substr(spotter_end-4, 4 );
@@ -348,11 +409,11 @@ int SDLCALL fetch_dxspots(void* data) {
                         new_time = gmtime(&currenttime);
                         if (sscanf(tempstring.c_str(), "%2d%2d",
                             &(new_time->tm_hour), &(new_time->tm_min)) != 2) {
-                            *(host_api->AaediHAM_LogDebug) << "DXSPOTS: Date Parse Error " << new_time->tm_hour << " " << new_time->tm_min << "\n";
+                            *(host_api->AaediHAM_LogDebug) << "Date Parse Error " << new_time->tm_hour << " " << new_time->tm_min << "\n";
                         }
                         new_spot.timestamp=0;
                         new_spot.timestamp = timegm(new_time);
-                        *(host_api->AaediHAM_LogDebug) << "DXSPOTS: Timestamp:" << tempstring.c_str() << " \nDXSPOTS:  Remaining:" << buffstr.c_str() << "\n";
+                        *(host_api->AaediHAM_LogDebug) << "Timestamp:" << tempstring.c_str() << " \nDXSPOTS:  Remaining:" << buffstr.c_str() << "\n";
                         new_spot.note=buffstr.substr(0, spotter_end-4 );
                     } else {
                         new_spot.timestamp = time(NULL);
@@ -388,7 +449,7 @@ int SDLCALL fetch_dxspots(void* data) {
                         if (sscanf(tempstring.c_str(), "%d-%3s-%d %2d%2d",
                             &new_time.tm_mday, month_str, &year, &new_time.tm_hour, &new_time.tm_min) != 5) {
 
-                            *(host_api->AaediHAM_LogDebug) << "DXSPOTS:Date Parse Error"
+                            *(host_api->AaediHAM_LogDebug) << "Date Parse Error"
                                 << "\nDXSPOTS: "<< tempstring.c_str() << "\t"
                                 << new_time.tm_mday << ", "
                                 << month_str << ", "
