@@ -50,6 +50,9 @@ Uint32 SDLCALL master_clock (void *userdata, SDL_TimerID timerID, Uint32 interva
             debug_log.flush();
             panel_assignment(true);
         }
+        if ((interrupt_counter % 5) == 0) {   // 0.5 seconds
+            write_image = true;
+        }
         for (struct PluginModule& plugin : loaded_plugins ) {
             if (plugin.interval) {
                 if ((interrupt_counter % plugin.interval) == 0) {

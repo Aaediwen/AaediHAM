@@ -17,6 +17,7 @@ struct color_pin {
 std::vector<struct color_pin> push_pins;
 struct color_pin last_used_pin{};
 int map_owner_id = 0;
+bool write_image = false;
 void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
     if (!current_pin) {
         return;
@@ -340,6 +341,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         SDL_UnlockMutex(mutexes[MUTEX_MASTER_CLOCK]);
         SDL_RenderPresent(clock_renderer);
 //        if (headless && (!outfile.empty())) {
+        if (write_image) {
         if (!outfile.empty()) {
             // dump surface to image file here
             if (tempfile.empty()) {
@@ -356,6 +358,8 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             #endif
 //            SDL_SaveBMP(savesurface, outfile.c_str());  // output_file_path from --output
             SDL_DestroySurface(savesurface);
+        }
+        write_image = false;
         }
         debug_log << "ITTERATE: Took " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
     }
