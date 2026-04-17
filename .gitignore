@@ -8,6 +8,7 @@ external/
 *~
 *.wspr
 *.log
+*.cache
 libxml2/
 notes.txt
 pidebug/

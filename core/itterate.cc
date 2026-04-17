@@ -217,12 +217,36 @@ void draw_overlays(ScreenFrame& panel) {
 
 }
 
+std::string tempfile;
+SDL_Surface* savesurface = nullptr;
 
+int SDLCALL write_image_thread (void* data) {
+     (void)data;
+     Uint64 savestart = SDL_GetTicks();
+     if (tempfile.empty()) {
+         tempfile = outfile + ".tmp";
+     }
+     if (savesurface) {
+         IMG_SaveJPG(savesurface, tempfile.c_str(), 50);
+     #ifdef _WIN32
+         MoveFileExA(tempfile.c_str(), outfile.c_str(), MOVEFILE_REPLACE_EXISTING);
+     #else
+         rename(tempfile.c_str(), outfile.c_str());
+     #endif
+//      SDL_SaveBMP(savesurface, outfile.c_str());  // output_file_path from --output
+         SDL_DestroySurface(savesurface);
+         savesurface = nullptr;
+         std::cout << "JPG_Write: " << std::to_string(SDL_GetTicks() - savestart) << " Ms\n";
+     }
+     return 0;
+}
+
+SDL_Thread* save_thread = nullptr;
 
 
 bool resizing = false;
 bool reload_flag = false;
-std::string tempfile;
+
 SDL_AppResult SDL_AppIterate(void *appstate) {
     (void)appstate;
     SDL_Delay(10);                      // slow down the program
@@ -292,25 +316,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 //        winboxes[PANEL_FLEXBOX4].panel.draw_border();
 //        winboxes[PANEL_FLEXBOX5].panel.draw_border();
 
-/*
-        if (master_flags.rss.draw_flag) {
-            debug_log << "ITTERATE: Calling Rss ("<< MOD_RSS <<") with panel " << master_flags.map.panel << "\n";
-//            rss_ticker(*(master_flags.map.panel));
-            master_flags.rss.draw_flag = false;
-            debug_log << "ITTERATE: Module Timer RSS -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
-            debug_log.flush();
-        }
-*/
 
-/*
-        if (master_flags.psk.draw_flag) {
-            debug_log << "ITTERATE: Calling PSK Reporter ("<< MOD_PSK <<")with panel " << master_flags.psk.panel << "\n";
-            debug_log.flush();
-//            psk_reporter(*(master_flags.psk.panel));
-            master_flags.psk.draw_flag = false;
-            debug_log << "ITTERATE: Module Timer PSK Reporter -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
-        }
-*/
 
         // new plugin pins
         ScreenFrame* pin_overlay = overlays.get_overlay(clock_renderer, 1002,  winboxes[PANEL_MAP].panel.dims, OVERLAY_BASE);
@@ -341,25 +347,45 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         SDL_UnlockMutex(mutexes[MUTEX_MASTER_CLOCK]);
         SDL_RenderPresent(clock_renderer);
 //        if (headless && (!outfile.empty())) {
+       // this if (write_surface && savesurface) acts to drop disk frames if the system is having trouble keeping up with disk output
+        if (write_image && savesurface) {
+//          std::cout << "JPEG Skipping Frame\n";
+            write_image = false;
+        }
         if (write_image) {
-        if (!outfile.empty()) {
+            if (!outfile.empty()) {
             // dump surface to image file here
-            if (tempfile.empty()) {
-                tempfile = outfile + ".tmp";
-            }
+            // this new code replaces the below by spawning a worker thread for the disk write
+            // doing so avoids blocking the main render thread
+
             int width, height;
             SDL_GetCurrentRenderOutputSize(clock_renderer, &width, &height);
-            SDL_Surface* savesurface = SDL_RenderReadPixels(clock_renderer, NULL);
-            IMG_SaveJPG(savesurface, tempfile.c_str(), 75);
-            #ifdef _WIN32
-            MoveFileExA(tempfile.c_str(), outfile.c_str(), MOVEFILE_REPLACE_EXISTING);
-            #else
-            rename(tempfile.c_str(), outfile.c_str());
-            #endif
-//            SDL_SaveBMP(savesurface, outfile.c_str());  // output_file_path from --output
-            SDL_DestroySurface(savesurface);
-        }
-        write_image = false;
+            if (save_thread) {
+                SDL_WaitThread(save_thread, nullptr);
+                save_thread = nullptr;
+            }
+            savesurface = SDL_RenderReadPixels(clock_renderer, NULL);
+            if (savesurface) {
+               save_thread = SDL_CreateThread(write_image_thread, "Disk Writer", (void*)savesurface);
+            }
+
+                // dump surface to image file here
+/*                if (tempfile.empty()) {
+                    tempfile = outfile + ".tmp";
+                }
+                int width, height;
+                SDL_GetCurrentRenderOutputSize(clock_renderer, &width, &height);
+                SDL_Surface* savesurface = SDL_RenderReadPixels(clock_renderer, NULL);
+                IMG_SaveJPG(savesurface, tempfile.c_str(), 75);
+                #ifdef _WIN32
+                MoveFileExA(tempfile.c_str(), outfile.c_str(), MOVEFILE_REPLACE_EXISTING);
+                #else
+                rename(tempfile.c_str(), outfile.c_str());
+                #endif
+//            	SDL_SaveBMP(savesurface, outfile.c_str());  // output_file_path from --output
+                SDL_DestroySurface(savesurface); */
+            }
+            write_image = false;
         }
         debug_log << "ITTERATE: Took " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
     }

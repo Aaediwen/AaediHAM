@@ -105,8 +105,11 @@ namespace AaediClock_Init {
                      std::cout << "Invalid Renderer Geometry: " << arg.c_str()<< "\n";
                  }
             } else if (arg.rfind("--outfile",0)==0) {
-                  outfile = arg.substr(10);
-                  std::cout << "Attempting to use output file: "<< outfile.c_str()<< "\n";
+                size_t eqpos = arg.find('=');
+                if (eqpos != std::string::npos) {
+                      outfile = arg.substr(10);
+                      std::cout << "Attempting to use output file: "<< outfile.c_str()<< "\n";
+                }
             } else if (arg == "--fullscreen") {
                 fs_start = true;
             } else if (arg == "--help") {
@@ -122,9 +125,14 @@ namespace AaediClock_Init {
                 return (SDL_APP_SUCCESS);
             } else if (arg.rfind("--QRZ_Pass",0)==0) {
                 std::string password;
-                password = arg.substr(11);
-                clockconfig.set_qrz_pass(password);
-                std::cout << "QRZ password set.\n";
+                size_t eqpos = arg.find('=');
+                if (eqpos != std::string::npos) {
+                    password = arg.substr(11);
+                    clockconfig.set_qrz_pass(password);
+                    std::cout << "QRZ password set.\n";
+                } else {
+                    std::cout << "QRZ Pas Syntax error: use --QRZ_Pass=mypass\n";
+                }
                 return (SDL_APP_SUCCESS);
             }
         } // parser for loop
@@ -402,6 +410,11 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     if (init_result != SDL_APP_CONTINUE) {
         return init_result;
     }
+    if ((default_size.w < 25) || (default_size.h <25)) {
+        std::cout << "The 1960's are laughing at you for trying such a screen size\n";
+        return SDL_APP_SUCCESS;
+    }
+
     init_result = AaediClock_Init::System_Init();
     if (init_result != SDL_APP_CONTINUE) {
         return init_result;
