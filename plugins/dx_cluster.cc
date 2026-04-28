@@ -66,6 +66,43 @@ void dxspot::find_mode () {
 void dxspot::fill_qrz() {
     query_qrz();
 }
+aaediclock_Color dxspot::band_color() {
+    const double raw_frequency = frequency/1000;
+    aaediclock_Color result = {128,128,128,0};
+    if (raw_frequency >=1.8 && raw_frequency <=2.0) {
+        //160M
+        result = {139,69,19,0};
+    } else if (raw_frequency >=3.5 && raw_frequency <=4.0) {
+        // 80M
+        result = {220,50,47,0};
+    } else if (raw_frequency >=5.3 && raw_frequency <=5.5) {
+        // 60M
+        result = {205,92,30,0};
+    }  else if (raw_frequency >=7.0 && raw_frequency <=7.3) {
+        // 40M
+        result = {230,200,40,0};
+    } else if (raw_frequency >=10.1 && raw_frequency <=10.15) {
+        // 30M
+        result = {50,100,75,0};
+    }  else if (raw_frequency >=14.0 && raw_frequency <=14.350) {
+        // 20M
+        result = {50,100,75,0};
+    }  else if (raw_frequency >=18.068 && raw_frequency <=18.168) {
+        // 17M
+        result = {0,180,180,0};
+    }  else if (raw_frequency >=21.0 && raw_frequency <=21.45) {
+        // 15M
+        result = {65,105,225,0};
+    } else if (raw_frequency >=24.89 && raw_frequency <=24.99) {
+        // 12M
+        result = {138,43,226,0};
+    }  else if (raw_frequency >=28.0 && raw_frequency <=29.7) {
+        // 10M
+        result = {200,0,200,0};
+    }
+    return result;
+}
+
 void dxspot::display_spot(const aaediclock_FRect& dims, float y) {
     // add to screen list
        if (y < 0) {
@@ -78,6 +115,7 @@ void dxspot::display_spot(const aaediclock_FRect& dims, float y) {
        }
        char tempstr[128];
        aaediclock_Color tempcolor={128,0,0,0};
+       tempcolor = band_color();
        aaediclock_FRect TextRect;
        TextRect.x	=	2;
        TextRect.y	=	y * 1.0f;
@@ -578,7 +616,7 @@ void dx_cluster_plugin::plugin_main(const aaediclock_FRect& dims) const {
 
 
             if (mouse_event.valid) {
-                SDL_Log ("Click event in  module at %f, %f", mouse_event.coords.x, mouse_event.coords.y);
+//                SDL_Log ("Click event in  module at %f, %f", mouse_event.coords.x, mouse_event.coords.y);
                 if ( mouse_event.coords.y >=y &&  mouse_event.coords.y <= (y + dims.h/15)) {
                       struct aaediclock_dx new_dx;
                       new_dx.lat = dxspots[n].lat;

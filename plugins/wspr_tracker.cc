@@ -208,6 +208,7 @@ void TrackedWSPR::wspr_live_update() {
     if (!m_telemetry.empty()) {
         query += " AND id > " + std::to_string(m_telemetry.back().id);
     }
+//    query += " LIMIT 1000 ";
     const std::string url_string = "http://db1.wspr.live/?query="+query;
     *(host_api->AaediHAM_LogDebug) << "WSPR: Calling http loader with " << url_string.c_str() << "\n";;
     data_size = http_loader(url_string.c_str(), &http_buffer);   // live

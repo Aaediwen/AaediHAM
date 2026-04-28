@@ -41,6 +41,7 @@ class dxspot {
         void print_spot();
     private:
        void parse_qrz(xmlNode* node);
+       aaediclock_Color band_color();
        void query_qrz ();
 
 };

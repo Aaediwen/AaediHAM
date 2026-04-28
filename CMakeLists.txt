@@ -168,6 +168,13 @@ add_library(pskreporter_plugin SHARED
 )
 target_link_libraries(pskreporter_plugin PRIVATE aaediclock_path paho-mqtt3c LibXml2::LibXml2)
 
+add_library(muf_plugin SHARED
+    plugins/muf.cc
+    utils/http_fetch.cc
+)
+target_link_libraries(muf_plugin PRIVATE aaediclock_path LibXml2::LibXml2)
+
+
 add_library(map_plugin SHARED
 	plugins/map.cc
 	utils/celestials.cc
