@@ -285,6 +285,10 @@ The program now requires a config file (aaediclock_config.json) in the Current D
   - https://services.swpc.noaa.gov/json/ovation_aurora_latest.json
   - Current Aurora forecast data
   - Downloaded every 30 minutes at runtime
+- **HamQSL Band Conditions -- Paul L Herrman (N0NBH)**
+  - https://www.hamqsl.com/solarxml.php
+  - Current band openings
+  - fetched once every 3 hours at run time
 
  ---
  ## Build Instructions:
