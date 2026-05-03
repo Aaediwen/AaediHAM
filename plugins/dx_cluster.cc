@@ -240,60 +240,7 @@ void dxspot::query_qrz () {
                xml_tree = nullptr;
           }
 
-            // parse XML for session key
-/*
-            std::istringstream stream(xml);
-            std::string keyline;
-            size_t tag_start, tag_stop;
 
-            while (std::getline(stream, keyline)) {
-                tag_start = keyline.find("<lat>");
-                tag_stop = keyline.find("</lat>");
-                if ((tag_start != std::string::npos) && (tag_stop != std::string::npos)) {
-                    tag_start += 5;
-                    try {
-                        lat = std::stod(keyline.substr(tag_start, tag_stop - tag_start));
-                        lat_valid = true;
-                    } catch (std::exception& e) {
-                        (void) e;
-                        lat = 0;
-                        lat_valid = false;
-                    }
-                }
-                tag_start = keyline.find("<lon>");
-                tag_stop = keyline.find("</lon>");
-                if ((tag_start != std::string::npos) && (tag_stop != std::string::npos)) {
-                    tag_start += 5;
-                    try {
-                        lon = std::stod(keyline.substr(tag_start, tag_stop - tag_start));
-                        lon_valid = true;
-                    } catch (std::exception& e) {
-                        (void) e;
-                        lon = 0;
-                        lon_valid = false;
-                    }
-                }
-                tag_start = keyline.find("<country>");
-                tag_stop = keyline.find("</country>");
-                if ((tag_start != std::string::npos) && (tag_stop != std::string::npos)) {
-                    tag_start += 9;
-                    country = keyline.substr(tag_start, tag_stop - tag_start);
-                }
-
-                tag_start = keyline.find("<Error>");
-                tag_stop = keyline.find("</Error>");
-                if ((tag_start != std::string::npos) && (tag_stop != std::string::npos)) {
-                    tag_start += 7;
-                    std::string QRZ_Err = keyline.substr(tag_start, tag_stop - tag_start);
-                    printf("QRZ Call Lookup Error: %s\n", QRZ_Err.c_str());
-                    *(host_api->AaediHAM_LogDebug) << "QRZ Call Lookup Error: " << QRZ_Err.c_str() << "\n";
-                    if (!QRZ_Err.compare(0,15, "Session Timeout")) {
-                         *(host_api->AaediHAM_LogDebug) << "Getting new QRZ session key\n";
-                         host_api->AaediHAM_ConfigGetQRZKey(true);
-                    }
-                }
-            }
-            */
         }
         if (xml) {
             free(xml);
@@ -310,12 +257,9 @@ void dxspot::query_qrz () {
 
 
 
-
-
-
-
 dx_socket_t dxsocket = 0;
 std::vector<dxspot>dxspots;
+unsigned int rand_seed = 0;
 
 void duplicate_spot(dxspot& needle) {
     size_t old_index = 0;
@@ -416,9 +360,13 @@ int SDLCALL fetch_dxspots(void* data) {
                 *(host_api->AaediHAM_LogDebug) << "buffstr " << buffstr.c_str() << "\n";
                 if (!buffstr.compare(1,5, "ogin:")) {
                     std::string callsign =  host_api->AaediHAM_ConfigGetCall();
+                    if (!rand_seed) {
+                        rand_seed = time(0);
+                    }
+                    callsign += "-" + std::to_string(rand_r(&rand_seed) % 100);
                     send(dxsocket, callsign.c_str(), static_cast<int>(callsign.length()),0);
                     send(dxsocket, "\n", 1,0);
-                    *(host_api->AaediHAM_LogDebug) << "Sent Callsign\n";
+                    *(host_api->AaediHAM_LogDebug) << "Sent Callsign " << callsign << "\n";
                 } else if (!buffstr.compare(0,5, "Hello")) {
                     send(dxsocket, "SH/DX 15\n", 9,0);
                     *(host_api->AaediHAM_LogDebug) << "Sent SH15\n";
@@ -587,7 +535,7 @@ void dx_cluster_plugin::plugin_exit() const {
 }
 
 void dx_cluster_plugin::plugin_main(const aaediclock_FRect& dims) const {
-    host_api->AaediHAM_GraphicsClear();
+
     const char* callsign = host_api->AaediHAM_ConfigGetCall();
     if (!dxsocket) {
         std::cout << "Error Connecting to DX Spot Telnet Session\n";
@@ -598,6 +546,7 @@ void dx_cluster_plugin::plugin_main(const aaediclock_FRect& dims) const {
         TextRect.y=2;
         TextRect.w=dims.w-4;
         TextRect.h=dims.h/7;
+        host_api->AaediHAM_GraphicsClear();
         host_api->AaediHAM_GraphicsDrawText("NOT CONNECTED", tempcolor, TextRect);
         return;
     }
@@ -605,52 +554,53 @@ void dx_cluster_plugin::plugin_main(const aaediclock_FRect& dims) const {
     float y = 2.0f;
     *(host_api->AaediHAM_LogDebug) << "Locking Mutex\n";
     if (dxspot_mutex.try_lock()) {
-    size_t start = dxspots.size() > 15 ? dxspots.size() - 15 : 0;
-    struct plugin_mouse_event mouse_event = host_api->AaediHAM_GetMouseEvent();
-    *(host_api->AaediHAM_LogDebug) << "Setting DX based on mouse event, and populating panel\n";
+        host_api->AaediHAM_GraphicsClear();
+        size_t start = dxspots.size() > 15 ? dxspots.size() - 15 : 0;
+        struct plugin_mouse_event mouse_event = host_api->AaediHAM_GetMouseEvent();
+        *(host_api->AaediHAM_LogDebug) << "Setting DX based on mouse event, and populating panel\n";
 
-    for (size_t n=start ; n < dxspots.size(); n++) {
-        if (y < dims.h) {
-            host_api->AaediHAM_SetTarget();
-            dxspots[n].display_spot(dims, y);
+        for (size_t n=start ; n < dxspots.size(); n++) {
+            if (y < dims.h) {
+                host_api->AaediHAM_SetTarget();
+                dxspots[n].display_spot(dims, y);
 
 
-            if (mouse_event.valid) {
-//                SDL_Log ("Click event in  module at %f, %f", mouse_event.coords.x, mouse_event.coords.y);
-                if ( mouse_event.coords.y >=y &&  mouse_event.coords.y <= (y + dims.h/15)) {
-                      struct aaediclock_dx new_dx;
-                      new_dx.lat = dxspots[n].lat;
-                      new_dx.lon = dxspots[n].lon;
-//                      new_dx.label = dxspots[n].dx;
-                      strncpy(new_dx.label, dxspots[n].dx.c_str(),31);
-                      new_dx.label[31]=0;
-                      host_api->AaediHAM_ConfigSetDX(new_dx);
+                if (mouse_event.valid) {
+    //                SDL_Log ("Click event in  module at %f, %f", mouse_event.coords.x, mouse_event.coords.y);
+                    if ( mouse_event.coords.y >=y &&  mouse_event.coords.y <= (y + dims.h/15)) {
+                          struct aaediclock_dx new_dx;
+                          new_dx.lat = dxspots[n].lat;
+                          new_dx.lon = dxspots[n].lon;
+    //                      new_dx.label = dxspots[n].dx;
+                          strncpy(new_dx.label, dxspots[n].dx.c_str(),31);
+                          new_dx.label[31]=0;
+                          host_api->AaediHAM_ConfigSetDX(new_dx);
+                    }
+
                 }
 
+                y+= static_cast<int>(dims.h)/15;
             }
-
-            y+= static_cast<int>(dims.h)/15;
         }
-    }
-    *(host_api->AaediHAM_LogDebug) << "Setting pins\n";
-    host_api->AaediHAM_MapPinDelete();
-    for (auto& current_spot : dxspots) {
-        if (current_spot.qrz_valid) {
-            struct aaediclock_map_pin dx_pin;
-            dx_pin.owner     =       0;
+        *(host_api->AaediHAM_LogDebug) << "Setting pins\n";
+        host_api->AaediHAM_MapPinDelete();
+        for (auto& current_spot : dxspots) {
+            if (current_spot.qrz_valid) {
+                struct aaediclock_map_pin dx_pin;
+                dx_pin.owner     =       0;
 
 
-            sprintf(dx_pin.label, "%s", current_spot.dx.c_str());
-            dx_pin.lat         =               current_spot.lat;
-            dx_pin.lon         =               current_spot.lon;
-            dx_pin.icon        =               0;
-            dx_pin.color           =            {128,0,0,255};
-            dx_pin.tooltip[0]  =        0;
-            host_api->AaediHAM_MapPinAdd(dx_pin);
+                sprintf(dx_pin.label, "%s", current_spot.dx.c_str());
+                dx_pin.lat         =               current_spot.lat;
+                dx_pin.lon         =               current_spot.lon;
+                dx_pin.icon        =               0;
+                dx_pin.color           =            {128,0,0,255};
+                dx_pin.tooltip[0]  =        0;
+                host_api->AaediHAM_MapPinAdd(dx_pin);
+            }
         }
-    }
-    dxspot_mutex.unlock();
-    *(host_api->AaediHAM_LogDebug) << "Mutex Unlock, exiting\n";
+        dxspot_mutex.unlock();
+        *(host_api->AaediHAM_LogDebug) << "Mutex Unlock, exiting\n";
     } else {
         *(host_api->AaediHAM_LogDebug) << "DX Cluster lock failed, exiting\n";
     }

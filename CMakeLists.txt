@@ -197,6 +197,9 @@ set(PLUGIN_TARGETS
     wspr_plugin
     lunar_plugin
     map_plugin
+    pskreporter_plugin
+    rss_plugin
+    muf_plugin
 )
 
 # ================================================================================
@@ -209,6 +212,12 @@ if (NOT WIN32)
 endif()
  	if (NOT ${symbol}_FOUND)
 		message(STATUS "${symbol} not found, fetching...")
+		find_program(GIT_EXECUTABLE git)
+                if(NOT GIT_EXECUTABLE)
+    			message(FATAL_ERROR
+        			"git was not found, but is required to fetch third-party dependencies.\n"
+        			"Install git or manually pre-install dependancies.")
+		endif()
 		FetchContent_Declare(
 			${symbol}
 			GIT_REPOSITORY ${path}
@@ -234,9 +243,10 @@ endfunction()
 # ================================================================================
 # PLATFORM SPECIFIC COMPILER FLAGS
 # ================================================================================
-# cmake -DCMAKE_BUILD_TYPE=Release .. 	== release build
+# cmake -DCMAKE_BUILD_TYPE=Release .. 	== Release build
 # cmake -DCMAKE_BUILD_TYPE=Debug ..	== Debug Build
 # cmake -DASAN_ENABLE=ON ..		== Enable Address Sanitizer on Posix
+# cmake -DSDL_UNIX_CONSOLE_BUILD=ON ..	== Disable SDL3 X11/Wayland Back End
 # cmake ..				== last Cmake in that dir, Release by default
 #
 # Ensure build type is always set
@@ -314,7 +324,8 @@ else()
 	set(FETCHCONTENT_BASE_DIR ${EXTERNAL_DIR})
 	find_package(ZLIB REQUIRED)
 	find_build(CURL "https://github.com/curl/curl.git" master .)
-	find_package(Fontconfig REQUIRED)
+        find_build(Fontconfig "https://gitlab.freedesktop.org/fontconfig/fontconfig.git" "main" .)
+#	find_package(Fontconfig REQUIRED)
 	target_link_libraries(clock PRIVATE ZLIB::ZLIB CURL::libcurl m fontconfig) 
         find_build(sgp4 https://github.com/dnwrnr/sgp4.git "master" "sgp4-src/")
 
@@ -375,6 +386,11 @@ if(WIN32)
         add_custom_command(TARGET clock POST_BUILD 
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:SDL3_ttf::SDL3_ttf>
+            ${BINARY_TREE}
+        )
+        add_custom_command(TARGET clock POST_BUILD 
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:LibXml2::LibXml2>
             ${BINARY_TREE}
         )
         add_custom_command(TARGET clock POST_BUILD 
