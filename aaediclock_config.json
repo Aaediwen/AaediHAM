@@ -50,7 +50,7 @@
     ],
     "Plugins": [
         {
-            "plugin": "plugins/map_plugin.so",
+            "plugin": "plugins/libmap_plugin.so",
             "panel": 2,
             "interval": 10
         },
