@@ -177,7 +177,7 @@ namespace AaediClock_Init {
         debug_log << "INIT: Globals Initialized\n";
         // create mutexes
         for (SDL_Mutex*& mtx : mutexes) {
-            mtx = SDL_CreateMutex();;
+            mtx = SDL_CreateMutex();
         }
 
         debug_log << "INIT: Map Variables Initialized\n";

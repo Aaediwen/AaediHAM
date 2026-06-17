@@ -103,7 +103,9 @@ void load_countries_map (const aaediclock_FRect& dims) {
                 y=0;
                 Uint8 cg, cr, cb;
                 Uint8* country_pixels = (Uint8*)countries_map.surface->pixels;
-                const Uint8 bpp = SDL_GetPixelFormatDetails(countries_map.surface->format)->bytes_per_pixel;
+                const SDL_PixelFormatDetails* FormatDetails = SDL_GetPixelFormatDetails(countries_map.surface->format);
+                const Uint8 bpp = FormatDetails->bytes_per_pixel;
+//                const Uint8 bpp = SDL_GetPixelFormatDetails(countries_map.surface->format)->bytes_per_pixel;
             /*
             about the following FOR loop:
             --------------------------------
@@ -118,15 +120,18 @@ void load_countries_map (const aaediclock_FRect& dims) {
             However, Other code does check for its existance as a sanity check that this routine ran correctly
             I *could* nuke the surface and create a stub 1x1 surface, but I don't think it's worth the savings in system RAM
             */
+
                 for ( y = 0; y < countries_map.surface->h ; y++) {
                     for (x = 0 ; x < countries_map.surface->w ; x++) {
                         // get where the pixel lives
                         int pixel_index = countries_map.surface->pitch*y + ( bpp * x );
                         // read its color values
                         Uint32 *pixel_val=(Uint32*)(pixel_index+country_pixels);
-                        SDL_GetRGBA( *pixel_val, SDL_GetPixelFormatDetails(countries_map.surface->format), NULL, &cr, &cg, &cb, NULL);
+                        SDL_GetRGBA( *pixel_val, FormatDetails, NULL, &cr, &cg, &cb, NULL);
+//                        SDL_GetRGBA( *pixel_val, SDL_GetPixelFormatDetails(countries_map.surface->format), NULL, &cr, &cg, &cb, NULL);
                         // write the new value back
-                        Uint32 pixel_val_out = SDL_MapRGBA(SDL_GetPixelFormatDetails(countries_map.surface->format), NULL, 0, 0, 0, (255-cg));
+                        Uint32 pixel_val_out = SDL_MapRGBA(FormatDetails, NULL, 0, 0, 0, (255-cg));
+//                        Uint32 pixel_val_out = SDL_MapRGBA(SDL_GetPixelFormatDetails(countries_map.surface->format), NULL, 0, 0, 0, (255-cg));
                         memcpy((country_pixels + pixel_index), &pixel_val_out, bpp);
                     }
                 }

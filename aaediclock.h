@@ -12,7 +12,6 @@
 #include "core/classes.h"
 #include "plugins/host_api.h"
 #ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
 #ifdef _DEBUG
 #define _CRTDBG_MAP_ALLOC
 #include <crtdbg.h>
