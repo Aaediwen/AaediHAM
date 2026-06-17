@@ -88,23 +88,23 @@ dx_socket_t init_fd(const struct plugin_server_info dx_server, aaediclock_host_a
     fcntl(dxsocket, F_SETFL, flags | O_NONBLOCK);
 
     if (connect(dxsocket, serveraddr->ai_addr, serveraddr->ai_addrlen) == -1) {
-           if (errno == EINPROGRESS) {
-        pollfd pfd;
-        pfd.fd = dxsocket;
-        pfd.events = POLLOUT;
-        int res = poll(&pfd, 1, 5000);
-        std::cout << "RES: " << res << "\tREVENTS: " << pfd.revents << "\n";
-        if (res <= 0 || !(pfd.revents & POLLOUT)) {
-            *(host_api->AaediHAM_LogDebug) << "DXSPOTS: connect timeout\n";
+        if (errno == EINPROGRESS) {
+            pollfd pfd;
+            pfd.fd = dxsocket;
+            pfd.events = POLLOUT;
+            int res = poll(&pfd, 1, 5000);
+            std::cout << "RES: " << res << "\tREVENTS: " << pfd.revents << "\n";
+            if (res <= 0 || !(pfd.revents & POLLOUT)) {
+                *(host_api->AaediHAM_LogDebug) << "DXSPOTS: connect timeout\n";
+                shutdown(dxsocket, SHUT_RDWR);
+                freeaddrinfo(serveraddr);
+                return 0;
+            }
+        } else {
             shutdown(dxsocket, SHUT_RDWR);
             freeaddrinfo(serveraddr);
             return 0;
         }
-    } else {
-        shutdown(dxsocket, SHUT_RDWR);
-        freeaddrinfo(serveraddr);
-        return 0;
-    }
     }
     // Restore blocking for reads
 flags = fcntl(dxsocket, F_GETFL, 0);

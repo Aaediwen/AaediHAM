@@ -32,6 +32,70 @@ int month_to_int(const std::string& month) {
     }
 }
 
+
+// convert DOY to MM-DD
+
+bool isLeapYear(int year) {
+    return (year % 400 == 0) || (year % 4 == 0 && year % 100 != 0);
+}
+
+void doy_to_mmdd(const int year, int doy, int* mm, int* dd) {
+    static int months[14]={0, 31, 28,  31, 30, 31, 30, 31, 31, 30, 31, 30, 31, 0};
+    if ((!mm) || (!dd)) {
+//        std::cout << "Invalid result locations\n";
+        return;
+    }
+    if (doy > 366) {
+//        std::cout << "Invalid DOY\n";
+        return;
+    }
+    bool isleap = isLeapYear(year);
+    *mm=0;
+    *dd=0;
+    for (int x = 1 ; x < 13 ; x++) {
+        int monthdays = months[x];
+        if (isleap && x==2) {
+            monthdays++;
+        }
+        if (doy >0) {
+            if (doy > monthdays) {
+                doy -= monthdays;
+            } else {
+                *mm=x;
+                *dd=doy;
+                return;
+            }
+        }
+    }
+    return;
+}
+
+// convert YYYY MM DD HH mm ss.ss to Julian Date according to Meeus Chapter 7
+double meeusJD (int year, int month, int day, int hour, int min, double sec) {
+//    std::cout << "Meeus Input: " << year << "-" << month << "-" << day << "   " <<hour << ":" << min << ":" << sec << "\n";
+    double result = 0;
+    if ((month <3) && month > 0) {
+        year--;
+        month += 12;
+    }
+    int A, B;
+    A = static_cast<int>(year/100);     // (MEEUS P61)
+    B = 2 - A + static_cast<int>(A/4);  // (MEEUS P61)
+    result = static_cast<int>(365.25*(year+4716)) ;//(MEEUS P61 7.1) // per Meeus, 4716 here avoids issues with negative years
+    result += static_cast<int>(30.6001*(month+1)) ;// I break this across multiple lines // per Meeus, 30.6001 resolves precision issues with 30.6. 30.61 can work
+    result += day ;                                // to hopefully make the sections of
+    result += B ;                                  // it easier to see and understand
+    result -= 1524.5;
+    double day_seconds = 0;
+    day_seconds += hour      *       3600;
+    day_seconds += min       *       60;
+    day_seconds += sec;
+    result += (day_seconds/86400.0);
+//    printf("Meeus Result: %.10f\n", result);
+    return result;
+}
+
+
 struct GeoCoord loc_to_geo (const std::string locator) {
     struct GeoCoord result;
     result.latitude = 0;

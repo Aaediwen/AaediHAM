@@ -23,7 +23,7 @@ void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
         return;
     }
     const int unit_scale = static_cast<int>(panel->dims.w/100);
-    SDL_Texture* old_render_target = SDL_GetRenderTarget(panel->GetRenderer());;
+    SDL_Texture* old_render_target = SDL_GetRenderTarget(panel->GetRenderer());
     SDL_FRect icon_box;         // how big and where are we going to render the icon?
     SDL_Texture* icon_texture = nullptr;        // variable to store what icon texture we are going to use
 
@@ -219,13 +219,14 @@ void draw_overlays(ScreenFrame& panel) {
 
 std::string tempfile;
 SDL_Surface* savesurface = nullptr;
-
+std::mutex savemutex;
 int SDLCALL write_image_thread (void* data) {
      (void)data;
      Uint64 savestart = SDL_GetTicks();
      if (tempfile.empty()) {
          tempfile = outfile + ".tmp";
      }
+     const std::lock_guard<std::mutex>save_lock(savemutex);
      if (savesurface) {
          IMG_SaveJPG(savesurface, tempfile.c_str(), 50);
      #ifdef _WIN32
@@ -320,12 +321,14 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 
         // new plugin pins
         ScreenFrame* pin_overlay = overlays.get_overlay(clock_renderer, 1002,  winboxes[PANEL_MAP].panel.dims, OVERLAY_BASE);
-        pin_overlay->Clear(SDL_Color{0,0,0,0});
-        if (!winboxes[PANEL_MAP].plugin_sequence.empty()) {
-            map_owner_id = winboxes[PANEL_MAP].plugin_sequence[winboxes[PANEL_MAP].plugin_index];
-            if (!plugin_map_pins.empty()) {
-                for (auto& map_pin : plugin_map_pins) {
-                    render_pin(pin_overlay, &map_pin);
+        if (pin_overlay) {
+            pin_overlay->Clear(SDL_Color{0,0,0,0});
+            if (!winboxes[PANEL_MAP].plugin_sequence.empty()) {
+                map_owner_id = winboxes[PANEL_MAP].plugin_sequence[winboxes[PANEL_MAP].plugin_index];
+                if (!plugin_map_pins.empty()) {
+                    for (auto& map_pin : plugin_map_pins) {
+                        render_pin(pin_overlay, &map_pin);
+                    }
                 }
             }
         }
@@ -364,6 +367,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
                 SDL_WaitThread(save_thread, nullptr);
                 save_thread = nullptr;
             }
+            const std::lock_guard<std::mutex>save_lock(savemutex);
             savesurface = SDL_RenderReadPixels(clock_renderer, NULL);
             if (savesurface) {
                save_thread = SDL_CreateThread(write_image_thread, "Disk Writer", (void*)savesurface);

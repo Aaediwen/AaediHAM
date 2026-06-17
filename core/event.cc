@@ -6,7 +6,7 @@
 #include "sdl_callbacks.h"
 
 void interrupt_handler(int signal) {
-    if ((signal == SIGINT) || (signal = SIGTERM)) {
+    if ((signal == SIGINT) || (signal == SIGTERM)) {
         interrupt_flag = true;
 //    	window_destroy();
     }
@@ -100,6 +100,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                     window_destroy();
                     return SDL_APP_FAILURE;
                 }
+                break;
             default:
                 break;
         }

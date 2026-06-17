@@ -114,6 +114,17 @@ add_library(sat_tracker_plugin SHARED
 )
 target_link_libraries(sat_tracker_plugin PRIVATE aaediclock_path sgp4 SDL3::SDL3 SDL3_image::SDL3_image)
 
+add_library(new_sat_tracker_plugin SHARED
+    plugins/new_sat_tracker.cc 
+    plugins/SGP4/SGP4.cpp
+    utils/http_fetch.cc
+    utils/conversions.cc
+)
+#temporary for Vallado test
+target_compile_options(new_sat_tracker_plugin PRIVATE -fpermissive)
+target_link_libraries(new_sat_tracker_plugin PRIVATE aaediclock_path SDL3::SDL3 SDL3_image::SDL3_image LibXml2::LibXml2)
+
+
 add_library(aurora_plugin SHARED
     plugins/aurora.cc
     utils/http_fetch.cc
