@@ -358,7 +358,11 @@ int SDLCALL fetch_dxspots(void* data) {
                 }
             }
             *(host_api->AaediHAM_LogDebug) << "DONE Reading " << dxbuffer.size()<< " lines of input\n";
+#ifdef _WIN32
+            int send_result = 0;
+#else
             ssize_t send_result = 0;
+#endif
             for (std::string& buffstr : dxbuffer) {
                 if (exit_shutdown < 5) {
                     exit_shutdown = 0;
@@ -375,9 +379,14 @@ int SDLCALL fetch_dxspots(void* data) {
                 if (buffstr.size() >= 6 && (!buffstr.compare(1,5, "ogin:")) || (buffstr.find("enter your call") != std::string::npos)) {
                     std::string callsign =  host_api->AaediHAM_ConfigGetCall();
                     if (!rand_seed) {
-                        rand_seed = time(0);
+                        rand_seed = static_cast<unsigned int>(time(0));
                     }
+#ifdef _WIN32
+                    std::srand((unsigned)rand_seed);
+                    callsign += "-" + std::to_string(rand() % 100);
+#else
                     callsign += "-" + std::to_string(rand_r(&rand_seed) % 100);
+#endif
                     send_result = send(dxsocket, callsign.c_str(), static_cast<int>(callsign.length()),0);
                     send_result = send(dxsocket, "\n", 1,0);
                     *(host_api->AaediHAM_LogDebug) << "Sent Callsign " << callsign << "\n";

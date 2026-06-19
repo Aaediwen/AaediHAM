@@ -59,8 +59,10 @@ target_include_directories(aaediclock_path INTERFACE ${CMAKE_SOURCE_DIR})
 if (ASAN_ENABLE) 
   target_link_options(aaediclock_path INTERFACE -fsanitize=address)
 endif()
+if (NOT WIN32)
 target_compile_options(aaediclock_path INTERFACE -fno-omit-frame-pointer
 -rdynamic)
+endif()
 add_executable(clock ${SOURCES})
 target_link_libraries(clock PRIVATE aaediclock_path LibXml2::LibXml2)
 
