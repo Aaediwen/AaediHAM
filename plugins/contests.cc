@@ -11,95 +11,7 @@ SDL_TimerID contest_timer = 0;
 std::vector<struct contest> contest_feed;
 std::mutex contest_mutex;
 aaediclock_host_api* host_api = nullptr;
-/*
-void parse_contests(char* xml) {
-    if (!xml || ! xml[0]) {
-         return;
-    }
-    const std::lock_guard<std::mutex>contest_lock(contest_mutex);
-    contest_feed.clear();
-    struct contest temp;
-    temp.title.clear();
-    temp.link.clear();
-    temp.description.clear();
-    temp.guid.clear();
-    std::istringstream stream(xml);
-    std::string keyline;
-    keyline.clear();
-    size_t tag_start, tag_stop;
-    tag_start = 0;
-    tag_stop = 0;
-    bool in_item = false;
-    while (std::getline(stream, keyline)) {
-        tag_start=keyline.find("<item>");
-        tag_stop=keyline.find("</item>");
-        // new item entry
-        if ( tag_start != std::string::npos ) {
-            temp.title.clear();
-            temp.link.clear();
-            temp.description.clear();
-            temp.guid.clear();
-            in_item = true;
-        }
-        // end item entry
-        if ( tag_stop != std::string::npos) {
-            if (in_item) {
-                // close out and store here
-                bool found = false;
-                if (!contest_feed.empty()) {
-                    for (const auto& contest : contest_feed) {
-                        if (contest.guid == temp.guid) {
-                            found = true;
-                            break;
-                        }
-                    }
-                }
-                if (!found) {
-                    contest_feed.push_back(temp);
-                }
-            }
-            in_item = false;
-        }
-        tag_start=keyline.find("<title>");
-        tag_stop=keyline.find("</title>");
-        // contest title
-        if (( tag_start != std::string::npos ) && ( tag_stop != std::string::npos)) {
-            if (in_item) {
-                tag_start +=7;
-                temp.title = keyline.substr(tag_start, tag_stop - tag_start);
-            }
-        }
-        // contest link
-        tag_start=keyline.find("<link>");
-        tag_stop=keyline.find("</link>");
-        if (( tag_start != std::string::npos ) && ( tag_stop != std::string::npos)) {
-            if (in_item) {
-                tag_start +=6;
-                temp.link = keyline.substr(tag_start, tag_stop - tag_start);
-            }
-        }
-        // description
-        tag_start=keyline.find("<description>");
-        tag_stop=keyline.find("</description>");
-        if (( tag_start != std::string::npos ) && ( tag_stop != std::string::npos)) {
-            if (in_item) {
-                tag_start +=13;
-                temp.description = keyline.substr(tag_start, tag_stop - tag_start);
-            }
-        }
-        // guid
-        tag_start=keyline.find("<guid>");
-        tag_stop=keyline.find("</guid>");
-        if (( tag_start != std::string::npos ) && ( tag_stop != std::string::npos)) {
-            if (in_item) {
-                tag_start +=6;
-                temp.guid = keyline.substr(tag_start, tag_stop - tag_start);
-            }
-        }
-    }
-    return;
-}
-*/
+
 struct contest temp;
 bool in_item = false;
 void parse_contests(xmlNode* start_node) {
@@ -163,15 +75,18 @@ int SDLCALL fetch_contests (void* data) {
      Uint64 data_size = 0;
      bool file_valid = false;
      std::fstream disk_file;
+     std::string full_cache_path = host_api->AaediHAM_ConfigGetCachePath();
+     full_cache_path += "contests.cache";
      if (contest_feed.empty()) {
          SDL_PathInfo fileinfo;
 
-         if (SDL_GetPathInfo("contests.cache", &fileinfo)) {
+         if (SDL_GetPathInfo(full_cache_path.c_str(), &fileinfo)) {
+//         if (SDL_GetPathInfo("contests.cache", &fileinfo)) {
              SDL_Time sdl_now;
              SDL_GetCurrentTime(&sdl_now);
              if ((sdl_now - fileinfo.modify_time) < 10800000000000  ) { // 3 Hours in ns
                  data_size = fileinfo.size;
-                 disk_file.open("contests.cache", (std::fstream::binary | std::fstream::in ));
+                 disk_file.open(full_cache_path.c_str(), (std::fstream::binary | std::fstream::in ));
                  if (disk_file.is_open()) {
                       fetch_spots = (char*)malloc(fileinfo.size+1);
                       if (fetch_spots) {
@@ -197,7 +112,7 @@ int SDLCALL fetch_contests (void* data) {
      }
      if (data_size) {
           if (!file_valid) {
-            disk_file.open("contests.cache", (std::fstream::binary | std::fstream::out | std::fstream::trunc));
+            disk_file.open(full_cache_path.c_str(), (std::fstream::binary | std::fstream::out | std::fstream::trunc));
             if (disk_file.is_open()) {
                 disk_file.write(fetch_spots, data_size);
                 if (!disk_file.good()) {

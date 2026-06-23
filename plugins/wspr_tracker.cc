@@ -120,7 +120,10 @@ void TrackedWSPR::save_cache() {
     std::string cache_string;
     cache_string = cache_stream.str();
     std::fstream disk_file;
-    disk_file.open((this->m_tx_sign+std::to_string(static_cast<int>(m_band))+".wspr"), (std::fstream::binary | std::fstream::out ));
+    std::string full_cache_path = host_api->AaediHAM_ConfigGetCachePath();
+    full_cache_path += this->m_tx_sign+std::to_string(static_cast<int>(m_band))+".wspr";
+    disk_file.open((full_cache_path.c_str()), (std::fstream::binary | std::fstream::out ));
+//    disk_file.open((this->m_tx_sign+std::to_string(static_cast<int>(m_band))+".wspr"), (std::fstream::binary | std::fstream::out ));
     if (disk_file.is_open()) {
         disk_file.write(cache_string.data(), cache_string.size());
             // read cache from disk
@@ -249,7 +252,10 @@ bool TrackedWSPR::gen_telemetry() {
         *(host_api->AaediHAM_LogDebug) << "WSPR: Trying Disk cache\n";
         cache_time = 0;
         std::fstream disk_file;
-        disk_file.open((this->m_tx_sign+std::to_string(static_cast<int>(m_band))+".wspr"), (std::fstream::binary | std::fstream::in ));
+          std::string full_cache_path = host_api->AaediHAM_ConfigGetCachePath();
+          full_cache_path += this->m_tx_sign+std::to_string(static_cast<int>(m_band))+".wspr";
+          disk_file.open((full_cache_path.c_str()), (std::fstream::binary | std::fstream::in ));
+//        disk_file.open((this->m_tx_sign+std::to_string(static_cast<int>(m_band))+".wspr"), (std::fstream::binary | std::fstream::in ));
         if (disk_file.is_open()) {
             load_telemetry(disk_file);
             if (!m_telemetry.empty()) {

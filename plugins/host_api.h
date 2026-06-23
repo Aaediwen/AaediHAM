@@ -37,6 +37,8 @@ class HostAPI final : public aaediclock_host_api {
           const char* AaediHAM_ConfigGetQRZKey			(bool refresh = false) override;
           const char* AaediHAM_ConfigGetCall			() override;
           const char* AaediHAM_ConfigGetPSKCall       		() override;
+          const char* AaediHAM_ConfigGetCachePath		() override;
+          const char* AaediHAM_ConfigGetAssetPath		() override;
 
           struct aaediclock_dx AaediHAM_ConfigGetDE		() override;
           void AaediHAM_ConfigSetDX				(struct aaediclock_dx new_dx) override;

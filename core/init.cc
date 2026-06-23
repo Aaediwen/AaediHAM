@@ -10,6 +10,7 @@
 #include <fstream>
 #include "aaediclock.h"
 #include "core/core.h"
+#include "core/init.h"
 #include "core/event.h"
 #include "core/panels.h"
 #include "plugins/host_api.h"
@@ -18,7 +19,7 @@ SDL_Renderer			*clock_renderer		=	nullptr;
 SDL_TimerID 			flag_timer;
 SDL_Window* 			window 			= 	nullptr;
 TTF_Font* 			Sans;
-
+std::string configfile;
 std::array<SDL_Mutex*, 10> 	mutexes;
 std::array<pager_node, 12> 	winboxes;
 internal_mouse_event 		clock_mouse_event;
@@ -53,6 +54,7 @@ namespace AaediClock_Init {
     SDL_AppResult cmd_line_parser(int argc, char **argv) {
         // command line parser
         //-----------------------------------------------
+        configfile = "aaediclock_config.json";
         outfile.clear();
         render_engine.clear();
         for (int i = 1; i < argc; ++i) {
@@ -80,6 +82,22 @@ namespace AaediClock_Init {
                      std::cout << "Attempting to use SDL Rendering Engine: " <<  render_engine.c_str() << "\n";
                  } else {
                      std::cout << "Invalid Renderer: "<< arg.c_str() << "\n";
+                 }
+            } else if (arg.rfind("--config",0)==0) {
+                size_t eqpos = arg.find('=');
+                if (eqpos != std::string::npos) {
+                    configfile = arg.substr(9);
+//                    if (render_engine == "list" || render_engine == "help") {
+//                        int maxcount = SDL_GetNumRenderDrivers();
+//                        for (int c = 0; c < maxcount ; c++) {
+//                            std::cout << "Driver "<< c << ": "<< SDL_GetRenderDriver(c) << "\n";
+//                         }
+//                         return (SDL_APP_SUCCESS);
+//                     }
+                     std::cout << "Attempting to use Config file: " <<  configfile << "\n";
+                 } else {
+                     std::cout << "Invalid Config file: "<< arg.c_str() << "\n";
+                     return (SDL_APP_FAILURE);
                  }
             } else if (arg.rfind("--geometry",0)==0) {
                  size_t eqpos = arg.find('=');
@@ -136,6 +154,7 @@ namespace AaediClock_Init {
                 return (SDL_APP_SUCCESS);
             }
         } // parser for loop
+        clockconfig.reload(configfile);
         return (SDL_APP_CONTINUE);
     }
 
@@ -371,11 +390,31 @@ namespace AaediClock_Init {
                 plugin_list.push_back({plugin_load.filename, plugin_load.panel_id, plugin_load.interval});
             }
         }
+        std::string plugin_path = clockconfig.PluginPath();
         for (auto& plugin: plugin_list) {
-            register_module(plugin.filename);
-            loaded_plugins.back().position = static_cast<uint16_t>(plugin.position);
-            loaded_plugins.back().interval = plugin.interval;
-            winboxes[plugin.position].plugin_sequence.push_back(loaded_plugins.back().id);
+            // try in the configured module path
+            std::string plugin_full = plugin_path;
+            plugin_full += plugin.filename;
+            if (register_module(plugin_full)) {
+                loaded_plugins.back().position = static_cast<uint16_t>(plugin.position);
+                loaded_plugins.back().interval = plugin.interval;
+                winboxes[plugin.position].plugin_sequence.push_back(loaded_plugins.back().id);
+            } else {
+                // that failed, try in CWD/plugins
+                plugin_full = "plugins";
+                #ifdef _WIN32
+                plugin_full += "\\";
+                #else
+                plugin_full += "/";
+                #endif
+                plugin_full += plugin.filename;
+                if (register_module(plugin_full)) {
+                    loaded_plugins.back().position = static_cast<uint16_t>(plugin.position);
+                    loaded_plugins.back().interval = plugin.interval;
+                    winboxes[plugin.position].plugin_sequence.push_back(loaded_plugins.back().id);
+                }
+                // officially fail
+            }
         }
 
         return(SDL_APP_CONTINUE);

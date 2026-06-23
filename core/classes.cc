@@ -509,6 +509,16 @@ void config::write_config() {
     if (!m_PSKCall.empty()) {
         data["PSKCall"]=m_PSKCall.c_str();
     }
+    if (m_plugin_path.empty()) {
+        data["PluginPath"]="plugins";
+    } else {
+        data["PluginPath"]=m_plugin_path;
+    }
+    if (m_asset_path.empty()) {
+        data["PluginPath"]="images";
+    } else {
+        data["AssetPath"]=m_asset_path;
+    }
     data["DE"]["Latitude"]=m_DE.latitude;
     data["DE"]["Longitude"]=m_DE.longitude;
     data["DX"]["Latitude"]=m_DX.latitude;
@@ -546,8 +556,26 @@ void config::write_config() {
     f.close();
     return;
 }
-
-void config::load_config() {
+std::string config::path_seperator(std::string& input) {
+    if (input.empty()) {
+        return "";
+    }
+    std::string seperator;
+    #ifdef _WIN32
+    seperator = "\\";
+    #else
+    seperator = "/";
+    #endif
+    std::string result = input;
+    if (result.back() != seperator.back()) {
+        result += seperator;
+    }
+    return result;
+}
+void config::reload(const std::string filename) {
+    load_config(filename);
+}
+void config::load_config(const std::string filename) {
     bool goodread = false;
     json data;
 
@@ -557,16 +585,21 @@ void config::load_config() {
     m_sats.clear();
     m_rss.clear();
     m_Plugins.clear();
+    m_plugin_path = ".";
+    m_cache_path = ".";
+    m_asset_path = "images";
     m_DE={0, 0};
     m_DX={0, 0};
     m_QRZ.Secret.clear();
     m_QRZ.Key.clear();
     m_dxserver.name = "dxfun.com";
     m_dxserver.port = 8000;
-
-    printf ("Loading CONFIG\n");
+    if (filename.empty()) {
+        return;
+    }
+    printf ("Loading CONFIG from %s\n", filename.c_str());
 //    debug_log << "CONFIG: Loading CONFIG\n";
-    std::ifstream f("aaediclock_config.json");
+    std::ifstream f(filename.c_str());
     if (f.good()) {
         try {
             f >> data;          // parse the json
@@ -630,6 +663,28 @@ void config::load_config() {
                 }
             }
         }
+
+        if (data.contains("PluginPath")) {
+            if (data["PluginPath"].is_string()) {
+                m_plugin_path=data["PluginPath"];
+
+            }
+        }
+        m_plugin_path = path_seperator(m_plugin_path);
+
+        if (data.contains("AssetPath")) {
+            if (data["AssetPath"].is_string()) {
+                m_asset_path=data["AssetPath"];
+            }
+        }
+        m_asset_path=path_seperator(m_asset_path);
+
+        if (data.contains("CachePath")) {
+            if (data["CachePath"].is_string()) {
+                m_cache_path=data["CachePath"];
+            }
+        }
+        m_cache_path=path_seperator(m_cache_path);
 
 
         if (data.contains("CallSign")) {
@@ -722,7 +777,23 @@ void config::load_config() {
 } // loadconfig
 
 config::config() {
-    load_config();
+    m_CallSign = "N0CALL";
+    m_PSKCall = "";
+    m_DXMsg.clear();
+    m_sats.clear();
+    m_rss.clear();
+    m_Plugins.clear();
+    m_plugin_path = ".";
+    m_cache_path = ".";
+    m_asset_path = "images";
+    m_DE={0, 0};
+    m_DX={0, 0};
+    m_QRZ.Secret.clear();
+    m_QRZ.Key.clear();
+    m_dxserver.name = "dxfun.com";
+    m_dxserver.port = 8000;
+
+//    load_config();
 }
 
 config::~config() {}
@@ -736,6 +807,20 @@ void config::set_qrz_pass(const std::string& newpass) {
 const std::string& config::CallSign() const {
     return m_CallSign;
 }
+
+const std::string& config::PluginPath() const {
+    return m_plugin_path;
+}
+
+const std::string& config::AssetPath() const {
+    return m_asset_path;
+}
+
+const std::string& config::CachePath() const {
+
+    return (m_cache_path);
+}
+
 
 const std::string& config::PSKCall() const {
     return m_PSKCall;

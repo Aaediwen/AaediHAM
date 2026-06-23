@@ -695,12 +695,14 @@ int SDLCALL fetch_celestrak(void* data) {
     SDL_PathInfo fileinfo;
     bool file_valid = false;
     std::fstream disk_file;
-    if (SDL_GetPathInfo("celestrak-new.cache", &fileinfo)) {
+    std::string full_cache_path = host_api->AaediHAM_ConfigGetCachePath();
+    full_cache_path += "celestrak.cache";
+    if (SDL_GetPathInfo(full_cache_path.c_str(), &fileinfo)) {
         SDL_Time sdl_now;
         SDL_GetCurrentTime(&sdl_now);
         if ((sdl_now - fileinfo.modify_time) < 10800000000000  ) { // 3 Hours in ns
             data_size = fileinfo.size;
-            disk_file.open("celestrak-new.cache", (std::fstream::binary | std::fstream::in ));
+            disk_file.open(full_cache_path.c_str(), (std::fstream::binary | std::fstream::in ));
             if (disk_file.is_open()) {
                 amateur_tle = (char*)malloc(fileinfo.size+1);
                 if (amateur_tle) {
@@ -722,7 +724,7 @@ int SDLCALL fetch_celestrak(void* data) {
         data_size = http_loader("https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=xml", (void**)&amateur_tle);   //
         *(host_api->AaediHAM_LogDebug) << "Celestrak Fetch returned\n";
         if (data_size > 256) {
-            disk_file.open("celestrak-new.cache", (std::fstream::binary | std::fstream::out | std::fstream::trunc));
+            disk_file.open(full_cache_path.c_str(), (std::fstream::binary | std::fstream::out | std::fstream::trunc));
             if (disk_file.is_open()) {
                 disk_file.write(amateur_tle, data_size);
                 if (!disk_file.good()) {
@@ -1010,7 +1012,11 @@ void new_sat_tracker_plugin::plugin_main(const aaediclock_FRect& dims) const {
         sat_pin.lon     =               sat_loc.y;
         sat_pin.icon = 0;
         if (!host_api->AaediHAM_IconCheck(icon)) {
-            SDL_Surface* loadsurface = IMG_Load("images/satellite.png");
+              std::string asset_path = host_api->AaediHAM_ConfigGetAssetPath();
+              asset_path += "satellite.png";
+              SDL_Surface* loadsurface = IMG_Load(asset_path.c_str());
+
+//            SDL_Surface* loadsurface = IMG_Load("images/satellite.png");
             if (loadsurface) {
                 aaediclock_image new_icon;
                 new_icon.width = loadsurface->w;

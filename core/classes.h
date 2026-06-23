@@ -93,6 +93,9 @@ public:
     config();
     ~config();
     const std::string& CallSign() const;
+    const std::string& AssetPath() const;
+    const std::string& PluginPath() const;
+    const std::string& CachePath() const;
     const std::string& PSKCall() const;
     const std::string& DXmsg() const;
     const GeoCoord& DE() const;
@@ -104,6 +107,7 @@ public:
     const std::string& qrz_key(bool refresh = false);
     void set_qrz_pass(const std::string& newpass);
     bool next_wspr(std::string *callsign, int *band);
+    void reload(const std::string filename = "aaediclock_config.json");
     plugin next_plugin();
     private:
 
@@ -117,6 +121,9 @@ public:
         Uint16 m_PluginIndex;
         std::string m_CallSign;
         std::string m_PSKCall;
+        std::string m_plugin_path;
+        std::string m_asset_path;
+        std::string m_cache_path;
         std::vector<std::string> m_sats;
         std::vector<std::string> m_rss;
         struct GeoCoord m_DE;
@@ -128,10 +135,10 @@ public:
             std::string Secret;
             std::string Key;
         } m_QRZ;
-
+        std::string path_seperator(std::string& input);
         void qrz_sesskey();
         void write_config();
-        void load_config();
+        void load_config(const std::string filename = "aaediclock_config.json");
         void parse_qrz(void* node);
 };
 extern config clockconfig;

@@ -13,7 +13,7 @@ uint32_t night_mask_texture;
 bool night_mask_refresh = false;
 SDL_TimerID night_mask_timer = 0;
 aaediclock_FRect old_dims = {0,0,0,0};
-
+std::string asset_path;
 void load_day_map (const aaediclock_FRect& dims) {
     //reset everything
     if (day_map.surface) {
@@ -24,7 +24,9 @@ void load_day_map (const aaediclock_FRect& dims) {
        host_api->AaediHAM_TextureDelete(day_map.texture);
        day_map.texture = 0;
    }
-   SDL_Surface* temp_surface = IMG_Load("images/Blue_Marble_2002.bmp");
+   std::string image_path = asset_path + "Blue_Marble_2002.bmp";
+   SDL_Surface* temp_surface = IMG_Load(image_path.c_str());
+//   SDL_Surface* temp_surface = IMG_Load("images/Blue_Marble_2002.bmp");
 
    if (temp_surface) {
        day_map.surface = SDL_CreateSurface(static_cast<int>(floor(dims.w)), static_cast<int>(floor(dims.h)), SDL_PIXELFORMAT_RGBA32);
@@ -63,7 +65,9 @@ void load_night_map (const aaediclock_FRect& dims) {
         host_api->AaediHAM_TextureDelete(night_map.texture);
         night_map.texture = 0;
     }
-    SDL_Surface* temp_surface = IMG_Load("images/Black_Marble_2016.bmp");
+    std::string image_path = asset_path + "Black_Marble_2016.bmp";
+    SDL_Surface* temp_surface = IMG_Load(image_path.c_str());
+//    SDL_Surface* temp_surface = IMG_Load("images/Black_Marble_2016.bmp");
     if (temp_surface) {
         night_map.surface = SDL_CreateSurface(static_cast<int>(floor(dims.w)), static_cast<int>(floor(dims.h)), SDL_PIXELFORMAT_RGBA32);
         if (night_map.surface) {
@@ -92,7 +96,8 @@ void load_countries_map (const aaediclock_FRect& dims) {
         host_api->AaediHAM_TextureDelete(countries_map.texture);
         countries_map.texture = 0;
     }
-    SDL_Surface* temp_surface = IMG_Load("images/outline.bmp");
+    std::string image_path = asset_path + "outline.bmp";
+    SDL_Surface* temp_surface = IMG_Load(image_path.c_str());
     if (temp_surface) {
         countries_map.surface = SDL_CreateSurface(static_cast<int>(floor(dims.w)), static_cast<int>(floor(dims.h)), SDL_PIXELFORMAT_RGBA32);
         if (countries_map.surface) {
@@ -266,6 +271,7 @@ extern "C" DllExport void destroyPlugin(aaediclock_plugin_api* target) {
 
 void map_plugin::plugin_init() const {
      night_mask.pixels = nullptr;
+     asset_path = host_api->AaediHAM_ConfigGetAssetPath();
      if (!night_mask_timer) {
           night_mask_timer = SDL_AddTimer(30, night_mask_spawn, NULL);
      }

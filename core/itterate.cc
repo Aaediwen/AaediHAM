@@ -283,26 +283,27 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         }
         SDL_LockMutex(mutexes[MUTEX_MASTER_CLOCK]);
 
-
-        for (struct PluginModule& plugin : loaded_plugins ) {
-            if (plugin.draw_flag) {
-                debug_log << "ITTERATE: Calling "<< plugin.name <<" with panel " << plugin.host_api->panel << "\n";
-                try {
-                    aaediclock_FRect module_dims;
-                    module_dims.w = plugin.host_api->panel->dims.w;
-                    module_dims.h = plugin.host_api->panel->dims.h;
-                    module_dims.x = plugin.host_api->panel->dims.x;
-                    module_dims.y = plugin.host_api->panel->dims.y;
-                    plugin.plugin->plugin_main(module_dims);
-                } catch (std::exception& e) {
-                    debug_log << "Module Exception in "<< plugin.name << ": "<< e.what() << "\n";
-                } catch (...) {
-                    debug_log << "Unknown Exception in "<< plugin.name << "\n";
+        if (!loaded_plugins.empty()) {
+            for (struct PluginModule& plugin : loaded_plugins ) {
+                if (plugin.draw_flag) {
+                    debug_log << "ITTERATE: Calling "<< plugin.name <<" with panel " << plugin.host_api->panel << "\n";
+                    try {
+                        aaediclock_FRect module_dims;
+                        module_dims.w = plugin.host_api->panel->dims.w;
+                        module_dims.h = plugin.host_api->panel->dims.h;
+                        module_dims.x = plugin.host_api->panel->dims.x;
+                        module_dims.y = plugin.host_api->panel->dims.y;
+                        plugin.plugin->plugin_main(module_dims);
+                    } catch (std::exception& e) {
+                        debug_log << "Module Exception in "<< plugin.name << ": "<< e.what() << "\n";
+                    } catch (...) {
+                        debug_log << "Unknown Exception in "<< plugin.name << "\n";
+                    }
+                    SDL_SetRenderTarget(clock_renderer, NULL);
+                    debug_log << "ITTERATE: Module "<< plugin.name<<" -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
+                    debug_log.flush();
+                    plugin.draw_flag = false;
                 }
-                SDL_SetRenderTarget(clock_renderer, NULL);
-                debug_log << "ITTERATE: Module "<< plugin.name<<" -- " << (SDL_GetTicks() - StartTicks) << " MIlliseconds\n";
-                debug_log.flush();
-                plugin.draw_flag = false;
             }
         }
         winboxes[PANEL_MAP].panel.draw_border();

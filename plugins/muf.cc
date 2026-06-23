@@ -147,13 +147,14 @@ int SDLCALL fetch_HamQSL (void* data) {
      std::fstream disk_file;
 //     if (contest_feed.empty()) {
          SDL_PathInfo fileinfo;
-
-         if (SDL_GetPathInfo("n0nbh.cache", &fileinfo)) {
+         std::string full_cache_path = host_api->AaediHAM_ConfigGetCachePath();
+         full_cache_path += "n0nbh.cache";
+         if (SDL_GetPathInfo(full_cache_path.c_str(), &fileinfo)) {
              SDL_Time sdl_now;
              SDL_GetCurrentTime(&sdl_now);
              if ((sdl_now - fileinfo.modify_time) < 10800000000000  ) { // 3 Hours in ns
                  data_size = fileinfo.size;
-                 disk_file.open("n0nbh.cache", (std::fstream::binary | std::fstream::in ));
+                 disk_file.open(full_cache_path.c_str(), (std::fstream::binary | std::fstream::in ));
                  if (disk_file.is_open()) {
                       fetch_spots = (char*)malloc(fileinfo.size+1);
                       if (fetch_spots) {
@@ -179,7 +180,7 @@ int SDLCALL fetch_HamQSL (void* data) {
      }
      if (data_size) {
           if (!file_valid) {
-            disk_file.open("n0nbh.cache", (std::fstream::binary | std::fstream::out | std::fstream::trunc));
+            disk_file.open(full_cache_path.c_str(), (std::fstream::binary | std::fstream::out | std::fstream::trunc));
             if (disk_file.is_open()) {
                 disk_file.write(fetch_spots, data_size);
                 if (!disk_file.good()) {

@@ -1,9 +1,75 @@
 #include "aaediclock.h"
 #include "core/event.h"
+#include "core/init.h"
 #include "core.h"
 #include "quit.h"
 #include "panels.h"
 #include "sdl_callbacks.h"
+
+void config_reload() {
+    std::cout << "RELOAD: Reloading config! Stand by\n";
+    // kill main system timer
+    debug_log << "RELOAD: Killing System Timers.\n\n";
+    if (flag_timer) {
+        SDL_RemoveTimer(flag_timer);
+        flag_timer = 0;
+    }
+    // unload plugins
+    for (struct PluginModule& plugin : loaded_plugins ) {
+        plugin.draw_flag = false;
+        plugin.host_api->panel = nullptr;
+        unregister_module(&plugin);
+    }
+    loaded_plugins.clear();
+    overlays.clear();
+    // clear mutexes
+    debug_log << "RELOAD: Cleaning Mutexes.\n\n";
+    for (SDL_Mutex*& mtx : mutexes) {
+        if (mtx) {
+            SDL_LockMutex(mtx);
+            SDL_UnlockMutex(mtx);
+        }
+    }
+
+    // clear mouse event
+    clock_mouse_event.mod_cords = {0.0, 0.0};
+    clock_mouse_event.mod_count = 0;
+    clock_mouse_event.mod_owner = MOD_NULL;
+
+    winboxes[PANEL_CALLSIGN].plugin_index=0;
+    winboxes[PANEL_NULL].plugin_index=0;
+    winboxes[PANEL_DE].plugin_index=0;
+    winboxes[PANEL_DX].plugin_index=0;
+    winboxes[PANEL_CLOCK].plugin_index=0;
+    winboxes[PANEL_FLEXBOX1].plugin_index=0;
+    winboxes[PANEL_FLEXBOX2].plugin_index=0;
+    winboxes[PANEL_FLEXBOX3].plugin_index=0;
+    winboxes[PANEL_FLEXBOX4].plugin_index=0;
+    winboxes[PANEL_FLEXBOX5].plugin_index=0;
+    winboxes[PANEL_MAP].plugin_index=0;
+    winboxes[PANEL_CALLSIGN].plugin_sequence.clear();
+    winboxes[PANEL_NULL].plugin_sequence.clear();
+    winboxes[PANEL_DE].plugin_sequence.clear();
+    winboxes[PANEL_DX].plugin_sequence.clear();
+    winboxes[PANEL_CLOCK].plugin_sequence.clear();
+    winboxes[PANEL_FLEXBOX1].plugin_sequence.clear();
+    winboxes[PANEL_FLEXBOX2].plugin_sequence.clear();
+    winboxes[PANEL_FLEXBOX3].plugin_sequence.clear();
+    winboxes[PANEL_FLEXBOX4].plugin_sequence.clear();
+    winboxes[PANEL_FLEXBOX5].plugin_sequence.clear();
+    winboxes[PANEL_MAP].plugin_sequence.clear();
+
+    clockconfig.reload(configfile);
+    AaediClock_Init::Plugin_Loader();
+    for (struct PluginModule& plugin : loaded_plugins ) {
+        plugin.draw_flag = false;
+        plugin.host_api->panel = nullptr;
+    }
+    panel_assignment(false);
+    AaediClock_Init::Init_System_Timer();
+    std::cout << "RELOAD: config reloaded\n";
+    return;
+}
 
 void interrupt_handler(int signal) {
     if ((signal == SIGINT) || (signal == SIGTERM)) {
@@ -83,11 +149,11 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                 }
                 SDL_SyncWindow(window);
                 break;
-//            case SDLK_C:
-//                if  (event->key.mod & (SDL_KMOD_LALT | SDL_KMOD_RALT)) {
-//                    dump_cache();
-//                }
-//                break;
+            case SDLK_C:
+                if  (event->key.mod & (SDL_KMOD_LALT | SDL_KMOD_RALT)) {
+                    config_reload();
+                }
+                break;
             case SDLK_Q:
                 window_destroy();
                 return SDL_APP_FAILURE;

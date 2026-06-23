@@ -412,6 +412,14 @@ const char* HostAPI::AaediHAM_ConfigGetCall() {
     return(clockconfig.CallSign().c_str());
 }
 
+const char* HostAPI::AaediHAM_ConfigGetCachePath() {
+    return(clockconfig.CachePath().c_str());
+}
+
+const char* HostAPI::AaediHAM_ConfigGetAssetPath() {
+    return(clockconfig.AssetPath().c_str());
+}
+
 const char* HostAPI::AaediHAM_ConfigGetPSKCall() {
     return(clockconfig.PSKCall().c_str());
 }
