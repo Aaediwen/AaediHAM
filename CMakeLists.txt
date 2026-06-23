@@ -83,7 +83,7 @@ add_library(pota_plugin SHARED
     plugins/pota.cc
     utils/http_fetch.cc
 )
-target_link_libraries(pota_plugin PRIVATE aaediclock_path SDL3::SDL3 nlohmann_json::nlohmann_json)
+target_link_libraries(pota_plugin PRIVATE aaediclock_path SDL3::SDL3 nlohmann_json::nlohmann_json CURL::libcurl)
 
 add_library(de_plugin SHARED
     plugins/de.cc
@@ -105,7 +105,7 @@ add_library(dx_cluster_plugin SHARED
     utils/socket.cc
     utils/conversions.cc
 )
-target_link_libraries(dx_cluster_plugin PRIVATE aaediclock_path SDL3::SDL3 LibXml2::LibXml2)
+target_link_libraries(dx_cluster_plugin PRIVATE aaediclock_path SDL3::SDL3 LibXml2::LibXml2 CURL::libcurl)
 
 add_library(sat_tracker_plugin SHARED
     plugins/sat_tracker.cc
@@ -118,26 +118,26 @@ add_library(aurora_plugin SHARED
     plugins/aurora.cc
     utils/http_fetch.cc
 )
-target_link_libraries(aurora_plugin PRIVATE aaediclock_path SDL3::SDL3 nlohmann_json::nlohmann_json)
+target_link_libraries(aurora_plugin PRIVATE aaediclock_path SDL3::SDL3 nlohmann_json::nlohmann_json CURL::libcurl)
 
 add_library(sdo_plugin SHARED
     plugins/sun.cc
     utils/http_fetch.cc
     utils/celestials.cc
 )
-target_link_libraries(sdo_plugin PRIVATE aaediclock_path SDL3::SDL3 SDL3_image::SDL3_image)
+target_link_libraries(sdo_plugin PRIVATE aaediclock_path SDL3::SDL3 SDL3_image::SDL3_image CURL::libcurl)
 
 add_library(contest_plugin SHARED
     plugins/contests.cc
     utils/http_fetch.cc
 )
-target_link_libraries(contest_plugin PRIVATE aaediclock_path SDL3::SDL3 LibXml2::LibXml2)
+target_link_libraries(contest_plugin PRIVATE aaediclock_path SDL3::SDL3 LibXml2::LibXml2 CURL::libcurl)
 
 add_library(kindex_plugin SHARED
     plugins/kindex.cc
     utils/http_fetch.cc
 )
-target_link_libraries(kindex_plugin PRIVATE aaediclock_path SDL3::SDL3 nlohmann_json::nlohmann_json)
+target_link_libraries(kindex_plugin PRIVATE aaediclock_path SDL3::SDL3 nlohmann_json::nlohmann_json CURL::libcurl)
 
 
 add_library(wspr_plugin SHARED
@@ -145,7 +145,7 @@ add_library(wspr_plugin SHARED
     utils/http_fetch.cc
     utils/conversions.cc
 )
-target_link_libraries(wspr_plugin PRIVATE aaediclock_path SDL3::SDL3)
+target_link_libraries(wspr_plugin PRIVATE aaediclock_path SDL3::SDL3 CURL::libcurl)
 
 
 add_library(lunar_plugin SHARED
@@ -159,20 +159,20 @@ add_library(rss_plugin SHARED
     plugins/rss.cc
     utils/http_fetch.cc
 )
-target_link_libraries(rss_plugin PRIVATE aaediclock_path LibXml2::LibXml2)
+target_link_libraries(rss_plugin PRIVATE aaediclock_path LibXml2::LibXml2 CURL::libcurl SDL3::SDL3)
 
 add_library(pskreporter_plugin SHARED
     plugins/pskreporter.cc
     utils/http_fetch.cc
     utils/conversions.cc
 )
-target_link_libraries(pskreporter_plugin PRIVATE aaediclock_path paho-mqtt3c LibXml2::LibXml2)
+target_link_libraries(pskreporter_plugin PRIVATE aaediclock_path paho-mqtt3c LibXml2::LibXml2 CURL::libcurl SDL3::SDL3)
 
 add_library(muf_plugin SHARED
     plugins/muf.cc
     utils/http_fetch.cc
 )
-target_link_libraries(muf_plugin PRIVATE aaediclock_path LibXml2::LibXml2)
+target_link_libraries(muf_plugin PRIVATE aaediclock_path LibXml2::LibXml2 CURL::libcurl SDL3::SDL3)
 
 
 add_library(map_plugin SHARED
@@ -208,7 +208,19 @@ set(PLUGIN_TARGETS
 
 function (find_build symbol path tag target)
 if (NOT WIN32)
-	find_package(${symbol} QUIET)
+    if (APPLE)
+        # naive swapping of casing for MACOS
+        if("${symbol}" STREQUAL "libxml2")
+            find_package(LibXml2 QUIET)
+            set(${symbol}_FOUND ${LibXml2_FOUND})
+        else()
+            find_package(${symbol} QUIET)
+        endif()
+
+    else()
+	    find_package(${symbol} QUIET)
+    endif()
+
 endif()
  	if (NOT ${symbol}_FOUND)
 		message(STATUS "${symbol} not found, fetching...")
@@ -316,7 +328,10 @@ elseif(APPLE)
 	set(FETCHCONTENT_BASE_DIR ${EXTERNAL_DIR})
 
 	find_package(ZLIB REQUIRED)
-	find_build(CURL "https://github.com/curl/curl.git" master .)  	
+	find_build(CURL "https://github.com/curl/curl.git" master .)
+    target_link_libraries(aaediclock_path INTERFACE CURL::libcurl)
+    list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew") 
+	find_build(Fontconfig "https://gitlab.freedesktop.org/fontconfig/fontconfig.git" "main" .)
 	target_link_libraries(clock PRIVATE ZLIB::ZLIB CURL::libcurl m) 
         find_build(sgp4 https://github.com/dnwrnr/sgp4.git "master" "sgp4-src/")
 else()
@@ -416,8 +431,9 @@ if(WIN32)
         endforeach()
 
 elseif(APPLE)
-    	target_link_libraries(clock PRIVATE SDL3::SDL3 SDL3_ttf::SDL3_ttf 
-	sgp4 nlohmann_json::nlohmann_json SDL3_image::SDL3_image paho-mqtt3c LibXml2::LibXml2)
+    target_link_libraries(clock PRIVATE
+        SDL3::SDL3 SDL3_ttf::SDL3_ttf sgp4 nlohmann_json::nlohmann_json
+        SDL3_image::SDL3_image paho-mqtt3c LibXml2::LibXml2 Fontconfig::Fontconfig)
 else()
 	target_link_libraries(clock PRIVATE SDL3::SDL3 SDL3_ttf::SDL3_ttf 
 	sgp4 nlohmann_json::nlohmann_json SDL3_image::SDL3_image paho-mqtt3c LibXml2::LibXml2)

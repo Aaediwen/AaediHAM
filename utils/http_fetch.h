@@ -8,7 +8,7 @@
 #include <winhttp.h>
 #else
 #include <poll.h>
-#include <error.h>
+// #include <error.h>
 #include <curl/curl.h>
 #endif
 
