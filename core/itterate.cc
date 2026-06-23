@@ -1,6 +1,7 @@
 #include "aaediclock.h"
 #include "core/core.h"
 #include "core/quit.h"
+#include "core/event.h"
 #include "utils/conversions.h"
 #include <SDL3_image/SDL_image.h>
 #include "sdl_callbacks.h"
@@ -246,7 +247,6 @@ SDL_Thread* save_thread = nullptr;
 
 
 bool resizing = false;
-bool reload_flag = false;
 
 SDL_AppResult SDL_AppIterate(void *appstate) {
     (void)appstate;
@@ -260,6 +260,10 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         window_destroy();
         return(SDL_APP_SUCCESS);
     }
+    if (reload_flag) {
+        config_reload();
+        reload_flag = false;
+    }
 //mutex_checker();
     if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
         SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
@@ -270,17 +274,6 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     }
     if (!resizing) {
         const Uint64 StartTicks = SDL_GetTicks();	// timer for how long this has taken
-        // resize stress test on R
-        if (reload_flag) {
-            SDL_WindowFlags winstate = SDL_GetWindowFlags(window);
-            if (winstate & SDL_WINDOW_FULLSCREEN) {
-                SDL_SetWindowFullscreen(window, 0);
-            }
-            else {
-                SDL_SetWindowFullscreen(window, 1);
-            }
-            SDL_SyncWindow(window);
-        }
         SDL_LockMutex(mutexes[MUTEX_MASTER_CLOCK]);
 
         if (!loaded_plugins.empty()) {

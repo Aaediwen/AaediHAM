@@ -32,6 +32,7 @@ struct regen_mask_args* 	night_mask_args;
 SDL_TimerID 			map_timer	=	0;
 std::vector<PluginModule> 	loaded_plugins;
 bool 				interrupt_flag 	= 	false;
+bool				reload_flag 	=	false;
 
 #ifdef CLOCK_DEBUG
     static std::ofstream logfile("clock_debug.log");
@@ -464,6 +465,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     }
     std::signal(SIGINT, interrupt_handler);
     std::signal(SIGTERM, interrupt_handler);
+    std::signal(SIGHUP, interrupt_handler);
     init_result = AaediClock_Init::Window_Init(default_size.w, default_size.h);
     if (init_result != SDL_APP_CONTINUE) {
         return init_result;

@@ -75,6 +75,8 @@ void interrupt_handler(int signal) {
     if ((signal == SIGINT) || (signal == SIGTERM)) {
         interrupt_flag = true;
 //    	window_destroy();
+    } else if ((signal == SIGHUP)) {
+        reload_flag = true;
     }
 //    window_destroy();
     return;
@@ -158,9 +160,9 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                 window_destroy();
                 return SDL_APP_FAILURE;
                 break;
-            case SDLK_R:
-                reload_flag = !reload_flag;
-                break;
+//            case SDLK_R:
+//                resize_flag = !resize_flag;
+//                break;
             case SDLK_F4:
                 if  (event->key.mod & (SDL_KMOD_LALT | SDL_KMOD_RALT)) {
                     window_destroy();
