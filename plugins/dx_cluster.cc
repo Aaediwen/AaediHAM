@@ -25,6 +25,7 @@
 
 std::mutex dxspot_mutex;
 SDL_TimerID dxspot_timer = 0;
+int exit_shutdown = 0;
 const int max_age=1800;
 aaediclock_host_api* host_api = nullptr;
 
@@ -291,28 +292,37 @@ void duplicate_spot(dxspot& needle) {
 
 int SDLCALL fetch_dxspots(void* data) {
     (void)data;
+    exit_shutdown = 5;
     time_t currenttime = time(NULL);
     bool clean_socket = true;
     *(host_api->AaediHAM_LogDebug) << "Locking Mutex -- checking for stale spots\n";
     dxspot_mutex.lock();
 // check for valid connection
-    if (!dxsocket) {
-        *(host_api->AaediHAM_LogDebug) << "Connecting to DX Cluster\n";
-        struct plugin_server_info dx_server = host_api->AaediHAM_ConfigGetDXServer();
-        std::string serverip=dx_server.name;
-        std::string serverport=std::to_string(dx_server.port);
-        dxsocket = init_fd(dx_server, host_api);
-    }
-    // check for old entries
-    if (!dxspots.empty()) {
-        for (size_t c = dxspots.size() ; c-- > 0 ;) {
-            if ((currenttime - dxspots[c].timestamp) > max_age) {
-                *(host_api->AaediHAM_LogDebug) << "DXSPOTS: Erasing entry "<< dxspots[c].dx.c_str() << "\n";
-                dxspots.erase(dxspots.begin()+c);
+    try {
+        if (!dxsocket) {
+            *(host_api->AaediHAM_LogDebug) << "Connecting to DX Cluster\n";
+            struct plugin_server_info dx_server = host_api->AaediHAM_ConfigGetDXServer();
+            std::string serverip=dx_server.name;
+            std::string serverport=std::to_string(dx_server.port);
+            dxsocket = init_fd(dx_server, host_api);
+        }
+        // check for old entries
+        if (!dxspots.empty()) {
+            for (size_t c = dxspots.size() ; c-- > 0 ;) {
+                if ((currenttime - dxspots[c].timestamp) > max_age) {
+                    *(host_api->AaediHAM_LogDebug) << "DXSPOTS: Erasing entry "<< dxspots[c].dx.c_str() << "\n";
+                    dxspots.erase(dxspots.begin()+c);
+                }
             }
         }
+    }  catch (std::exception& e) {
+        *(host_api->AaediHAM_LogDebug) << "Exception "<< e.what() << "Checking old entries\n";
     }
     dxspot_mutex.unlock();
+    if (exit_shutdown < 5) {
+        exit_shutdown = 0;
+        return 0;
+    }
     *(host_api->AaediHAM_LogDebug) << "UnLocking Mutex -- checking for stale spots\n";
     if (dxsocket) { // we have a valid? socket to read from
         *(host_api->AaediHAM_LogDebug) << "Reading from socket\n";
@@ -348,8 +358,12 @@ int SDLCALL fetch_dxspots(void* data) {
                 }
             }
             *(host_api->AaediHAM_LogDebug) << "DONE Reading " << dxbuffer.size()<< " lines of input\n";
-
+            ssize_t send_result = 0;
             for (std::string& buffstr : dxbuffer) {
+                if (exit_shutdown < 5) {
+                    exit_shutdown = 0;
+                    return 0;
+                }
                 // scan variables for line ID
                 float freq;
                 char call[32] = {0};
@@ -358,38 +372,51 @@ int SDLCALL fetch_dxspots(void* data) {
 
                 // process the input line
                 *(host_api->AaediHAM_LogDebug) << "buffstr " << buffstr.c_str() << "\n";
-                if (!buffstr.compare(1,5, "ogin:")) {
+                if (buffstr.size() >= 6 && (!buffstr.compare(1,5, "ogin:")) || (buffstr.find("enter your call") != std::string::npos)) {
                     std::string callsign =  host_api->AaediHAM_ConfigGetCall();
                     if (!rand_seed) {
                         rand_seed = time(0);
                     }
                     callsign += "-" + std::to_string(rand_r(&rand_seed) % 100);
-                    send(dxsocket, callsign.c_str(), static_cast<int>(callsign.length()),0);
-                    send(dxsocket, "\n", 1,0);
+                    send_result = send(dxsocket, callsign.c_str(), static_cast<int>(callsign.length()),0);
+                    send_result = send(dxsocket, "\n", 1,0);
                     *(host_api->AaediHAM_LogDebug) << "Sent Callsign " << callsign << "\n";
-                } else if (!buffstr.compare(0,5, "Hello")) {
-                    send(dxsocket, "SH/DX 15\n", 9,0);
+                } else if (buffstr.size() >= 5 &&  !buffstr.compare(0,5, "Hello")) {
+                    send_result = send(dxsocket, "SH/DX 15\n", 9,0);
                     *(host_api->AaediHAM_LogDebug) << "Sent SH15\n";
-                } else if (buffstr.rfind("DX de ", 0) == 0) {
+                } else if (buffstr.rfind("DX de ", 0) == 0) { // these cases need seperate helpers to clean up the code
                     *(host_api->AaediHAM_LogDebug) << "DXSPOTS: Got DX entry\nDXSPOTS: %s" <<  buffstr.c_str() << "\n";
                     dxspot new_spot;
                     int consumed = 0;
+                    bool valid_spot = true;
                     std::string tempstring;
                     size_t spotter_end = buffstr.find_first_of(':');
 //                    new_spot.spotter = buffstr.substr(6, spotter_end-1 );
-                    new_spot.spotter = buffstr.substr(6, spotter_end-7 );
-                    tempstring=buffstr.substr(spotter_end+1,std::string::npos);
-                    buffstr = tempstring;
-                    *(host_api->AaediHAM_LogDebug) << "Extracted Spotter " << new_spot.spotter.c_str() << "\n";
-                    if (sscanf(buffstr.c_str(), "%lf %13s %n", &(new_spot.frequency), call, &consumed)==2) {
-                        *(host_api->AaediHAM_LogDebug) << "Extracted Frequency " << new_spot.frequency << "\n";
+                    if (spotter_end == std::string::npos || spotter_end <7) {
+                        valid_spot = false;
+                        *(host_api->AaediHAM_LogDebug) << "Invalid Spotter, ignoring spot \n";
                     }
-                    tempstring = buffstr.substr(consumed,std::string::npos);
-                    buffstr = tempstring;
-                    new_spot.dx = call;
-                    *(host_api->AaediHAM_LogDebug) << "Extracted DX " << new_spot.dx.c_str() << "\n";
+                    if (valid_spot) {
+                        new_spot.spotter = buffstr.substr(6, spotter_end-7 );
+                        tempstring=buffstr.substr(spotter_end+1,std::string::npos);
+                        buffstr = tempstring;
+                        *(host_api->AaediHAM_LogDebug) << "Extracted Spotter " << new_spot.spotter.c_str() << "\n";
+                    }
+                    if (valid_spot) {
+                        if (sscanf(buffstr.c_str(), "%lf %13s %n", &(new_spot.frequency), call, &consumed)==2) {
+                            *(host_api->AaediHAM_LogDebug) << "Extracted Frequency " << new_spot.frequency << "\n";
+                            tempstring = buffstr.substr(consumed,std::string::npos);
+                            buffstr = tempstring;
+                            new_spot.dx = call;
+                            *(host_api->AaediHAM_LogDebug) << "Extracted DX " << new_spot.dx.c_str() << "\n";
+                        } else {
+                            valid_spot = false;
+                            *(host_api->AaediHAM_LogDebug) << "Invalid Frequency, ignoring spot \n";
+                        }
+
+                    }
                     spotter_end = buffstr.find_last_of('Z', (std::string::npos));
-                    if (spotter_end != std::string::npos) {
+                    if (spotter_end != std::string::npos && spotter_end >= 4) {
                         tempstring = buffstr.substr(spotter_end-4, 4 );
                         struct tm *new_time;
                         new_time = gmtime(&currenttime);
@@ -405,26 +432,35 @@ int SDLCALL fetch_dxspots(void* data) {
                         new_spot.timestamp = time(NULL);
                         new_spot.note="";
                     }
-                    dxspot_mutex.lock();
-                    new_spot.find_mode();
-                    dxspot_mutex.unlock();
-                    duplicate_spot(new_spot);
+                    if (valid_spot) {
+                        dxspot_mutex.lock();
+                        new_spot.find_mode();
+                        dxspot_mutex.unlock();
+                            duplicate_spot(new_spot);
+                    }
 
                 } else if (sscanf(buffstr.c_str(), "%f %31s %15s %7s", &freq, call, date, timez)==4) {
                     if (date[0] =='U') {
     //              	SDL_Log("Skipping line with unexpected keyword: %s", buffstr.c_str());
                     } else {
                         *(host_api->AaediHAM_LogDebug) << "Got cached DX entry\n" <<  buffstr.c_str() << "\n";
+                        bool valid_spot = true;
                         dxspot new_spot;
                         size_t consumed=0;
                         std::string tempstring;
                         int scansize;
-                        sscanf (buffstr.c_str(), "%lf %13s %n", &(new_spot.frequency), call, &scansize);
-                        consumed += scansize;
-                        tempstring=buffstr.substr(consumed,std::string::npos);
-                        buffstr= tempstring;
-                        new_spot.dx=call;
-
+                        if (sscanf (buffstr.c_str(), "%lf %13s %n", &(new_spot.frequency), call, &scansize)==2) {
+                            if (scansize >0 && (scansize < buffstr.size())) {
+                            consumed += scansize;
+                            tempstring=buffstr.substr(consumed,std::string::npos);
+                            buffstr= tempstring;
+                            new_spot.dx=call;
+                            } else {
+                                valid_spot = false;
+                            }
+                        } else {
+                            valid_spot = false;
+                        }
                         consumed = buffstr.find('Z');
                         tempstring=buffstr.substr(0,consumed);
 
@@ -464,6 +500,10 @@ int SDLCALL fetch_dxspots(void* data) {
               	    *(host_api->AaediHAM_LogDebug) << "Ignoring line "<< buffstr << "\n";
                 }
             }
+            if (send_result < 0) {
+                clean_socket = false;
+                *(host_api->AaediHAM_LogDebug) << "Failed to send Command: " << strerror(errno) << "\n";
+            }
             dxbuffer.clear();
         }
         if (!clean_socket) {
@@ -479,6 +519,7 @@ int SDLCALL fetch_dxspots(void* data) {
             dxsocket = 0;
         }
     }
+    exit_shutdown = 0;
     return 0;
 }
 
@@ -518,6 +559,15 @@ void dx_cluster_plugin::plugin_exit() const {
     *(host_api->AaediHAM_LogDebug) << "exiting module\n";
     if (dxspot_timer) {
         SDL_RemoveTimer(dxspot_timer);
+    }
+    int limit = 0;
+    exit_shutdown = 2;
+    while (exit_shutdown && limit < 1000) {
+        SDL_Delay(10);
+        limit ++;
+    }
+    if (exit_shutdown) {
+        *(host_api->AaediHAM_LogDebug) << "Worker failed to return on shutdown\n";
     }
     const std::lock_guard<std::mutex>cluster_lock(dxspot_mutex);
     if (dxsocket) {

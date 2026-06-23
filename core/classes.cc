@@ -289,7 +289,7 @@ void ScreenFrame::render_text(const SDL_FRect& text_box, TTF_Font *font, const S
         return;
     }
     if (str.size() > 2048) {
-        debug_log << "SCREENFRAME: Text Render input overflow. Trimmed\n";
+        debug_log << "SCREENFRAME: Text Render input overflow. Discarded\n";
         return;
     }
     if (!texture || !renderer || !font) {
@@ -343,7 +343,7 @@ void ScreenFrame::render_text(const SDL_FRect& text_box, TTF_Font *font, const S
         return;
     }
     if (strlen(str)>2048) {
-        debug_log << "SCREENFRAME: Text Render input overflow. Trimmed\n";
+        debug_log << "SCREENFRAME: Text Render input overflow. Discarded\n";
         return;
     }
 
@@ -456,30 +456,9 @@ void config::qrz_sesskey() {
 //            xmlNode* current_node = nullptr;
 //            xmlNode* start_node = xmlDocGetRootElement(xml_tree);
             parse_qrz(xmlDocGetRootElement(xml_tree));
+            xmlFreeDoc (xml_tree);
         }
-/*
-        std::istringstream stream(xml);
-        std::string keyline;
-        size_t tag_start, tag_stop;
-        while (std::getline(stream, keyline)) {
-            tag_start=keyline.find("<Key>");
-            tag_stop=keyline.find("</Key>");
-            if (( tag_start != std::string::npos ) && ( tag_stop != std::string::npos)) {
-                tag_start +=5;
-                m_QRZ.Key = keyline.substr(tag_start, tag_stop - tag_start);
-//                debug_log << "CONFIG: Loaded QRZ Session Key\n";
-            }
 
-            tag_start=keyline.find("<Error>");
-            tag_stop=keyline.find("</Error>");
-            if (( tag_start != std::string::npos ) && ( tag_stop != std::string::npos)) {
-                tag_start +=7;
-                std::string QRZ_Err = keyline.substr(tag_start, tag_stop - tag_start);
-                printf ("QRZ Session Key Error: %s\n", QRZ_Err.c_str());
-//                debug_log << "CONFIG: QRZ Session Key Error: " << QRZ_Err.c_str() << "\n";
-            }
-        }
-*/
     }
     if (xml) {
         free(xml);
@@ -1022,8 +1001,8 @@ bool map_icons::icon_update(uint16_t owner, uint16_t index, SDL_Surface* icon_im
     w =(w/50);
     bool result = false;
     SDL_Surface* scaled_surface = SDL_CreateSurface(w, w, SDL_PIXELFORMAT_RGBA8888);
-    SDL_ClearSurface(scaled_surface, 0,0,0,0);
     if (scaled_surface) {
+        SDL_ClearSurface(scaled_surface, 0,0,0,0);
         result = SDL_BlitSurfaceScaled(icon_image, NULL, scaled_surface, NULL, SDL_SCALEMODE_NEAREST);
         if (result) {
             result = SDL_UpdateTexture(icon_list[index].icon, NULL, scaled_surface->pixels , scaled_surface->pitch);
@@ -1036,98 +1015,3 @@ bool map_icons::icon_update(uint16_t owner, uint16_t index, SDL_Surface* icon_im
 }
 
 
-/*
-void map_icons::set_dynamic(SDL_Renderer* renderer, SDL_Surface* source, enum icon_names id) {
-    if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
-        SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
-    }
-    else {
-        SDL_Log("Dynamic ICON set during resize event!");
-        return;
-    }
-    if (renderer && source) {
-        if (icons[id]) {
-            debug_log << "ICONS: destroying icon texture" << id << "\n";
-            SDL_DestroyTexture(icons[id]);
-            icons[id]=nullptr;
-        }
-        debug_log << "ICONS: Creating icon texture" << id << "\n";
-        icons[id] = SDL_CreateTextureFromSurface(renderer, source);
-        if (!icons[id]) {
-            SDL_Log ("Unable to create dynamic icon");
-            debug_log << "ICONS: Unable to create dynamic icon\n";
-        } else {
-            int w = source->w;
-            int h = source->h;
-            int bpp = 4;
-            double surf_size_kb = (source->pitch * source->h) / 1024.0;
-            double tex_size_kb = (w * h * 4.0) / 1024.0; // assuming RGBA8888
-            debug_log << "ICONS: Created icon texture[" << id << "] "
-              << w << "x" << h << " "
-              << bpp * 8 << "-bit surface ≈ " << surf_size_kb << " KB "
-              << "=> GPU texture ≈ " << tex_size_kb << " KB "
-              << "at " << static_cast<void*>(icons[id]) << "\n";
-        }
-    } else {
-        SDL_Log ("Missing Renderer or Source for Dynamic Icon");
-        debug_log << "ICONS: Missing Renderer or Source for Dynamic Icon\n";
-    }
-    return;
-}
-*/
-
-/*
-void map_icons::load_texture (SDL_Renderer* renderer, const std::string& path, const enum icon_names index) {
-    icons[index]=nullptr;
-    if (renderer) {
-//      SDL_Surface* loadsurface = SDL_LoadBMP(path.c_str());
-        SDL_Surface* loadsurface = IMG_Load(path.c_str());
-        if (loadsurface) {
-            if (icons[index]) {
-                debug_log << "ICONS: destroying icon texture" << index << "\n";
-                SDL_DestroyTexture(icons[index]);
-                icons[index]=nullptr;
-            }
-            debug_log << "ICONS: Creating icon texture" << index << "\n";
-            icons[index] = SDL_CreateTextureFromSurface(renderer, loadsurface);
-            if (!icons[index]) {
-                SDL_Log("ICONS: Unable to generate Icon Texture from %s", path.c_str());
-                SDL_DestroySurface(loadsurface);
-                return;
-            } else {
-                int w = loadsurface->w;
-                int h = loadsurface->h;
-                int bpp = 4;
-                double surf_size_kb = (loadsurface->pitch * loadsurface->h) / 1024.0;
-                double tex_size_kb = (w * h * 4.0) / 1024.0; // assuming RGBA8888
-                debug_log << "ICONS: Created icon texture[" << index << "] "
-                        << w << "x" << h << " "
-                        << bpp * 8 << "-bit surface ≈ " << surf_size_kb << " KB "
-                        << "=> GPU texture ≈ " << tex_size_kb << " KB "
-                        << "at " << static_cast<void*>(icons[index]) << "\n";
-                SDL_DestroySurface(loadsurface);
-            }
-        } else {
-            SDL_Log("Unable to load icon texture: %s", path.c_str());
-            debug_log << "ICONS: Unable to load icon texture: " << path.c_str() << "\n";
-            return;
-        }
-
-    } else {
-        SDL_Log("No Icon load renderer provided!");
-        debug_log << "ICONS: No Icon load renderer provided!\n";
-        return;
-    }
-    return;
-}
-*/
-/*
-void map_icons::reload_icons(SDL_Renderer* renderer) {
-    if (renderer) {
-        clear_icons();
-//        load_texture(renderer, "images/satellite.bmp", map_icons::ICON_SAT);
-        load_texture(renderer, "images/satellite.png", map_icons::ICON_SAT);
-    }
-    return;
-}
-*/

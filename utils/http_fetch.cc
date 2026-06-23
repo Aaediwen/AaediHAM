@@ -127,6 +127,7 @@ uint64_t http_loader(const char* source_url, void** result, const std::string& u
         curl_easy_cleanup(curl);
         if (!curlres) {
 //            std::cout << "HTTP: Fetched "<< httpbuffer.size() <<" Bytes\n";
+            void* temp = result;
             *result = realloc(*result, httpbuffer.size()+1);
 
             if (*result) {
@@ -138,6 +139,9 @@ uint64_t http_loader(const char* source_url, void** result, const std::string& u
                 return(httpbuffer.size());
             } else {
 //                std::cout << "HTTP: Curl result MALLOC error\n";
+                if (temp) {
+                    free(temp);
+                }
 ////                SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
                 return 0;
             }
