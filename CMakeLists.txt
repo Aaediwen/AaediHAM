@@ -13,37 +13,18 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # PROJECT SETUP
 # ================================================================================
 if(NOT DEFINED ASAN_ENABLE)
-    set(ASAN_ENABLE OFF CACHE BOOL "Enable Address Sanitizer" FORCE)
+	set(ASAN_ENABLE OFF CACHE BOOL "Enable Address Sanitizer" FORCE)
 endif()
 if (ASAN_ENABLE)
-message(STATUS "Address Sanitizer set to ... ENABLED")
+	message(STATUS "Address Sanitizer set to ... ENABLED")
 else()
-message(STATUS "Address Sanitizer set to ... DISABLED")
+	message(STATUS "Address Sanitizer set to ... DISABLED")
 endif()
 set(CURL_NAME )
 if (NOT WIN32)
-set(CURL_NAME CURL::libcurl)
+	set(CURL_NAME CURL::libcurl)
 endif()
-
-#
-#
-#	modules/de_dx.cc
-#	modules/pota.cc
-#	modules/callsign.cc
-#	modules/dx_spots.cc
-#	modules/ncdxf.cc
-#	modules/clock.cc
-#	modules/sat_tracker.cc
-#	modules/sun.cc
-#	modules/aurora.cc
-#	modules/contests.cc
-#	modules/kindex.cc
-#	modules/wspr_tracker.cc
-#	modules/lunar.cc
-#	modules/map.cc
-#	modules/pskreporter.cc
-#	core/utils.cc
-#        utils/celestials.cc
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set (SOURCES
 	core/init.cc
@@ -53,23 +34,102 @@ set (SOURCES
 	core/quit.cc
 	core/event.cc
 	utils/http_fetch.cc
-    utils/conversions.cc
+	utils/conversions.cc
 	plugins/host_api.cc
 )
 
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+add_executable(clock ${SOURCES})
+
+# set up for stuff common to all libs and sub modules
+
 add_library(aaediclock_path INTERFACE)
 target_include_directories(aaediclock_path INTERFACE ${CMAKE_SOURCE_DIR})
 if (ASAN_ENABLE) 
-  target_link_options(aaediclock_path INTERFACE -fsanitize=address)
+	target_compile_options(aaediclock_path INTERFACE -fsanitize=address)
+	target_link_options(aaediclock_path INTERFACE -fsanitize=address)
 endif()
-if (NOT WIN32)
-target_compile_options(aaediclock_path INTERFACE -fno-omit-frame-pointer
--rdynamic)
+
+
+# ================================================================================
+# PLATFORM SPECIFIC COMPILER FLAGS
+# ================================================================================
+# cmake -DCMAKE_BUILD_TYPE=Release .. 	== Release build
+# cmake -DCMAKE_BUILD_TYPE=Debug ..	== Debug Build
+# cmake -DASAN_ENABLE=ON ..		== Enable Address Sanitizer on Posix
+# cmake -DSDL_UNIX_CONSOLE_BUILD=ON ..	== Disable SDL3 X11/Wayland Back End
+# cmake ..				== last Cmake in that dir, Release by default
+#
+
+# Ensure build type is always set
+if(NOT DEFINED CMAKE_BUILD_TYPE)
+	set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
-add_executable(clock ${SOURCES})
+
+if(WIN32)
+	target_link_libraries(aaediclock_path INTERFACE  SDL3::SDL3 winhttp)
+	target_compile_options(clock PRIVATE /external:W0  /external:anglebrackets /showIncludes
+        	$<$<CONFIG:Debug>:/Od /Zi /W4 /WX /RTC1 /MDd /Ob0 >
+        	$<$<CONFIG:Release>:/O2 /DNDEBUG>
+    	)	
+ 	target_compile_definitions(clock PRIVATE 
+        	$<$<CONFIG:Debug>:CLOCK_DEBUG>
+    	)
+	target_link_options(clock PRIVATE
+    		$<$<CONFIG:Debug>:/DEBUG>
+	)
+
+elseif(APPLE)
+   	target_compile_options(clock PRIVATE
+        	$<$<CONFIG:Debug>:-Wall -Wextra -O0 -pg -g>
+        	$<$<CONFIG:Release>:-O3 -DNDEBUG>
+    	)
+ 	target_compile_definitions(clock PRIVATE 
+        	$<$<CONFIG:Debug>:CLOCK_DEBUG>
+    	)
+	target_compile_options(aaediclock_path INTERFACE 
+		-fno-omit-frame-pointer -rdynamic
+	)
+else()
+	if (ASAN_ENABLE)
+        	target_compile_options(clock PRIVATE
+                	$<$<CONFIG:Debug>:-Wall -Wextra -Werror -Wunused -O0 -fsanitize=address -pg -g >
+	                $<$<CONFIG:Release>:-O3 -DNDEBUG>
+        	)
+		target_link_options(clock PRIVATE
+    			$<$<CONFIG:Debug>:LINKER:--no-undefined,-E,-fsanitize=address>
+			$<$<CONFIG:Release>:LINKER: --export-dynamic>
+		)
+	else ()
+        	target_compile_options(clock PRIVATE
+                	$<$<CONFIG:Debug>:-Wall -Wextra -Werror -Wunused -O0 -pg -g >
+	                $<$<CONFIG:Release>: -O3>
+        	)
+		target_link_options(clock PRIVATE
+    			$<$<CONFIG:Debug>:LINKER:--no-undefined,-E>
+			$<$<CONFIG:Release>:LINKER: --export-dynamic>
+		)
+	endif()
+	target_compile_definitions(clock PRIVATE 
+        	$<$<CONFIG:Debug>:CLOCK_DEBUG>
+    	)
+	target_compile_options(aaediclock_path INTERFACE 
+		-fno-omit-frame-pointer
+	)
+endif()
+
+
+# ================================================================================
+# Main Project starts here
+# ================================================================================
+
+
+
+
 target_link_libraries(clock PRIVATE aaediclock_path LibXml2::LibXml2)
 
+#---------------------------
+# libraries start here
+#---------------------------
 add_library(ncdxf_plugin SHARED
     plugins/ncdxf.cc
 )
@@ -127,7 +187,7 @@ add_library(new_sat_tracker_plugin SHARED
     utils/conversions.cc
 )
 #temporary for Vallado test
-target_compile_options(new_sat_tracker_plugin PRIVATE -fpermissive)
+#target_compile_options(new_sat_tracker_plugin PRIVATE -fpermissive)
 target_link_libraries(new_sat_tracker_plugin PRIVATE aaediclock_path SDL3::SDL3 SDL3_image::SDL3_image LibXml2::LibXml2 ${CURL_NAME})
 
 
@@ -198,6 +258,10 @@ add_library(map_plugin SHARED
 )
 target_link_libraries(map_plugin PRIVATE aaediclock_path  SDL3::SDL3 SDL3_image::SDL3_image)
 
+#==============================
+#libraries end here
+#==============================
+
 set(PLUGIN_TARGETS
     ncdxf_plugin 
     callsign_plugin
@@ -207,6 +271,7 @@ set(PLUGIN_TARGETS
     dx_plugin
     dx_cluster_plugin
     sat_tracker_plugin
+    new_sat_tracker_plugin
     aurora_plugin
     sdo_plugin
     contest_plugin
@@ -224,10 +289,10 @@ set(PLUGIN_TARGETS
 # ================================================================================
 
 function (find_build symbol path tag target)
-if (NOT WIN32)
-	find_package(${symbol} QUIET)
-endif()
- 	if (NOT ${symbol}_FOUND)
+	if (NOT WIN32)
+		find_package(${symbol} QUIET)
+	endif()
+	if (NOT ${symbol}_FOUND)
 		message(STATUS "${symbol} not found, fetching...")
 		find_program(GIT_EXECUTABLE git)
                 if(NOT GIT_EXECUTABLE)
@@ -243,73 +308,14 @@ endif()
  			GIT_TAG ${tag}
 		)
 		FetchContent_MakeAvailable(${symbol})
-		 set(${symbol}_SOURCE_DIR ${${symbol}_SOURCE_DIR} PARENT_SCOPE)
-        set(${symbol}_BINARY_DIR ${${symbol}_BINARY_DIR} PARENT_SCOPE)
-#		target_include_directories(clock SYSTEM PRIVATE
-#		${EXTERNAL_DIR}/${target} ${${symbol}_SOURCE_DIR}/include)
-#		target_include_directories(sat_tracker_plugin SYSTEM PRIVATE
-#               ${EXTERNAL_DIR}/${target} ${${symbol}_SOURCE_DIR})
+		set(${symbol}_SOURCE_DIR ${${symbol}_SOURCE_DIR} PARENT_SCOPE)
+        	set(${symbol}_BINARY_DIR ${${symbol}_BINARY_DIR} PARENT_SCOPE)
 		target_include_directories(aaediclock_path INTERFACE
-		${EXTERNAL_DIR}/${target} ${${symbol}_SOURCE_DIR}/include)
+			${EXTERNAL_DIR}/${target} ${${symbol}_SOURCE_DIR}/include)
 	else()
 		message(STATUS "Using System ${symbol} ")
 	endif()
 endfunction()
-
-
-# ================================================================================
-# PLATFORM SPECIFIC COMPILER FLAGS
-# ================================================================================
-# cmake -DCMAKE_BUILD_TYPE=Release .. 	== Release build
-# cmake -DCMAKE_BUILD_TYPE=Debug ..	== Debug Build
-# cmake -DASAN_ENABLE=ON ..		== Enable Address Sanitizer on Posix
-# cmake -DSDL_UNIX_CONSOLE_BUILD=ON ..	== Disable SDL3 X11/Wayland Back End
-# cmake ..				== last Cmake in that dir, Release by default
-#
-# Ensure build type is always set
-if(NOT DEFINED CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
-endif()
-
-if(WIN32)
-    target_link_libraries(aaediclock_path INTERFACE  SDL3::SDL3 winhttp)
- 	target_compile_options(clock PRIVATE /external:W0  /external:anglebrackets /showIncludes
-        	$<$<CONFIG:Debug>:/Od /Zi /W4 /WX /RTC1 /MDd /Ob0 >
-        	$<$<CONFIG:Release>:/O2 /DNDEBUG>
-    	)	
- 	target_compile_definitions(clock PRIVATE 
-        	$<$<CONFIG:Debug>:CLOCK_DEBUG>
-    	)
-	target_link_options(clock PRIVATE
-    		$<$<CONFIG:Debug>:/DEBUG>
-	)
-
-elseif(APPLE)
-   	target_compile_options(clock PRIVATE
-        	$<$<CONFIG:Debug>:-Wall -Wextra -O0 -pg -g>
-        	$<$<CONFIG:Release>:-O3 -DNDEBUG>
-    	)
- 	target_compile_definitions(clock PRIVATE 
-        	$<$<CONFIG:Debug>:CLOCK_DEBUG>
-    	)
-else()
-if (ASAN_ENABLE)
-   	target_compile_options(clock PRIVATE
-        	$<$<CONFIG:Debug>:-Wall -Wextra -Werror -Wunused -O0 -fsanitize=address -O1
--rdynamic -pg -g -Wl,--no-undefined>
-        	$<$<CONFIG:Release>:-O3 -rdynamic -DNDEBUG>
-    	)
-else ()
-   	target_compile_options(clock PRIVATE
-        	$<$<CONFIG:Debug>:-Wall -Wextra -Werror -Wunused -O0 -rdynamic -pg -g -Wl,--no-undefined>
-        	$<$<CONFIG:Release>:-O3 -rdynamic -DNDEBUG>
-    	)
-endif()
-	target_compile_definitions(clock PRIVATE 
-        	$<$<CONFIG:Debug>:CLOCK_DEBUG>
-    	)
-endif()
-
 
 
 # ================================================================================
@@ -324,8 +330,9 @@ if(WIN32)
     	target_compile_definitions(clock PRIVATE _CRT_SECURE_NO_WARNINGS)
     	set(EXTERNAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/Windows")
     	list(APPEND CMAKE_PREFIX_PATH "${EXTERNAL_DIR}")
+
     	target_include_directories(clock PRIVATE ${EXTERNAL_DIR}/json-develop/include)
-	    find_build(sgp4 https://github.com/dnwrnr/sgp4.git "master"  "sgp4-src/")
+	find_build(sgp4 https://github.com/dnwrnr/sgp4.git "master"  "sgp4-src/")
         target_include_directories(sat_tracker_plugin SYSTEM PRIVATE ${sgp4_SOURCE_DIR})
 	find_build(libxml2 "https://gitlab.gnome.org/GNOME/libxml2.git" "master" .)
 	
@@ -345,6 +352,7 @@ elseif(APPLE)
 else()
 	set(EXTERNAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/linux")
 	set(FETCHCONTENT_BASE_DIR ${EXTERNAL_DIR})
+
 	find_package(ZLIB REQUIRED)
 	find_build(CURL "https://github.com/curl/curl.git" master .)
         find_build(Fontconfig "https://gitlab.freedesktop.org/fontconfig/fontconfig.git" "main" .)
@@ -362,15 +370,13 @@ endif()
 	set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 	find_build(SDL3 "https://github.com/libsdl-org/SDL.git" release-3.2.x .)
 	find_build(SDL3_ttf "https://github.com/libsdl-org/SDL_ttf.git" release-3.2.2 .)
-    set(SDL3IMAGE_AVIF OFF)
+	set(SDL3IMAGE_AVIF OFF)
 	find_build(SDL3_image "https://github.com/libsdl-org/SDL_image.git" release-3.2.4 sdl3_image-src/include)
 	set(MAHO_MQTTC_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 	set(MAHO_MQTTC_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
 	find_build("paho-mqtt3c" "https://github.com/eclipse-paho/paho.mqtt.c.git" "master" .)
 	find_build(nlohmann_json "https://github.com/nlohmann/json.git" "master" .)
 	set(LIBXML2_WITH_TESTS OFF CACHE BOOL "" FORCE)
-
-	
 	set(SGP4_LIB sgp4)
 
 # ================================================================================
@@ -378,51 +384,62 @@ endif()
 # ================================================================================
 
 if(WIN32)
-        target_include_directories(clock
-            SYSTEM PRIVATE
-            ${CMAKE_BINARY_DIR}/_deps/paho-mqtt3c-src/src
+	target_include_directories(clock SYSTEM PRIVATE
+		${CMAKE_BINARY_DIR}/_deps/paho-mqtt3c-src/src
         )
-    	target_include_directories(clock PRIVATE ${sgp4_SOURCE_DIR})
-    	target_link_libraries(clock PRIVATE winhttp sgp4 SDL3::SDL3
-    	SDL3_image::SDL3_image SDL3_ttf::SDL3_ttf ${SGP4_LIB} paho-mqtt3c LibXml2::LibXml2)
+    	target_include_directories(clock PRIVATE)
+    	target_link_libraries(clock PRIVATE 
+		winhttp SDL3::SDL3
+	    	SDL3_image::SDL3_image SDL3_ttf::SDL3_ttf LibXml2::LibXml2)
+
+	# copy target binaries to binary directory in build tree
+	#---------------------------------------------------------
         set(BINARY_TREE ${CMAKE_BINARY_DIR}/binary)
         add_custom_command(TARGET clock POST_BUILD 
         COMMAND ${CMAKE_COMMAND} -E make_directory "${BINARY_TREE}")
+	# copy binary
         add_custom_command(TARGET clock POST_BUILD 
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:clock>
-            ${BINARY_TREE}
+        	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            	$<TARGET_FILE:clock>
+            	${BINARY_TREE}
         )
+	# copy pdb
         add_custom_command(TARGET clock POST_BUILD 
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_PDB_FILE:clock>
             ${BINARY_TREE}
         )
+	#copy SDL3
         add_custom_command(TARGET clock POST_BUILD 
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:SDL3::SDL3>
             ${BINARY_TREE}
         )
+	#copy SDL3 Image
         add_custom_command(TARGET clock POST_BUILD 
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:SDL3_image::SDL3_image>
             ${BINARY_TREE}
         )
+	# copy SDL3 TTF
         add_custom_command(TARGET clock POST_BUILD 
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:SDL3_ttf::SDL3_ttf>
             ${BINARY_TREE}
         )
+	# copy LibXML
         add_custom_command(TARGET clock POST_BUILD 
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:LibXml2::LibXml2>
             ${BINARY_TREE}
         )
+	# copy MQTT Lib
         add_custom_command(TARGET clock POST_BUILD 
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:paho-mqtt3c>
             ${BINARY_TREE}
         )
+	# copy plugins
         foreach(plugin IN LISTS PLUGIN_TARGETS)
             add_custom_command(TARGET ${plugin} POST_BUILD 
             COMMAND ${CMAKE_COMMAND} -E make_directory "${BINARY_TREE}")
@@ -441,11 +458,11 @@ if(WIN32)
         endforeach()
 
 elseif(APPLE)
-target_link_libraries(clock PRIVATE
-        SDL3::SDL3 SDL3_ttf::SDL3_ttf sgp4 nlohmann_json::nlohmann_json
-        SDL3_image::SDL3_image paho-mqtt3c LibXml2::LibXml2 Fontconfig::Fontconfig)
+	target_link_libraries(clock PRIVATE
+        	SDL3::SDL3 SDL3_ttf::SDL3_ttf nlohmann_json::nlohmann_json
+        	SDL3_image::SDL3_image LibXml2::LibXml2 Fontconfig::Fontconfig)
 
 else()
-	target_link_libraries(clock PRIVATE SDL3::SDL3 SDL3_ttf::SDL3_ttf 
-	sgp4 nlohmann_json::nlohmann_json SDL3_image::SDL3_image paho-mqtt3c LibXml2::LibXml2)
+	target_link_libraries(clock PRIVATE 
+		SDL3::SDL3 SDL3_ttf::SDL3_ttf nlohmann_json::nlohmann_json SDL3_image::SDL3_image LibXml2::LibXml2)
 endif()
