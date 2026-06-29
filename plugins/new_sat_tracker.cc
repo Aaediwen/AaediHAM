@@ -17,7 +17,7 @@ SDL_TimerID sat_timer = 0;
 int fetch_result = 0;
 uint16_t icon = 0;
 std::mutex sat_tracker_mutex;
-std::vector<struct OMMRecord> satlist;
+std::vector<OMMRecord> satlist;
 
 /*
     Note: here so far I am only adjusting using GMST to convert between Celestial and Terrestrial reference frames
@@ -114,8 +114,7 @@ bool OMMRecord::sgp4_init() {
                         right_ascension_of_ascending_node,
                         satrec
                         );
-    double velocity[3];
-    double position[3];
+    
     *(host_api->AaediHAM_LogDebug)
     << "satrec:"
     << " a=" << satrec.a
@@ -146,10 +145,6 @@ bool OMMRecord::sgp4_init() {
 bool OMMRecord::generate_telemetry(int resolution_min) {
     double velocity[3];
     double position[3];
-    double magnitude;
-    double sin_declination;
-     double dec;
-     double ra;
     // Step 1, generate the timestamps to use (tsince and timestamp)
     *(host_api->AaediHAM_LogDebug) << "Sat Epoch JD: " <<  epoch_jd;
     time_t timestamp = time(NULL); // unmolested timestamp to use
@@ -166,7 +161,7 @@ bool OMMRecord::generate_telemetry(int resolution_min) {
 
 
 
-        struct vector3 transformed, matrix[3];
+        struct vector3 matrix[3];
         matrix[0]={1.0, 0.0, 0.0};
         matrix[1]={0.0, cos(1), 1-sin(1)};
         matrix[2]={0.0, sin(1), cos(1)};
@@ -412,7 +407,7 @@ time_t OMMRecord::pass_end() {
 
 
 // XML function to handle an individual XML node
-void SGP4Parser::XML::process_node(xmlNode* start_node, struct OMMRecord& result) {
+void SGP4Parser::XML::process_node(xmlNode* start_node, OMMRecord& result) {
     xmlNode* current_node = nullptr;
     aaediclock_Color trackcols = {255,0,0,255};
 //    const double epoch_1950 =  ISO8601_to_Julian("1950-01-01T00:00:00.0000");
@@ -588,6 +583,7 @@ double SGP4Parser::ISO8601_to_Julian(const std::string input) {
     try {
         year = std::stoi(tempstr.c_str(),nullptr, 10);
     } catch (std::exception& e) {
+        (void)e;
         *(host_api->AaediHAM_LogDebug) << "Invalid Epoch Year "<< tempstr <<"\n";
     }
     if (year <1) {
@@ -611,6 +607,7 @@ double SGP4Parser::ISO8601_to_Julian(const std::string input) {
             // convert to MM-DD
             doy_to_mmdd(year, doy, &(month), &(day));
         } catch (std::exception& e) {
+            (void)e;
             *(host_api->AaediHAM_LogDebug) << "Invalid Epoch Day of year\n";
         }
     } else {
@@ -627,6 +624,7 @@ double SGP4Parser::ISO8601_to_Julian(const std::string input) {
             day = std::stoi(tempstr.c_str(),nullptr, 10);
             consumed +=2;
         } catch (std::exception& e) {
+            (void)e;
             *(host_api->AaediHAM_LogDebug) << "Invalid Epoch Month or Day\n";
         }
     }
@@ -640,6 +638,7 @@ double SGP4Parser::ISO8601_to_Julian(const std::string input) {
         hour = std::stoi(tempstr.c_str(),nullptr, 10);
         consumed +=3;
     } catch (std::exception& e) {
+        (void)e;
         *(host_api->AaediHAM_LogDebug) << "Invalid Epoch Hour\n";
     }
     // extract minute
@@ -648,6 +647,7 @@ double SGP4Parser::ISO8601_to_Julian(const std::string input) {
         minute = std::stoi(tempstr.c_str(),nullptr, 10);
         consumed +=3;
     } catch (std::exception& e) {
+        (void)e;
         *(host_api->AaediHAM_LogDebug) << "Invalid Epoch minute\n";
     }
     // extract second
@@ -655,6 +655,7 @@ double SGP4Parser::ISO8601_to_Julian(const std::string input) {
     try {
         second = std::stod(tempstr.c_str(),nullptr);
     } catch (std::exception& e) {
+        (void)e;
         *(host_api->AaediHAM_LogDebug) << "Invalid Epoch second\n";
     }
     // convert to Julian date
@@ -677,7 +678,7 @@ void SGP4Parser::fromXML(std::string& input) {
         *(host_api->AaediHAM_LogDebug) << "Failed to parse Satellite XML\n";
     } else {
         // holding area for the OMM Record
-        struct OMMRecord result;
+        OMMRecord result;
         SGP4Parser::XML::process_node(xmlDocGetRootElement(xml_tree), result);
         xmlFreeDoc (xml_tree);
         xml_tree = nullptr;
@@ -966,7 +967,6 @@ void new_sat_tracker_plugin::plugin_main(const aaediclock_FRect& dims) const {
         }
     }
 
-    aaediclock_FRect TextRect;
     host_api->AaediHAM_MapPinDelete();
 
 

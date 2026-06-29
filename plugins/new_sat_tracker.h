@@ -75,7 +75,7 @@ class OMMRecord {
 // everything that parses input from Celestrak goes here
 namespace SGP4Parser {
     namespace XML {
-        void process_node(xmlNode* start_node, struct OMMRecord& result);
+        void process_node(xmlNode* start_node, OMMRecord& result);
     }
     double ISO8601_to_Julian(std::string);
     void fromXML(std::string& input);

@@ -20,6 +20,10 @@ message(STATUS "Address Sanitizer set to ... ENABLED")
 else()
 message(STATUS "Address Sanitizer set to ... DISABLED")
 endif()
+set(CURL_NAME )
+if (NOT WIN32)
+set(CURL_NAME CURL::libcurl)
+endif()
 
 #
 #
@@ -85,7 +89,7 @@ add_library(pota_plugin SHARED
     plugins/pota.cc
     utils/http_fetch.cc
 )
-target_link_libraries(pota_plugin PRIVATE aaediclock_path SDL3::SDL3 nlohmann_json::nlohmann_json)
+target_link_libraries(pota_plugin PRIVATE aaediclock_path SDL3::SDL3 nlohmann_json::nlohmann_json ${CURL_NAME})
 
 add_library(de_plugin SHARED
     plugins/de.cc
@@ -107,14 +111,14 @@ add_library(dx_cluster_plugin SHARED
     utils/socket.cc
     utils/conversions.cc
 )
-target_link_libraries(dx_cluster_plugin PRIVATE aaediclock_path SDL3::SDL3 LibXml2::LibXml2)
+target_link_libraries(dx_cluster_plugin PRIVATE aaediclock_path SDL3::SDL3 LibXml2::LibXml2 ${CURL_NAME})
 
 add_library(sat_tracker_plugin SHARED
     plugins/sat_tracker.cc
     utils/http_fetch.cc
     utils/conversions.cc
 )
-target_link_libraries(sat_tracker_plugin PRIVATE aaediclock_path sgp4 SDL3::SDL3 SDL3_image::SDL3_image)
+target_link_libraries(sat_tracker_plugin PRIVATE aaediclock_path sgp4 SDL3::SDL3 SDL3_image::SDL3_image ${CURL_NAME})
 
 add_library(new_sat_tracker_plugin SHARED
     plugins/new_sat_tracker.cc 
@@ -124,33 +128,33 @@ add_library(new_sat_tracker_plugin SHARED
 )
 #temporary for Vallado test
 target_compile_options(new_sat_tracker_plugin PRIVATE -fpermissive)
-target_link_libraries(new_sat_tracker_plugin PRIVATE aaediclock_path SDL3::SDL3 SDL3_image::SDL3_image LibXml2::LibXml2)
+target_link_libraries(new_sat_tracker_plugin PRIVATE aaediclock_path SDL3::SDL3 SDL3_image::SDL3_image LibXml2::LibXml2 ${CURL_NAME})
 
 
 add_library(aurora_plugin SHARED
     plugins/aurora.cc
     utils/http_fetch.cc
 )
-target_link_libraries(aurora_plugin PRIVATE aaediclock_path SDL3::SDL3 nlohmann_json::nlohmann_json)
+target_link_libraries(aurora_plugin PRIVATE aaediclock_path SDL3::SDL3 nlohmann_json::nlohmann_json ${CURL_NAME})
 
 add_library(sdo_plugin SHARED
     plugins/sun.cc
     utils/http_fetch.cc
     utils/celestials.cc
 )
-target_link_libraries(sdo_plugin PRIVATE aaediclock_path SDL3::SDL3 SDL3_image::SDL3_image)
+target_link_libraries(sdo_plugin PRIVATE aaediclock_path SDL3::SDL3 SDL3_image::SDL3_image ${CURL_NAME})
 
 add_library(contest_plugin SHARED
     plugins/contests.cc
     utils/http_fetch.cc
 )
-target_link_libraries(contest_plugin PRIVATE aaediclock_path SDL3::SDL3 LibXml2::LibXml2)
+target_link_libraries(contest_plugin PRIVATE aaediclock_path SDL3::SDL3 LibXml2::LibXml2 ${CURL_NAME})
 
 add_library(kindex_plugin SHARED
     plugins/kindex.cc
     utils/http_fetch.cc
 )
-target_link_libraries(kindex_plugin PRIVATE aaediclock_path SDL3::SDL3 nlohmann_json::nlohmann_json)
+target_link_libraries(kindex_plugin PRIVATE aaediclock_path SDL3::SDL3 nlohmann_json::nlohmann_json ${CURL_NAME})
 
 
 add_library(wspr_plugin SHARED
@@ -158,7 +162,7 @@ add_library(wspr_plugin SHARED
     utils/http_fetch.cc
     utils/conversions.cc
 )
-target_link_libraries(wspr_plugin PRIVATE aaediclock_path SDL3::SDL3)
+target_link_libraries(wspr_plugin PRIVATE aaediclock_path SDL3::SDL3 ${CURL_NAME})
 
 
 add_library(lunar_plugin SHARED
@@ -172,20 +176,20 @@ add_library(rss_plugin SHARED
     plugins/rss.cc
     utils/http_fetch.cc
 )
-target_link_libraries(rss_plugin PRIVATE aaediclock_path LibXml2::LibXml2)
+target_link_libraries(rss_plugin PRIVATE aaediclock_path LibXml2::LibXml2 ${CURL_NAME})
 
 add_library(pskreporter_plugin SHARED
     plugins/pskreporter.cc
     utils/http_fetch.cc
     utils/conversions.cc
 )
-target_link_libraries(pskreporter_plugin PRIVATE aaediclock_path paho-mqtt3c LibXml2::LibXml2)
+target_link_libraries(pskreporter_plugin PRIVATE aaediclock_path paho-mqtt3c LibXml2::LibXml2 ${CURL_NAME})
 
 add_library(muf_plugin SHARED
     plugins/muf.cc
     utils/http_fetch.cc
 )
-target_link_libraries(muf_plugin PRIVATE aaediclock_path LibXml2::LibXml2)
+target_link_libraries(muf_plugin PRIVATE aaediclock_path LibXml2::LibXml2 ${CURL_NAME})
 
 
 add_library(map_plugin SHARED
@@ -243,8 +247,8 @@ endif()
         set(${symbol}_BINARY_DIR ${${symbol}_BINARY_DIR} PARENT_SCOPE)
 #		target_include_directories(clock SYSTEM PRIVATE
 #		${EXTERNAL_DIR}/${target} ${${symbol}_SOURCE_DIR}/include)
-		target_include_directories(sat_tracker_plugin SYSTEM PRIVATE
-                ${EXTERNAL_DIR}/${target} ${${symbol}_SOURCE_DIR})
+#		target_include_directories(sat_tracker_plugin SYSTEM PRIVATE
+#               ${EXTERNAL_DIR}/${target} ${${symbol}_SOURCE_DIR})
 		target_include_directories(aaediclock_path INTERFACE
 		${EXTERNAL_DIR}/${target} ${${symbol}_SOURCE_DIR}/include)
 	else()
@@ -312,7 +316,6 @@ endif()
 # PLATFORM SPECIFIC SETUP
 # ================================================================================
 if(WIN32)
-	set(CMAKE_CXX_STANDARD 11)
 	execute_process(
     			COMMAND git config --global --add safe.directory "*"
     			RESULT_VARIABLE result
@@ -323,6 +326,8 @@ if(WIN32)
     	list(APPEND CMAKE_PREFIX_PATH "${EXTERNAL_DIR}")
     	target_include_directories(clock PRIVATE ${EXTERNAL_DIR}/json-develop/include)
 	    find_build(sgp4 https://github.com/dnwrnr/sgp4.git "master"  "sgp4-src/")
+        target_include_directories(sat_tracker_plugin SYSTEM PRIVATE ${sgp4_SOURCE_DIR})
+	find_build(libxml2 "https://gitlab.gnome.org/GNOME/libxml2.git" "master" .)
 	
 elseif(APPLE)
 	set(EXTERNAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/macos")
@@ -332,6 +337,11 @@ elseif(APPLE)
 	find_build(CURL "https://github.com/curl/curl.git" master .)  	
 	target_link_libraries(clock PRIVATE ZLIB::ZLIB CURL::libcurl m) 
         find_build(sgp4 https://github.com/dnwrnr/sgp4.git "master" "sgp4-src/")
+        target_include_directories(sat_tracker_plugin SYSTEM PRIVATE ${sgp4_SOURCE_DIR})
+	find_build(libXml2 "https://gitlab.gnome.org/GNOME/libxml2.git" "master" .)
+	list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew")
+	find_build(Fontconfig "https://gitlab.freedesktop.org/fontconfig/fontconfig.git" "main" .)
+	
 else()
 	set(EXTERNAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/linux")
 	set(FETCHCONTENT_BASE_DIR ${EXTERNAL_DIR})
@@ -341,6 +351,8 @@ else()
 #	find_package(Fontconfig REQUIRED)
 	target_link_libraries(clock PRIVATE ZLIB::ZLIB CURL::libcurl m fontconfig) 
         find_build(sgp4 https://github.com/dnwrnr/sgp4.git "master" "sgp4-src/")
+        target_include_directories(sat_tracker_plugin SYSTEM PRIVATE ${sgp4_SOURCE_DIR})
+	find_build(libxml2 "https://gitlab.gnome.org/GNOME/libxml2.git" "master" .)
 
 endif()
 
@@ -357,7 +369,6 @@ endif()
 	find_build("paho-mqtt3c" "https://github.com/eclipse-paho/paho.mqtt.c.git" "master" .)
 	find_build(nlohmann_json "https://github.com/nlohmann/json.git" "master" .)
 	set(LIBXML2_WITH_TESTS OFF CACHE BOOL "" FORCE)
-	find_build(libxml2 "https://gitlab.gnome.org/GNOME/libxml2.git" "master" .)
 
 	
 	set(SGP4_LIB sgp4)
@@ -430,8 +441,10 @@ if(WIN32)
         endforeach()
 
 elseif(APPLE)
-    	target_link_libraries(clock PRIVATE SDL3::SDL3 SDL3_ttf::SDL3_ttf 
-	sgp4 nlohmann_json::nlohmann_json SDL3_image::SDL3_image paho-mqtt3c LibXml2::LibXml2)
+target_link_libraries(clock PRIVATE
+        SDL3::SDL3 SDL3_ttf::SDL3_ttf sgp4 nlohmann_json::nlohmann_json
+        SDL3_image::SDL3_image paho-mqtt3c LibXml2::LibXml2 Fontconfig::Fontconfig)
+
 else()
 	target_link_libraries(clock PRIVATE SDL3::SDL3 SDL3_ttf::SDL3_ttf 
 	sgp4 nlohmann_json::nlohmann_json SDL3_image::SDL3_image paho-mqtt3c LibXml2::LibXml2)

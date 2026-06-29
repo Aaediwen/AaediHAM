@@ -465,7 +465,9 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     }
     std::signal(SIGINT, interrupt_handler);
     std::signal(SIGTERM, interrupt_handler);
+#ifndef _WIN32
     std::signal(SIGHUP, interrupt_handler);
+#endif
     init_result = AaediClock_Init::Window_Init(default_size.w, default_size.h);
     if (init_result != SDL_APP_CONTINUE) {
         return init_result;

@@ -75,8 +75,10 @@ void interrupt_handler(int signal) {
     if ((signal == SIGINT) || (signal == SIGTERM)) {
         interrupt_flag = true;
 //    	window_destroy();
+#ifndef _WIN32
     } else if ((signal == SIGHUP)) {
         reload_flag = true;
+#endif
     }
 //    window_destroy();
     return;

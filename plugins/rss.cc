@@ -308,7 +308,7 @@ void rss_plugin::plugin_main(const aaediclock_FRect& dims) const {
     SDL_Time currenttime;
     SDL_GetCurrentTime(&currenttime);
     SDL_Time time_offset = (currenttime - last_update_time)/100000000;
-    scroller_start_pos -= (3 * time_offset);
+    scroller_start_pos -= ((mapsize.w/100) * time_offset);
     if (scroller_start_pos < 0.0) {
        scroller_size.x -= scroller_start_pos;
        scroller_start_pos = 0.0;
