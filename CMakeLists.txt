@@ -53,6 +53,8 @@ endif()
 # ================================================================================
 # PLATFORM SPECIFIC COMPILER FLAGS
 # ================================================================================
+# cmake -DFREETYPE_LIBRARY=/opt/homebrew/lib/libfreetype.dylib -DFREETYPE_INCLUDE_DIRS=/opt/homebrew/include/freetype2 ..
+#					== MacOS FreeType Pathing
 # cmake -DCMAKE_BUILD_TYPE=Release .. 	== Release build
 # cmake -DCMAKE_BUILD_TYPE=Debug ..	== Debug Build
 # cmake -DASAN_ENABLE=ON ..		== Enable Address Sanitizer on Posix
