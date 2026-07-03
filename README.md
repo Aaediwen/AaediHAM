@@ -244,7 +244,7 @@ The program now requires a config file (aaediclock_config.json) in the Current D
   - Solar Weather data for K-Index module. Primary bar graph
   - downloaded every 4 hours at runtime
 - **Solar Wind Data**
-  - https://services.swpc.noaa.gov/products/solar-wind/plasma-7-day.json
+  - https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json
   - Solar Wind Data for K-Index module, top histogram shows the first derivative of this
   - downloaded every 4 hours at runtime
  - **DX Spots**
