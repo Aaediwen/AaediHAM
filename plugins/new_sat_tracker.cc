@@ -29,24 +29,21 @@ std::vector<OMMRecord> satlist;
 
 */
 double get_GMST_rad(const time_t time) {
-    double GMST = 0.0;
     constexpr double JD_UNIX_EPOCH              = 2440587.5;    // offset to 01-01-1970 (2440587.5)
     constexpr double SECONDS_PER_DAY            = 86400.0;      // seconds per calendar day
     constexpr double J2000                      = 2451545.0;    // Julian Date of J2000.0, which is January 1, 2000 at 12:00 TT
     double jd =  (static_cast<double>(time) / SECONDS_PER_DAY) + JD_UNIX_EPOCH; // convert to Julian date
     double d = jd - J2000;
-    GMST = fmod(280.46061837 + 360.98564736629 * d, 360.0);
+    double GMST = fmod(280.46061837 + 360.98564736629 * d, 360.0);
     if (GMST < 0) GMST += 360.0;
     GMST *= M_PI/180.0;
     return GMST;
-
 }
 
-void apply_GMST (time_t time, const double RA, const double DEC, double& lat, double& lon) {
-    double RA_Rad, DEC_Rad;
-    DEC_Rad = DEC;
-    RA_Rad = RA;
-
+void apply_GMST (time_t time, const double RA_Rad, const double DEC_Rad, double& lat, double& lon) {
+    if (time ==0) {
+        return;
+    }
     double GMST = get_GMST_rad(time);
     double lon_subsat = RA_Rad - GMST ;  // Earth-fixed longitude
     if (lon_subsat >  M_PI) lon_subsat -= 2*M_PI;
@@ -60,9 +57,10 @@ void apply_GMST (time_t time, const double RA, const double DEC, double& lat, do
     return;
 }
 
-struct vector3 transform(const struct vector3 input, const struct vector3* matrix) {
+struct vector3 transform(const struct vector3 input, const struct vector3 matrix[3]) {
     struct vector3 result = {};
     if (!matrix) {
+        result = input;
         return result;
     }
     result.x =  input.x*matrix[0].x;
@@ -82,7 +80,7 @@ struct vector3 transform(const struct vector3 input, const struct vector3* matri
 
 bool OMMRecord::sgp4_init() {
     const double epoch_1950 =  SGP4Parser::ISO8601_to_Julian("1950-01-01T00:00:00.0000");
-    const double epoch_J2000 = SGP4Parser::ISO8601_to_Julian("2000-01-01T12:00:00.0000");
+//    const double epoch_J2000 = SGP4Parser::ISO8601_to_Julian("2000-01-01T12:00:00.0000");
 
     *(host_api->AaediHAM_LogDebug) << "Vallado SGP4 test for " << name  << "\n";
     *(host_api->AaediHAM_LogDebug)
@@ -99,7 +97,7 @@ bool OMMRecord::sgp4_init() {
 //                Convert mean motion to rad/min for init per SGP4.cpp line 2328 example
 
     double no_rad_min = mean_motion*2 * M_PI/(86400/60);
-    SGP4Funcs::sgp4init(wgs72,
+    bool initresult = SGP4Funcs::sgp4init(wgs72,
                         'i',
                         "00001",
                         (epoch_jd-epoch_1950),
@@ -114,7 +112,11 @@ bool OMMRecord::sgp4_init() {
                         right_ascension_of_ascending_node,
                         satrec
                         );
-    
+    if (!initresult) {
+        valid = false;
+         *(host_api->AaediHAM_LogDebug) << "SGP4 Init error for " << name << "satrec error: " << satrec.error << "\n";
+        return false;
+    }
     *(host_api->AaediHAM_LogDebug)
     << "satrec:"
     << " a=" << satrec.a
@@ -137,7 +139,7 @@ bool OMMRecord::sgp4_init() {
     << " nm=" << satrec.nm
     << " mdot=" << satrec.mdot
     << "\n";
-
+    valid = true;
     return true;
 }
 
@@ -145,6 +147,21 @@ bool OMMRecord::sgp4_init() {
 bool OMMRecord::generate_telemetry(int resolution_min) {
     double velocity[3];
     double position[3];
+    if (epoch_jd == 0) {
+        return false;
+    }
+    if (!valid) {
+        *(host_api->AaediHAM_LogDebug) << "Invalid Satellite Elements\n";
+        return false;
+    }
+    if (resolution_min <= 0) {
+        *(host_api->AaediHAM_LogDebug) << "Invalid Telemetry resolution\n";
+        return false;
+    }
+    if (mean_motion <=0) {
+        *(host_api->AaediHAM_LogDebug) << "Invalid Mean Motion\n";
+        return false;
+    }
     // Step 1, generate the timestamps to use (tsince and timestamp)
     *(host_api->AaediHAM_LogDebug) << "Sat Epoch JD: " <<  epoch_jd;
     time_t timestamp = time(NULL); // unmolested timestamp to use
@@ -152,26 +169,18 @@ bool OMMRecord::generate_telemetry(int resolution_min) {
     *(host_api->AaediHAM_LogDebug) << "\t Now Unix Time: " <<  tsince;
     // divide Unix Time by seconds per day(86400), and adjust offset to 01-01-1970 (2440587.5)
     double jd = (tsince / 86400.0) + 2440587.5;
-    *(host_api->AaediHAM_LogDebug) << "\t Now JD: " <<  jd << "\n";
+//    *(host_api->AaediHAM_LogDebug) << "\t Now JD: " <<  jd << "\n";
     tsince = jd - epoch_jd;
-    *(host_api->AaediHAM_LogDebug) << "\t Tsince Days: " <<  tsince;
+//    *(host_api->AaediHAM_LogDebug) << "\t Tsince Days: " <<  tsince;
     tsince *= (24*60);
-    *(host_api->AaediHAM_LogDebug) << "\t Tsince: " <<  tsince << "\n";
+//    *(host_api->AaediHAM_LogDebug) << "\t Tsince: " <<  tsince << "\n";
 
 
-
-
-        struct vector3 matrix[3];
-        matrix[0]={1.0, 0.0, 0.0};
-        matrix[1]={0.0, cos(1), 1-sin(1)};
-        matrix[2]={0.0, sin(1), cos(1)};
-
-        struct vector3 raw_coords;
+    struct vector3 raw_coords;
 
     // step 4: figure out how many samples we need to cover one orbit
     double period = ((1440*60)/mean_motion)/60; // period in minutes
     int sample_count = static_cast<int>(floor(period/resolution_min));
-    const std::lock_guard<std::mutex>sat_lock(sat_tracker_mutex);
     telemetry.clear();
     struct aaediclock_dx DE;
     DE = host_api->AaediHAM_ConfigGetDE();
@@ -213,7 +222,11 @@ bool OMMRecord::generate_telemetry(int resolution_min) {
         */
 
 
-        SGP4Funcs::sgp4(satrec, tsince, position, velocity);
+        bool sgp4_result = SGP4Funcs::sgp4(satrec, tsince, position, velocity);
+        if (!sgp4_result) {
+            *(host_api->AaediHAM_LogDebug) << "Invalid Telemetry result\n";
+            return false;
+        }
         struct vector3 matrix[3];
 
         // Approximate altitude in Km
@@ -316,13 +329,20 @@ void OMMRecord::draw_pass(const time_t pass_start, const time_t pass_end,  std::
     // generate the pass line for a satellite pass
     // this loads that line's coordinates into pass_pts for the caller to render
     if (!pass_pts) {
+        *(host_api->AaediHAM_LogDebug) << "No Pass Points store submitted\n";
         return;
     }
     pass_pts->clear();
     if (telemetry.empty()) {
+        *(host_api->AaediHAM_LogDebug) << "No Telemetry Present. No pass\n";
         return;
     }
-    if (size->x <=2 || size->y <=2) {
+    if (!size) {
+        *(host_api->AaediHAM_LogDebug) << "Invalid Window size\n";
+        return;
+    }
+    if (size->w <=2 || size->h <=2) {
+        *(host_api->AaediHAM_LogDebug) << "Invalid Window size\n";
         return;
     }
     float max_radius = size->w/2;
@@ -347,6 +367,11 @@ void OMMRecord::draw_pass(const time_t pass_start, const time_t pass_end,  std::
 void OMMRecord::location (aaediclock_FPoint *result) {
     // get the current lat/lon over which the satellite currently is
     if (!result) {
+        *(host_api->AaediHAM_LogDebug) << "No Result passed\n";
+        return;
+    }
+    if (!valid) {
+        *(host_api->AaediHAM_LogDebug) << "Invalid Telemetry Data\n";
         return;
     }
     double velocity[3];
@@ -408,6 +433,9 @@ time_t OMMRecord::pass_end() {
 
 // XML function to handle an individual XML node
 void SGP4Parser::XML::process_node(xmlNode* start_node, OMMRecord& result) {
+    if (!start_node) {
+        return;
+    }
     xmlNode* current_node = nullptr;
     aaediclock_Color trackcols = {255,0,0,255};
 //    const double epoch_1950 =  ISO8601_to_Julian("1950-01-01T00:00:00.0000");
@@ -453,84 +481,226 @@ void SGP4Parser::XML::process_node(xmlNode* start_node, OMMRecord& result) {
                 process_node(current_node->children, result);
             }  else if (NodeName == "object_name") {
                 xml_raw = xmlNodeGetContent(current_node);
-                result.name =  reinterpret_cast<const char*>(xml_raw);
+                if (xml_raw) {
+                    try {
+                        result.name =  reinterpret_cast<const char*>(xml_raw);
+                    } catch (std::exception &e) {
+                        *(host_api->AaediHAM_LogDebug) << "Invalid Satellite Name: " << e.what() << "\n";
+                        result.name = "UNKNOWN";
+                    }
+                    xmlFree(xml_raw);
+                    xml_raw = nullptr;
+                }
             } else if (NodeName == "object_id") {
                 xml_raw = xmlNodeGetContent(current_node);
-                result.object_id =  reinterpret_cast<const char*>(xml_raw);
+                if (xml_raw) {
+                    try {
+                        result.object_id =  reinterpret_cast<const char*>(xml_raw);
+                    } catch (std::exception &e) {
+                        *(host_api->AaediHAM_LogDebug) << "Invalid Object ID: " << e.what() << "\n";
+                        result.object_id="UNKNOWN";
+                    }
+                    xmlFree(xml_raw);
+                    xml_raw = nullptr;
+                }
             } else if (NodeName == "norad_cat_id") {
                 xml_raw = xmlNodeGetContent(current_node);
-                xml_content = reinterpret_cast<const char*>(xml_raw);
-                result.object_id =  std::stoul(xml_content);
+                if (xml_raw) {
+                    try {
+                        xml_content = reinterpret_cast<const char*>(xml_raw);
+                        result.norad_id =  std::stoul(xml_content);
+                    } catch (std::exception &e) {
+                        *(host_api->AaediHAM_LogDebug) << "Invalid NORAD Catalog ID: " << e.what() << "\n";
+                        result.norad_id = 0;
+                    }
+                    xmlFree(xml_raw);
+                    xml_raw = nullptr;
+                }
             } else if (NodeName == "element_set_no") {
                 xml_raw = xmlNodeGetContent(current_node);
-                xml_content = reinterpret_cast<const char*>(xml_raw);
-                result.element_set_no =  std::stoul(xml_content);
+                if (xml_raw) {
+                    try {
+                        xml_content = reinterpret_cast<const char*>(xml_raw);
+                        result.element_set_no =  std::stoul(xml_content);
+                    } catch (std::exception &e) {
+                        *(host_api->AaediHAM_LogDebug) << "Invalid Element Set Number: " << e.what() << "\n";
+                    }
+                    xmlFree(xml_raw);
+                    xml_raw = nullptr;
+                }
             }  else if (NodeName == "classification_type") {
                 xml_raw = xmlNodeGetContent(current_node);
-                xml_content = reinterpret_cast<const char*>(xml_raw);
-                if (!xml_content.empty()) {
-                    result.class_type =  xml_content.front();
+                if (xml_raw) {
+                    xml_content = reinterpret_cast<const char*>(xml_raw);
+                    if (!xml_content.empty()) {
+                        result.class_type =  xml_content.front();
+                    }
+                    xmlFree(xml_raw);
+                    xml_raw = nullptr;
                 }
             }  else if (NodeName == "epoch") {
                 xml_raw = xmlNodeGetContent(current_node);
-                result.epoch_raw = reinterpret_cast<const char*>(xml_raw);
-                result.epoch_jd =  ISO8601_to_Julian(result.epoch_raw);
+                if (xml_raw) {
+                    result.epoch_raw = reinterpret_cast<const char*>(xml_raw);
+                    result.epoch_jd =  ISO8601_to_Julian(result.epoch_raw);
+                    xmlFree(xml_raw);
+                    xml_raw = nullptr;
+                }
             }  else if (NodeName == "mean_motion") {
                 xml_raw = xmlNodeGetContent(current_node);
-                xml_content = reinterpret_cast<const char*>(xml_raw);
-                result.mean_motion =  std::stod(xml_content);
-//                double conversion = result.mean_motion * 2 * M_PI / 86400; // convert to rad/s
-//                result.mean_motion = conversion;
-//                double conversion = result.mean_motion * 360;	// convert to deg/day
-//                result.mean_motion = conversion;
+                if (xml_raw) {
+                    try {
+                        xml_content = reinterpret_cast<const char*>(xml_raw);
+                        result.mean_motion =  std::stod(xml_content);
+                    } catch (std::exception &e) {
+                        *(host_api->AaediHAM_LogDebug) << "Invalid Mean Motion: " << e.what() << "\n";
+                        result.valid = false;
+                    }
+                    xmlFree(xml_raw);
+                    xml_raw = nullptr;
+//                	double conversion = result.mean_motion * 2 * M_PI / 86400; // convert to rad/s
+//                	result.mean_motion = conversion;
+//                	double conversion = result.mean_motion * 360;	// convert to deg/day
+//                	result.mean_motion = conversion;
+                }
             }  else if (NodeName == "eccentricity") {
                 xml_raw = xmlNodeGetContent(current_node);
-                xml_content = reinterpret_cast<const char*>(xml_raw);
-                result.eccentricity =  std::stod(xml_content);
+                if (xml_raw) {
+                    try {
+                        xml_content = reinterpret_cast<const char*>(xml_raw);
+                        result.eccentricity =  std::stod(xml_content);
+                    } catch (std::exception &e) {
+                        *(host_api->AaediHAM_LogDebug) << "Invalid Eccentricity: " << e.what() << "\n";
+                        result.valid = false;
+                    }
+                    xmlFree(xml_raw);
+                    xml_raw = nullptr;
+                }
             }  else if (NodeName == "inclination") {
                 xml_raw = xmlNodeGetContent(current_node);
-                xml_content = reinterpret_cast<const char*>(xml_raw);
-                result.inclination =  std::stod(xml_content);
-                double conversion = result.inclination * M_PI / 180.0;
-                result.inclination = conversion;
+                if (xml_raw) {
+                    xml_content = reinterpret_cast<const char*>(xml_raw);
+                    try {
+                        result.inclination =  std::stod(xml_content);
+                        double conversion = result.inclination * M_PI / 180.0;
+                        result.inclination = conversion;
+                    } catch (std::exception &e) {
+                        *(host_api->AaediHAM_LogDebug) << "Invalid Inclination: " << e.what() << "\n";
+                        result.valid = false;
+                    }
+                    xmlFree(xml_raw);
+                    xml_raw = nullptr;
+                }
             }  else if (NodeName == "ra_of_asc_node") {
                 xml_raw = xmlNodeGetContent(current_node);
-                xml_content = reinterpret_cast<const char*>(xml_raw);
-                result.right_ascension_of_ascending_node =  std::stod(xml_content);
-                double conversion = result.right_ascension_of_ascending_node * M_PI / 180.0;
-                result.right_ascension_of_ascending_node = conversion;
+                if (xml_raw) {
+                    xml_content = reinterpret_cast<const char*>(xml_raw);
+                    try {
+                        result.right_ascension_of_ascending_node =  std::stod(xml_content);
+                        double conversion = result.right_ascension_of_ascending_node * M_PI / 180.0;
+                        result.right_ascension_of_ascending_node = conversion;
+                    } catch (std::exception &e) {
+                        *(host_api->AaediHAM_LogDebug) << "Invalid RA of Ascending Node: " << e.what() << "\n";
+                        result.valid = false;
+                    }
+                    xmlFree(xml_raw);
+                    xml_raw = nullptr;
+                }
             }   else if (NodeName == "arg_of_pericenter") {
                 xml_raw = xmlNodeGetContent(current_node);
-                xml_content = reinterpret_cast<const char*>(xml_raw);
-                result.arg_pericenter =  std::stod(xml_content);
-                double conversion = result.arg_pericenter * M_PI / 180.0;
-                result.arg_pericenter = conversion;
+                if (xml_raw) {
+                    xml_content = reinterpret_cast<const char*>(xml_raw);
+                    try {
+                        result.arg_pericenter =  std::stod(xml_content);
+                        double conversion = result.arg_pericenter * M_PI / 180.0;
+                        result.arg_pericenter = conversion;
+                    } catch (std::exception &e) {
+                        *(host_api->AaediHAM_LogDebug) << "Invalid Argument of Pericenter: " << e.what() << "\n";
+                        result.valid = false;
+                    }
+                    xmlFree(xml_raw);
+                    xml_raw = nullptr;
+                }
             }   else if (NodeName == "mean_anomaly") {
                 xml_raw = xmlNodeGetContent(current_node);
-                xml_content = reinterpret_cast<const char*>(xml_raw);
-                result.mean_anomaly =  std::stod(xml_content);
-                double conversion = result.mean_anomaly * M_PI / 180.0;
-                result.mean_anomaly = conversion;
+                if (xml_raw) {
+                    xml_content = reinterpret_cast<const char*>(xml_raw);
+                    try {
+                        result.mean_anomaly =  std::stod(xml_content);
+                        double conversion = result.mean_anomaly * M_PI / 180.0;
+                        result.mean_anomaly = conversion;
+                    } catch (std::exception &e) {
+                        *(host_api->AaediHAM_LogDebug) << "Invalid Mean Anomaly: " << e.what() << "\n";
+                        result.valid = false;
+                    }
+                    xmlFree(xml_raw);
+                    xml_raw = nullptr;
+                }
             }   else if (NodeName == "ephemeris_type") {
                 xml_raw = xmlNodeGetContent(current_node);
-                xml_content = reinterpret_cast<const char*>(xml_raw);
-                result.ephemeris_type =  std::stoi(xml_content);
-            }    else if (NodeName == "revolution_at_epoch") {
+                if (xml_raw) {
+                    xml_content = reinterpret_cast<const char*>(xml_raw);
+                    try {
+                        result.ephemeris_type =  std::stoi(xml_content);
+                    } catch (std::exception &e) {
+                        *(host_api->AaediHAM_LogDebug) << "Invalid Ephemeris Type: " << e.what() << "\n";
+                        result.valid = false;
+                    }
+                    xmlFree(xml_raw);
+                    xml_raw = nullptr;
+                }
+            }   else if (NodeName == "revolution_at_epoch") {
                 xml_raw = xmlNodeGetContent(current_node);
-                xml_content = reinterpret_cast<const char*>(xml_raw);
-                result.revolution_at_epoch =  std::stoul(xml_content);
+                if (xml_raw) {
+                    xml_content = reinterpret_cast<const char*>(xml_raw);
+                    try {
+                        result.revolution_at_epoch =  std::stoul(xml_content);
+                    } catch (std::exception &e) {
+                        *(host_api->AaediHAM_LogDebug) << "Invalid Revolution: " << e.what() << "\n";
+                        result.valid = false;
+                    }
+                    xmlFree(xml_raw);
+                    xml_raw = nullptr;
+                }
             }   else if (NodeName == "bstar") {
                 xml_raw = xmlNodeGetContent(current_node);
-                xml_content = reinterpret_cast<const char*>(xml_raw);
-                result.bstar =  std::stod(xml_content);
+                if (xml_raw) {
+                    xml_content = reinterpret_cast<const char*>(xml_raw);
+                    try {
+                        result.bstar =  std::stod(xml_content);
+                    } catch (std::exception &e) {
+                        *(host_api->AaediHAM_LogDebug) << "Invalid B-Star: " << e.what() << "\n";
+                        result.valid = false;
+                    }
+                    xmlFree(xml_raw);
+                    xml_raw = nullptr;
+                }
             }   else if (NodeName == "mean_motion_dot") {
                 xml_raw = xmlNodeGetContent(current_node);
-                xml_content = reinterpret_cast<const char*>(xml_raw);
-                result.mean_motion_dot =  std::stod(xml_content);
+                if (xml_raw) {
+                    xml_content = reinterpret_cast<const char*>(xml_raw);
+                    try {
+                        result.mean_motion_dot =  std::stod(xml_content);
+                    } catch (std::exception &e) {
+                        *(host_api->AaediHAM_LogDebug) << "Invalid Mean Motion DOT: " << e.what() << "\n";
+                        result.valid = false;
+                    }
+                    xmlFree(xml_raw);
+                    xml_raw = nullptr;
+                }
             }   else if (NodeName == "mean_motion_ddot") {
                 xml_raw = xmlNodeGetContent(current_node);
-                xml_content = reinterpret_cast<const char*>(xml_raw);
-                result.mean_motion_ddot =  std::stod(xml_content);
+                if (xml_raw) {
+                    try {
+                        xml_content = reinterpret_cast<const char*>(xml_raw);
+                    } catch (std::exception &e) {
+                        *(host_api->AaediHAM_LogDebug) << "Invalid Mean Motion DDOT: " << e.what() << "\n";
+                        result.valid = false;
+                    }
+                    result.mean_motion_ddot =  std::stod(xml_content);
+                    xmlFree(xml_raw);
+                    xml_raw = nullptr;
+                }
             } else {
                 // FIX ME!!!!
                 // right now this ASSUMES LibXML2 won't give me a bad pointer for children
@@ -560,38 +730,45 @@ double SGP4Parser::ISO8601_to_Julian(const std::string input) {
     int hour = 0;
     int minute = 0;
     double second = 0.0;
+    if (input.empty()) {
+        return 0;
+    }
     // here we are just using this struct tm as a container to work in
     // think of it like a magnetic screw tray for time bits
     struct tm epoch_calc        =       {};
     std::string tempstr;
 
     // -- basic sanity checks --
-    if (input.size() < 15) {
+    if (input.size() < 14) {
         // to short for a date
         return 0;
     }
     size_t t_index = input.find("T");
-    if (t_index == std::string::npos) {
+    if (t_index == std::string::npos || t_index < 8 || t_index > 12) {
         // invalid time
         return 0;
     }
     *(host_api->AaediHAM_LogDebug) << "ISO8601 Input: " << input << "\n";
     // -- extract the date --
     // extract the year
-
+    size_t int_sanity = 0;
     tempstr = input.substr(0,4);
     try {
-        year = std::stoi(tempstr.c_str(),nullptr, 10);
+        year = std::stoi(tempstr.c_str(),&int_sanity, 10);
     } catch (std::exception& e) {
         (void)e;
         *(host_api->AaediHAM_LogDebug) << "Invalid Epoch Year "<< tempstr <<"\n";
+        return 0;
     }
-    if (year <1) {
+    if (year <1 || int_sanity <4) {
         *(host_api->AaediHAM_LogDebug) << "Invalid Epoch Year" << tempstr <<"\n";
         return 0;
     }
-    consumed = 5;
-
+    consumed = int_sanity+1;
+    if (consumed > (input.size()-4)) {
+        *(host_api->AaediHAM_LogDebug) << "Invalid Epoch Year" << tempstr <<"\n";
+        return 0;
+    }
     // check for MM-DD vs DDD
     tempstr= input.substr (consumed, 4);
     size_t format_flag = tempstr.find("-");
@@ -601,9 +778,14 @@ double SGP4Parser::ISO8601_to_Julian(const std::string input) {
         tempstr = input.substr(consumed,3);
         try {
             // extract DOY
-            doy = std::stoi(tempstr.c_str(),nullptr, 10);
+            doy = std::stoi(tempstr.c_str(),&int_sanity, 10);
             doy--;
-            consumed +=3;
+            consumed +=int_sanity;
+            if (int_sanity >3) {
+                *(host_api->AaediHAM_LogDebug) << "Invalid Day of Year\n";
+                return 0;
+            }
+
             // convert to MM-DD
             doy_to_mmdd(year, doy, &(month), &(day));
         } catch (std::exception& e) {
@@ -616,16 +798,25 @@ double SGP4Parser::ISO8601_to_Julian(const std::string input) {
         tempstr = input.substr(consumed,2);
         try {
             // extract month
-            month = std::stoi(tempstr.c_str(),nullptr, 10);
+            month = std::stoi(tempstr.c_str(),&int_sanity, 10);
   //          epoch_calc.tm_mon--;
-            consumed +=3;
+            if (int_sanity >2) {
+                *(host_api->AaediHAM_LogDebug) << "Invalid Epoch Month\n";
+                return 0;
+            }
+            consumed +=int_sanity+1;
             // extract DOM
             tempstr = input.substr(consumed,2);
-            day = std::stoi(tempstr.c_str(),nullptr, 10);
-            consumed +=2;
+            day = std::stoi(tempstr.c_str(),&int_sanity, 10);
+            consumed +=int_sanity;
+            if (int_sanity >2) {
+                *(host_api->AaediHAM_LogDebug) << "Invalid Epoch Day\n";
+                return 0;
+            }
         } catch (std::exception& e) {
             (void)e;
             *(host_api->AaediHAM_LogDebug) << "Invalid Epoch Month or Day\n";
+            return 0;
         }
     }
 
@@ -635,28 +826,39 @@ double SGP4Parser::ISO8601_to_Julian(const std::string input) {
     // extract hour
     tempstr = input.substr(consumed,2);
     try {
-        hour = std::stoi(tempstr.c_str(),nullptr, 10);
-        consumed +=3;
+        hour = std::stoi(tempstr.c_str(),&int_sanity, 10);
+        consumed +=int_sanity+1;
+        if (int_sanity != 2) {
+                *(host_api->AaediHAM_LogDebug) << "Invalid hour \n";
+                return 0;
+            }
     } catch (std::exception& e) {
         (void)e;
         *(host_api->AaediHAM_LogDebug) << "Invalid Epoch Hour\n";
+        return 0;
     }
     // extract minute
     tempstr = input.substr(consumed,2);
     try {
-        minute = std::stoi(tempstr.c_str(),nullptr, 10);
-        consumed +=3;
+        minute = std::stoi(tempstr.c_str(),&int_sanity, 10);
+        consumed +=int_sanity+1;
+        if (int_sanity != 2) {
+                *(host_api->AaediHAM_LogDebug) << "Invalid minute\n";
+                return 0;
+        }
     } catch (std::exception& e) {
         (void)e;
         *(host_api->AaediHAM_LogDebug) << "Invalid Epoch minute\n";
+        return 0;
     }
     // extract second
     tempstr = input.substr(consumed);
     try {
-        second = std::stod(tempstr.c_str(),nullptr);
+        second = std::stod(tempstr.c_str(),&int_sanity);
     } catch (std::exception& e) {
         (void)e;
         *(host_api->AaediHAM_LogDebug) << "Invalid Epoch second\n";
+        return 0;
     }
     // convert to Julian date
     *(host_api->AaediHAM_LogDebug) <<"Extracted Time: " << year << "-" << month << "-" << day << "   " << hour << ":" << minute << ":" << second << "\n";
@@ -701,10 +903,10 @@ int SDLCALL fetch_celestrak(void* data) {
     if (SDL_GetPathInfo(full_cache_path.c_str(), &fileinfo)) {
         SDL_Time sdl_now;
         SDL_GetCurrentTime(&sdl_now);
-        if ((sdl_now - fileinfo.modify_time) < 10800000000000  ) { // 3 Hours in ns
+        if ((sdl_now - fileinfo.modify_time) < 21600000000000  ) { // 6 Hours in ns
             data_size = fileinfo.size;
             disk_file.open(full_cache_path.c_str(), (std::fstream::binary | std::fstream::in ));
-            if (disk_file.is_open()) {
+            if (disk_file.is_open() && fileinfo.size < (100*1024*1024) && fileinfo.size > 0) {
                 amateur_tle = (char*)malloc(fileinfo.size+1);
                 if (amateur_tle) {
                     if (disk_file.read(amateur_tle, fileinfo.size)) {
@@ -722,7 +924,14 @@ int SDLCALL fetch_celestrak(void* data) {
     if (!file_valid) {
         SDL_Log ("Fetching Satellite telemetry from Celestrak");
         *(host_api->AaediHAM_LogDebug) << "Fetching Satellite telemetry from Celestrak\n";
-        data_size = http_loader("https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=xml", (void**)&amateur_tle);   //
+
+        if (amateur_tle) {
+            free(amateur_tle);
+            amateur_tle = nullptr;
+        }
+
+
+        data_size = http_loader("https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=xml", (void**)&amateur_tle, 60);   //
         *(host_api->AaediHAM_LogDebug) << "Celestrak Fetch returned\n";
         if (data_size > 256) {
             disk_file.open(full_cache_path.c_str(), (std::fstream::binary | std::fstream::out | std::fstream::trunc));
@@ -736,9 +945,9 @@ int SDLCALL fetch_celestrak(void* data) {
             disk_file.close();
         }
     }
-    satlist.clear();
-    if (data_size) {
+    if (data_size > 256) {
         *(host_api->AaediHAM_LogDebug) << "Fetched New Sat data\n";
+        const std::lock_guard<std::mutex>sat_lock(sat_tracker_mutex);
         satlist.clear();
         std::string raw_xml = amateur_tle;
         SGP4Parser::fromXML(raw_xml);
@@ -747,12 +956,21 @@ int SDLCALL fetch_celestrak(void* data) {
             free(amateur_tle);
             amateur_tle=0;
         }
+        if (satlist.empty()) {
+             *(host_api->AaediHAM_LogDebug) << "XML parsed but no valid satellites found\n";
+        }
         fetch_result = 2;
     } // we got input data
     else {
         *(host_api->AaediHAM_LogDebug) << "No New Sat data from Celestrak\n";
         fetch_result = 3;
     }
+
+    if (amateur_tle) {
+        free(amateur_tle);
+        amateur_tle = nullptr;
+    }
+
     *(host_api->AaediHAM_LogDebug) << "Fetch returned "<< data_size <<" bytes\n";
     return 0;
 }
@@ -769,6 +987,7 @@ Uint32 SDLCALL fetch_celestrak (void *userdata, SDL_TimerID timerID, Uint32 inte
               SDL_DetachThread(thread);
           } else {
               *(host_api->AaediHAM_LogDebug) << "Failed to Create Sat Data Fetch Thread\n";
+              fetch_result = 3;
           }
 
      }
@@ -791,6 +1010,7 @@ void new_sat_tracker_plugin::plugin_init() const {
 }
 
 void new_sat_tracker_plugin::plugin_exit() const {
+    const std::lock_guard<std::mutex>sat_lock(sat_tracker_mutex);
     if (sat_timer) {
         SDL_RemoveTimer(sat_timer);
     }
@@ -818,6 +1038,9 @@ void draw_pass_tracker(const aaediclock_FRect dims, OMMRecord& sat) {
     if (dims.w < 1 || dims.h < 1) {
         return;
     }
+    if (!sat.valid) {
+        return;
+    }
     char tempstr[30];
     // clear the box
     host_api->AaediHAM_GraphicsClear();
@@ -834,15 +1057,29 @@ void draw_pass_tracker(const aaediclock_FRect dims, OMMRecord& sat) {
         tm* test_time;
         TextRect.y=dims.h - (dims.h/11)-4;
         TextRect.w=dims.w /3;
-        test_time = localtime(&pass_time);
-        strftime(tempstr, 12, "%H:%M", test_time);
-        host_api->AaediHAM_GraphicsDrawText(tempstr, sat.color, TextRect);
+        #ifdef _WIN32
+            localtime_s(test_time, &pass_time);
+        #else
+            localtime_r(&pass_time, test_time);
+        #endif
+//        test_time = localtime(&pass_time);
+        if (test_time) {
+            strftime(tempstr, 12, "%H:%M", test_time);
+            host_api->AaediHAM_GraphicsDrawText(tempstr, sat.color, TextRect);
+        }
 
         TextRect.x=dims.w - (dims.w/3);
         pass_time = sat.pass_end();
-        test_time = localtime(&pass_time);
-        strftime(tempstr, 12, "%H:%M", test_time);
-        host_api->AaediHAM_GraphicsDrawText(tempstr, sat.color, TextRect);
+        #ifdef _WIN32
+            localtime_s(test_time, &pass_time);
+        #else
+            localtime_r(&pass_time, test_time);
+        #endif
+//        test_time = localtime(&pass_time);
+        if (test_time) {
+            strftime(tempstr, 12, "%H:%M", test_time);
+            host_api->AaediHAM_GraphicsDrawText(tempstr, sat.color, TextRect);
+        }
     }
     // render the crosshairs and target pass chart
     host_api->AaediHAM_SetTarget();
@@ -863,7 +1100,6 @@ void draw_pass_tracker(const aaediclock_FRect dims, OMMRecord& sat) {
     aaediclock_Color draw_color = aaediclock_Color{64, 64, 0 ,255};
     aaediclock_FRect line;
     aaediclock_FPoint center = aaediclock_FPoint{dims.w/2, dims.h/2};
-    line = aaediclock_FRect{center.x+radius, center.y, center.x-radius, center.y};
     line.x = center.x-radius;
     line.y = center.y;
     line.w = center.x+radius;
@@ -903,7 +1139,14 @@ void draw_pass_tracker(const aaediclock_FRect dims, OMMRecord& sat) {
 
 void draw_sat_groundtrack(OMMRecord& sat, aaediclock_FRect& mapsize) {
     host_api->AaediHAM_OverlaySet(mapsize);
-    aaediclock_FPoint* SDLPoints = (aaediclock_FPoint*)malloc(sizeof(SDL_FPoint)*sat.telemetry.size());
+    if (sat.telemetry.empty()) {
+        return;
+    }
+    aaediclock_FPoint* SDLPoints = (aaediclock_FPoint*)malloc(sizeof(aaediclock_FPoint)*sat.telemetry.size());
+    if (!SDLPoints) {
+        *(host_api->AaediHAM_LogDebug) << "Memory Allocation error drawing ground track \n";
+        return;
+    }
     int xt, yt;
     xt = static_cast<int>(mapsize.w);
     yt = static_cast<int>(mapsize.h);
@@ -939,7 +1182,9 @@ void draw_sat_groundtrack(OMMRecord& sat, aaediclock_FRect& mapsize) {
         index++;
         render_size++;
     }
-    host_api->AaediHAM_GraphicsDrawLines(sat.color, SDLPoints, render_size-1);
+    if (render_size >1) {
+        host_api->AaediHAM_GraphicsDrawLines(sat.color, SDLPoints, render_size-1);
+    }
     free (SDLPoints);
     return;
 }
@@ -948,7 +1193,6 @@ void draw_sat_groundtrack(OMMRecord& sat, aaediclock_FRect& mapsize) {
 Uint16 pass_pager[2] = {0,0};
 void new_sat_tracker_plugin::plugin_main(const aaediclock_FRect& dims) const {
     if (!sat_timer) {
-        const std::lock_guard<std::mutex>sat_lock(sat_tracker_mutex);
         Uint32 interval;
         interval = 3600000 ;
 
@@ -977,8 +1221,9 @@ void new_sat_tracker_plugin::plugin_main(const aaediclock_FRect& dims) const {
     mapsize.w /=2;
     bool redraw_flag = false;
     redraw_flag = (!host_api->AaediHAM_OverlayCheck());
-    aaediclock_FRect textrect;
-    textrect.x=2;
+//    aaediclock_FRect textrect;
+//    textrect.x=2;
+    const std::lock_guard<std::mutex>sat_lock(sat_tracker_mutex);
     if (!satlist.empty()) {
         if (pass_pager[0] >= satlist.size()) {
             pass_pager[0]=0;
@@ -990,12 +1235,27 @@ void new_sat_tracker_plugin::plugin_main(const aaediclock_FRect& dims) const {
         }
         pass_pager[1]++;
     }
-    textrect.w=dims.w/3;
-    textrect.h=dims.h/10;
-    textrect.y=2;
-    textrect.y=dims.h/10;
+//    textrect.w=dims.w/3;
+//    textrect.h=dims.h/10;
+//    textrect.y=2;
+//    textrect.y=dims.h/10;
     host_api->AaediHAM_OverlayClear(aaediclock_Color{0,0,0,0});
     time_t time_now = time(NULL);
+    if (!host_api->AaediHAM_IconCheck(icon)) {
+        std::string asset_path = host_api->AaediHAM_ConfigGetAssetPath();
+        asset_path += "satellite.png";
+        SDL_Surface* loadsurface = IMG_Load(asset_path.c_str());
+        if (loadsurface) {
+             aaediclock_image new_icon;
+             new_icon.width = loadsurface->w;
+             new_icon.height = loadsurface->h;
+             new_icon.pixels = static_cast<uint8_t*>(loadsurface->pixels);
+             icon = host_api->AaediHAM_IconCreate(new_icon);
+             SDL_DestroySurface(loadsurface);
+        } else {
+            icon = 0;
+        }
+    }
     for (auto& sat : satlist) {
         if ((sat.telemetry_age() - time_now) < 60) {
             sat.generate_telemetry(1);
@@ -1007,30 +1267,20 @@ void new_sat_tracker_plugin::plugin_main(const aaediclock_FRect& dims) const {
         aaediclock_FPoint sat_loc;
         sat.location(&sat_loc);
         sat_pin.owner   =               0;
-        sprintf(sat_pin.label, "%s", sat.name.c_str());
+        memset (sat_pin.label,0,32);
+        int length = sat.name.size();
+        if (length > 31) {
+            length = 31;
+        }
+        memcpy(sat_pin.label, sat.name.c_str(), length);
         sat_pin.lat     =               sat_loc.x;
         sat_pin.lon     =               sat_loc.y;
         sat_pin.icon = 0;
-        if (!host_api->AaediHAM_IconCheck(icon)) {
-              std::string asset_path = host_api->AaediHAM_ConfigGetAssetPath();
-              asset_path += "satellite.png";
-              SDL_Surface* loadsurface = IMG_Load(asset_path.c_str());
-
-//            SDL_Surface* loadsurface = IMG_Load("images/satellite.png");
-            if (loadsurface) {
-                aaediclock_image new_icon;
-                new_icon.width = loadsurface->w;
-                new_icon.height = loadsurface->h;
-                new_icon.pixels = static_cast<uint8_t*>(loadsurface->pixels);
-                icon = host_api->AaediHAM_IconCreate(new_icon);
-                SDL_DestroySurface(loadsurface);
-            }
-        }
         sat_pin.icon        =       icon;
         sat_pin.color   =               sat.color;
         sat_pin.tooltip[0]      =               0;
         host_api->AaediHAM_MapPinAdd(sat_pin);
-        textrect.y += dims.h/10;
+//        textrect.y += dims.h/10;
     }
 }
 

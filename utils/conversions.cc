@@ -39,7 +39,7 @@ bool isLeapYear(int year) {
     return (year % 400 == 0) || (year % 4 == 0 && year % 100 != 0);
 }
 
-void doy_to_mmdd(const int year, int doy, int* mm, int* dd) {
+void doy_to_mmdd(const int year, uint16_t doy, int* mm, int* dd) {
     static int months[14]={0, 31, 28,  31, 30, 31, 30, 31, 31, 30, 31, 30, 31, 0};
     if ((!mm) || (!dd)) {
 //        std::cout << "Invalid result locations\n";

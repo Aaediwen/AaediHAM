@@ -14,4 +14,4 @@
 
 
 std::string url_encode(const std::string& input);
-uint64_t http_loader(const char* source_url, void** result,  const std::string& user_agent="N0CALL-clock-Agent/1.0");
+uint64_t http_loader(const char* source_url, void** result, uint8_t timeout_s = 15,  const std::string& user_agent="N0CALL-clock-Agent/1.0");

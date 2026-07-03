@@ -82,7 +82,7 @@ int SDLCALL fetch_pota (void* data) {
      SDL_Log("Fetching Spots from pota.app via timer");
      std::string user_agent = host_api->AaediHAM_ConfigGetCall();
      user_agent += "-clock-Agent/1.0";
-     data_size = http_loader("https://api.pota.app/spot/activator", (void**)&json_spots, user_agent);                           // live
+     data_size = http_loader("https://api.pota.app/spot/activator", (void**)&json_spots, 30, user_agent);                           // live
 
      if (data_size) {
           pota_json_parser(json_spots);

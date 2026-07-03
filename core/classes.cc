@@ -1023,7 +1023,7 @@ bool map_icons::icon_check(uint16_t index, uint16_t owner) {
 }
 
 SDL_Texture* map_icons::get_icon(uint16_t index) {
-    if (icon_list.empty() || index > icon_list.size()) {
+    if (icon_list.empty() || index > icon_list.size() || index ==0) {
         return nullptr;
     } else {
         return icon_list[index-1].icon;

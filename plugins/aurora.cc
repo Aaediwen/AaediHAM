@@ -179,7 +179,6 @@ void aurora_plugin::plugin_main(const aaediclock_FRect& dims) const {
             } else {
                aurora_tex_id = host_api->AaediHAM_TextureCreate(new_image);
             }
-            aurora_mutex.unlock();
         } else {
             *(host_api->AaediHAM_LogDebug) << "Missing Aurora Map (" << aurora_map << ")\n";
         }

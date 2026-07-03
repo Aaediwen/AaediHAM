@@ -28,8 +28,8 @@ struct SolarWindPoint {
 std::vector<struct KIndexPoint>kindex_cache;
 std::vector<struct SolarWindPoint>solar_wind_cache;
 
-static nlohmann::json::iterator wind_index;
-static nlohmann::json::iterator wind_end;
+//static nlohmann::json::iterator wind_index;
+//static nlohmann::json::iterator wind_end;
 SDL_TimerID kindex_timer = 0;
 std::mutex kindex_mutex;
 aaediclock_host_api* host_api = nullptr;
@@ -64,16 +64,20 @@ time_t parse_time_tag(const std::string& time_tag) {
     return timegm(&tm);
 
 }
-
+/*
 void write_wind_cache(time_t max_timestamp) {
+        (void) max_timestamp;
 	time_t current_timestamp =0;
-	while ((wind_index != wind_end) && (current_timestamp < max_timestamp)) {
+//	while ((wind_index != wind_end) && (current_timestamp < max_timestamp)) {
+        while ((wind_index != wind_end)) {
 	     struct SolarWindPoint new_node;
              std::string index_string;
              try {
-                  index_string = (*wind_index)[0].get<std::string>();
+                  index_string = (*wind_index)["time_tag"].get<std::string>();
+//                  index_string = (*wind_index)[0].get<std::string>();
 //                  *(host_api->AaediHAM_LogDebug) << "KINDEX: Time String: " <<  index_string.c_str() << "\n";
                   new_node.timestamp = parse_time_tag(index_string);
+                  *(host_api->AaediHAM_LogDebug) << " Timestamp: " << new_node.density << "\n";
                   current_timestamp = new_node.timestamp;
                   new_node.day_mark = false;
                   size_t space_pos = index_string.find(' ');
@@ -83,15 +87,21 @@ void write_wind_cache(time_t max_timestamp) {
                             new_node.day_mark = true;
                        }
                   }
-                  index_string = (*wind_index)[1].get<std::string>();
+                  new_node.density = (*wind_index)["proton_density"].get<float>();
+                  *(host_api->AaediHAM_LogDebug) << "density String: " << new_node.density << "\n";
+//                  index_string = (*wind_index)[1].get<std::string>();
 //                  *(host_api->AaediHAM_LogDebug) << "KINDES: Density String: " << index_string.c_str() << "\n";
-                  new_node.density = std::stof(index_string);
-                  index_string = (*wind_index)[2].get<std::string>();
+//                  new_node.density = std::stof(index_string);
+//                  index_string = (*wind_index)[2].get<std::string>();
 //                  *(host_api->AaediHAM_LogDebug) << "KINDEX: Speed String: " << index_string.c_str() << "\n";
-                  new_node.speed = std::stof(index_string);
-                  index_string = (*wind_index)[3].get<std::string>();
-//                  *(host_api->AaediHAM_LogDebug) << "KINDEX: Temp String: " << index_string.c_str()<< "\n";
-                  new_node.temperature = std::stoi(index_string);
+                  new_node.speed = (*wind_index)["proton_speed"].get<float>();
+                  *(host_api->AaediHAM_LogDebug) << "speed String: " << new_node.speed << "\n";
+//                  new_node.speed = std::stof(index_string);
+//                  index_string = (*wind_index)[3].get<std::string>();
+
+                  new_node.temperature = (*wind_index)["proton_temperature"].get<float>();
+                  *(host_api->AaediHAM_LogDebug) << "Temperature String: " << new_node.temperature << "\n";
+//                  new_node.temperature = std::stoi(index_string);
                   if (solar_wind_cache.empty() || new_node.timestamp > solar_wind_cache.back().timestamp) {
 //                      *(host_api->AaediHAM_LogDebug) << "Adding Solar Wind cache entry\n";
                       solar_wind_cache.push_back(new_node);
@@ -105,82 +115,144 @@ void write_wind_cache(time_t max_timestamp) {
 	}
 	return;
 }
-
+*/
 void merge_json (const char* k_index_list, const char* solar_wind_list) {
      json k_list, solar_index;
+     bool k_index_valid = false;
+     bool solar_wind_valid = false;
      try {
           k_list = json::parse(k_index_list);
-          solar_index = json::parse(solar_wind_list);
+          k_index_valid = true;
      } catch (const std::exception& e) {
          (void)e;
-          *(host_api->AaediHAM_LogDebug) << "KINDEX: JSON Parse error reading Solar Data\n";
+          *(host_api->AaediHAM_LogDebug) << "KINDEX: JSON Parse error reading Solar KindexData\n";
+          k_index_valid = false;
           return;
      }
-
-     wind_index = solar_index.begin();
-     wind_end   = solar_index.end();
-
-     for (const auto& spot : k_list) {
-//          *(host_api->AaediHAM_LogDebug) << "Processing Kindex entry\n";
-          std::string index_string;
-          struct KIndexPoint new_node;
-          if (spot.is_array() && spot.size() >=4) {
-              try {
-                   index_string = spot[1].get<std::string>();
-                   new_node.kindex =  std::stof(index_string);
-                   index_string = spot[0].get<std::string>();
-                   new_node.timestamp = parse_time_tag(index_string);
-                   new_node.day_mark = false;
-                   size_t space_pos = index_string.find(' ');
-                   if (space_pos != std::string::npos && index_string.size() > space_pos + 5) {
-                        std::string time_part = index_string.substr(space_pos + 1, 5);
-                        if (time_part == "00:00") {
-                             new_node.day_mark = true;
-                        }
-                   }
-                   const std::lock_guard<std::mutex>kindex_lock(kindex_mutex);
-//                   *(host_api->AaediHAM_LogDebug) << "Kindex cache entry ready\n";
-                   if (kindex_cache.empty() || (new_node.timestamp > kindex_cache.back().timestamp)) {
-//                       *(host_api->AaediHAM_LogDebug) << "Adding Kindex cache entry\n";
-                       write_wind_cache(new_node.timestamp);
-                       kindex_cache.push_back(new_node);
-                   }
-              } catch (const std::exception& e) {
-                   *(host_api->AaediHAM_LogDebug) << "Skipped Kindex: " << e.what() << "\n";
-              }
-          } else if (spot.is_object()) {  // scn26-21_Data_Format_Changes_Impacting_SWPC_Products.pdf
-              try {
-                   new_node.kindex = spot["Kp"].get<float>();
-                   index_string = spot["time_tag"].get<std::string>();
-                   new_node.timestamp = parse_time_tag(index_string);
-                   new_node.day_mark = false;
-                   size_t space_pos = index_string.find(' ');
-                   if (space_pos != std::string::npos && index_string.size() > space_pos + 5) {
-                        std::string time_part = index_string.substr(space_pos + 1, 5);
-                        if (time_part == "00:00") {
-                             new_node.day_mark = true;
-                        }
-                   }
-                   const std::lock_guard<std::mutex>kindex_lock(kindex_mutex);
-//                   *(host_api->AaediHAM_LogDebug) << "Kindex cache entry ready "<< new_node.timestamp <<" \n";
-                   if (kindex_cache.empty() || (new_node.timestamp > kindex_cache.back().timestamp)) {
-//                       *(host_api->AaediHAM_LogDebug) << "Adding Kindex cache entry\n";
-                       write_wind_cache(new_node.timestamp);
-                       kindex_cache.push_back(new_node);
-//                       *(host_api->AaediHAM_LogDebug) << "Kindex Cache address: " << &kindex_cache << "\t size " << kindex_cache.size() << "\n";
-                   }
-
-
-              } catch (const std::exception& e) {
-                   *(host_api->AaediHAM_LogDebug) << "Skipped Kindex Object: " << e.what() << "\n";
-              }
-          } else {
-              *(host_api->AaediHAM_LogDebug) << "Unknown Kindex format\n";
-          }
+     try {
+          solar_index = json::parse(solar_wind_list);
+          solar_wind_valid = true;
+     } catch (const std::exception& e) {
+         (void)e;
+          *(host_api->AaediHAM_LogDebug) << "KINDEX: JSON Parse error reading Solar Wind Data\n";
+          solar_wind_valid = false;
      }
-     *(host_api->AaediHAM_LogDebug) << "Populated Kindex Cache Data\n";
-     *(host_api->AaediHAM_LogDebug) << "Pre Cleanup Wind Cache address: " << &solar_wind_cache << "\t size " << solar_wind_cache.size() << "\n";
-    *(host_api->AaediHAM_LogDebug) << "Pre Cleanup Kindex Cache address: " << &kindex_cache << "\t size " << kindex_cache.size() << "\n";
+     if (solar_wind_valid) {
+//       wind_index = solar_index.begin();
+//       wind_end   = solar_index.end();
+       std::vector<struct SolarWindPoint>new_solar_wind_cache;
+       time_t current_timestamp =0;
+       // parse the new solar wind entries
+       for (const auto& spot : solar_index) {
+           struct SolarWindPoint new_node;
+           std::string index_string;
+
+           try {
+//               if (spot["active"].get<std::bool>()) {
+               index_string = spot["time_tag"].get<std::string>();
+               new_node.timestamp = parse_time_tag(index_string);
+               *(host_api->AaediHAM_LogDebug) << " Timestamp: " << new_node.timestamp << "\n";
+                  current_timestamp = new_node.timestamp;
+                  new_node.day_mark = false;
+                  size_t space_pos = index_string.find(' ');
+                  if (space_pos != std::string::npos && index_string.size() > space_pos + 5) {
+                       std::string time_part = index_string.substr(space_pos + 1, 5);
+                       if (time_part == "00:00") {
+                            new_node.day_mark = true;
+                       }
+                  }
+                  new_node.density = spot["proton_density"].get<float>();
+                  *(host_api->AaediHAM_LogDebug) << "density String: " << new_node.density << "\n";
+                  new_node.speed = spot["proton_speed"].get<float>();
+                  *(host_api->AaediHAM_LogDebug) << "speed String: " << new_node.speed << "\n";
+                  new_node.temperature = spot["proton_temperature"].get<float>();
+                  *(host_api->AaediHAM_LogDebug) << "Temperature String: " << new_node.temperature << "\n";
+//                  if (solar_wind_cache.empty() || new_node.timestamp > solar_wind_cache.back().timestamp) {
+                      new_solar_wind_cache.push_back(new_node);
+//                  }
+//                }
+             } catch (const std::exception& e) {
+                  *(host_api->AaediHAM_LogDebug) << "KINDEX: Skipped Wind: " << e.what() << "\n";
+             }
+
+       }
+       // sort the new entries
+       std::sort(new_solar_wind_cache.begin(), new_solar_wind_cache.end(),  [](const SolarWindPoint& a, const SolarWindPoint& b) {        return a.timestamp < b.timestamp;    });
+       // add truely new ones to the list
+       for (const auto& new_node : new_solar_wind_cache) {
+           if (solar_wind_cache.empty() || new_node.timestamp > solar_wind_cache.back().timestamp) {
+                solar_wind_cache.push_back(new_node);
+           }
+       }
+
+     }
+     if (k_index_valid) {
+         for (const auto& spot : k_list) {
+//              *(host_api->AaediHAM_LogDebug) << "Processing Kindex entry\n";
+              std::string index_string;
+              struct KIndexPoint new_node;
+              if (spot.is_array() && spot.size() >=4) {
+                  try {
+                       index_string = spot[1].get<std::string>();
+                       new_node.kindex =  std::stof(index_string);
+                       index_string = spot[0].get<std::string>();
+                       new_node.timestamp = parse_time_tag(index_string);
+                       new_node.day_mark = false;
+                       size_t space_pos = index_string.find(' ');
+                       if (space_pos != std::string::npos && index_string.size() > space_pos + 5) {
+                            std::string time_part = index_string.substr(space_pos + 1, 5);
+                            if (time_part == "00:00") {
+                                 new_node.day_mark = true;
+                            }
+                       }
+                       const std::lock_guard<std::mutex>kindex_lock(kindex_mutex);
+    //                   *(host_api->AaediHAM_LogDebug) << "Kindex cache entry ready\n";
+                       if (kindex_cache.empty() || (new_node.timestamp > kindex_cache.back().timestamp)) {
+    //                       *(host_api->AaediHAM_LogDebug) << "Adding Kindex cache entry\n";
+//                           if (solar_wind_valid) {
+//                               write_wind_cache(new_node.timestamp);
+//                           }
+                           kindex_cache.push_back(new_node);
+                       }
+                  } catch (const std::exception& e) {
+                       *(host_api->AaediHAM_LogDebug) << "Skipped Kindex: " << e.what() << "\n";
+                  }
+              } else if (spot.is_object()) {  // scn26-21_Data_Format_Changes_Impacting_SWPC_Products.pdf
+                  try {
+                       new_node.kindex = spot["Kp"].get<float>();
+                       index_string = spot["time_tag"].get<std::string>();
+                       new_node.timestamp = parse_time_tag(index_string);
+                       new_node.day_mark = false;
+                       size_t space_pos = index_string.find(' ');
+                       if (space_pos != std::string::npos && index_string.size() > space_pos + 5) {
+                            std::string time_part = index_string.substr(space_pos + 1, 5);
+                            if (time_part == "00:00") {
+                                 new_node.day_mark = true;
+                            }
+                       }
+                       const std::lock_guard<std::mutex>kindex_lock(kindex_mutex);
+    //                   *(host_api->AaediHAM_LogDebug) << "Kindex cache entry ready "<< new_node.timestamp <<" \n";
+                       if (kindex_cache.empty() || (new_node.timestamp > kindex_cache.back().timestamp)) {
+    //                       *(host_api->AaediHAM_LogDebug) << "Adding Kindex cache entry\n";
+//                           if(solar_wind_valid) {
+//                               write_wind_cache(new_node.timestamp);
+//                           }
+                           kindex_cache.push_back(new_node);
+    //                       *(host_api->AaediHAM_LogDebug) << "Kindex Cache address: " << &kindex_cache << "\t size " << kindex_cache.size() << "\n";
+                       }
+
+
+                  } catch (const std::exception& e) {
+                       *(host_api->AaediHAM_LogDebug) << "Skipped Kindex Object: " << e.what() << "\n";
+                  }
+              } else {
+                  *(host_api->AaediHAM_LogDebug) << "Unknown Kindex format\n";
+              }
+         }
+         *(host_api->AaediHAM_LogDebug) << "Populated Kindex Cache Data\n";
+         *(host_api->AaediHAM_LogDebug) << "Pre Cleanup Wind Cache address: " << &solar_wind_cache << "\t size " << solar_wind_cache.size() << "\n";
+        *(host_api->AaediHAM_LogDebug) << "Pre Cleanup Kindex Cache address: " << &kindex_cache << "\t size " << kindex_cache.size() << "\n";
+    }
      return;
 }
 
@@ -193,7 +265,8 @@ int SDLCALL fetch_kindex (void* data) {
 //     std::string merged;
      *(host_api->AaediHAM_LogDebug) << "Kindex cache Miss fetching data from NOAA via timer\n";
      data_size = http_loader("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json", (void**)&k_index_list);   // live
-     data_size += http_loader("https://services.swpc.noaa.gov/products/solar-wind/plasma-7-day.json", (void**)&solar_wind_list);
+//     data_size += http_loader("https://services.swpc.noaa.gov/products/solar-wind/plasma-7-day.json", (void**)&solar_wind_list);
+     data_size += http_loader("https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json", (void**)&solar_wind_list);
      *(host_api->AaediHAM_LogDebug) << "Fetched Sources\n";
      if (data_size) {
           merge_json(k_index_list, solar_wind_list);
@@ -346,23 +419,27 @@ void kindex_plugin::plugin_main(const aaediclock_FRect& dims) const {
     const std::lock_guard<std::mutex>kindex_lock(kindex_mutex);
     *(host_api->AaediHAM_LogDebug) << "Parent Wind Cache address: " << &solar_wind_cache << "\t size " << solar_wind_cache.size() << "\n";
     *(host_api->AaediHAM_LogDebug) << "Parent Kindex Cache address: " << &kindex_cache << "\t size " << kindex_cache.size() << "\n";
-    if (kindex_cache.empty() || solar_wind_cache.empty()) {
-      *(host_api->AaediHAM_LogDebug) << "Missing Solar Data!\n";
-      host_api->AaediHAM_GraphicsDrawText("MISSING SOLAR DATA", aaediclock_Color{128,128,128,0}, aaediclock_FRect {dims.w/20, dims.h/4, dims.h/10, (dims.w/10)*8});
+//    if (kindex_cache.empty() || solar_wind_cache.empty()) {
+//      *(host_api->AaediHAM_LogDebug) << "Missing Solar Data!\n";
+//      host_api->AaediHAM_GraphicsDrawText("MISSING SOLAR DATA", aaediclock_Color{128,128,128,0}, aaediclock_FRect {dims.w/20, dims.h/4, dims.h/10, (dims.w/10)*8});
       if (kindex_cache.empty()) {
           *(host_api->AaediHAM_LogDebug) << "Missing K Index Data!\n";
           host_api->AaediHAM_GraphicsDrawText("MISSING K INDEX DATA", aaediclock_Color{128,128,128,0}, aaediclock_FRect {dims.w/20, (dims.h/8)*3, dims.h/10, (dims.w/10)*8});
       }
       if (solar_wind_cache.empty()) {
           *(host_api->AaediHAM_LogDebug) << "Missing SOLAR WIND Data!\n";
-          host_api->AaediHAM_GraphicsDrawText("MISSING SOLAR WIND DATA", aaediclock_Color{128,128,128,0}, aaediclock_FRect {dims.w/20, (dims.h/8)*4, dims.h/10, (dims.w/10)*8});
+          host_api->AaediHAM_GraphicsDrawText("MISSING SOLAR WIND DATA", aaediclock_Color{128,128,128,0}, aaediclock_FRect {dims.w/20, (dims.h/8), dims.h/10, (dims.w/10)*8});
+      } else {
+          wind_index = solar_wind_cache.begin();
       }
+//    }
 
-      return;
+    if (kindex_cache.empty()) {
+       return;
+    } else {
+       *(host_api->AaediHAM_LogDebug) << "KINDEX: Drawing chart size " << kindex_cache.size() << "\n";
+       host_api->AaediHAM_SetTarget();
     }
-    wind_index = solar_wind_cache.begin();
-
-    *(host_api->AaediHAM_LogDebug) << "KINDEX: Drawing chart size " << kindex_cache.size() << "\n";
 
     bar_box.x=1;
     bar_box.w = (dims.w-2)/kindex_cache.size();
@@ -403,27 +480,28 @@ void kindex_plugin::plugin_main(const aaediclock_FRect& dims) const {
       // process solar wind info
 //      size_t wind_count;
 //      data.read(reinterpret_cast<char*>(&wind_count), sizeof(wind_count));
-        while (wind_index->timestamp < kindex.timestamp) {
-           // populatethe queues and calc the primes
-           speed_queue.push_back(speed_old - wind_index->speed);
-           density_queue.push_back(density_old - wind_index->density);
-           if (speed_queue.size() > 5) {
-               speed_queue.pop_front();
-           }
-           speed_prime.push_back(std::accumulate(speed_queue.begin(), speed_queue.end(), 0.0f)/speed_queue.size());
-           if (density_queue.size() > 5) {
-               density_queue.pop_front();
-           }
-           density_prime.push_back(std::accumulate(density_queue.begin(), density_queue.end(), 0.0f)/density_queue.size());
-           // update the 'previous' state
-           speed_old = wind_index->speed;
-           density_old = wind_index->density;
-           wind_index++;
-        }
-              // plot the graphs for solar wind
-      plot_solar_wind (dims, speed_prime, bar_box, aaediclock_Color{128,64,64,64});
-      plot_solar_wind (dims, density_prime, bar_box, aaediclock_Color{64, 128, 64, 200});
-
+        if (!solar_wind_cache.empty()) {
+            while ((wind_index->timestamp < kindex.timestamp) && wind_index != solar_wind_cache.end()) {
+               // populatethe queues and calc the primes
+               speed_queue.push_back(speed_old - wind_index->speed);
+               density_queue.push_back(density_old - wind_index->density);
+               if (speed_queue.size() > 5) {
+                   speed_queue.pop_front();
+               }
+               speed_prime.push_back(std::accumulate(speed_queue.begin(), speed_queue.end(), 0.0f)/speed_queue.size());
+               if (density_queue.size() > 5) {
+                   density_queue.pop_front();
+               }
+               density_prime.push_back(std::accumulate(density_queue.begin(), density_queue.end(), 0.0f)/density_queue.size());
+               // update the 'previous' state
+               speed_old = wind_index->speed;
+               density_old = wind_index->density;
+               wind_index++;
+            }
+                  // plot the graphs for solar wind
+          plot_solar_wind (dims, speed_prime, bar_box, aaediclock_Color{128,64,64,64});
+          plot_solar_wind (dims, density_prime, bar_box, aaediclock_Color{64, 128, 64, 200});
+      }
       // -------- end processing wind info
       // prep for the next kindex
 

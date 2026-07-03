@@ -75,7 +75,7 @@ struct map_pin {
     double lon;
     SDL_Texture* icon;
     SDL_Color color;
-    char label[16];
+    char label[32];
     char tooltip[512];
     struct map_pin *next;
 }  extern *map_pins;

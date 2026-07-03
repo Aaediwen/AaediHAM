@@ -99,7 +99,7 @@ size_t cache_http_callback( char* in, size_t size, size_t nmemb, void* out) {
     return (size*nmemb);
 }
 
-uint64_t http_loader(const char* source_url, void** result, const std::string& user_agent) {
+uint64_t http_loader(const char* source_url, void** result, const uint8_t timeout_s, const std::string& user_agent) {
     if (source_url == 0) {
         return 0;
     }
@@ -113,11 +113,21 @@ uint64_t http_loader(const char* source_url, void** result, const std::string& u
 //    std::cout << "HTTP: Fetching data from "<< source_url << "\n";
     CURL *curl = curl_easy_init();
     if (curl) {
+        char* hostname_char;
+        std::string hostname;
+        CURLU *url_handle = curl_url();
+        curl_url_set(url_handle, CURLUPART_URL, encoded_url.c_str(), 0);
+        curl_url_get(url_handle, CURLUPART_HOST, &hostname_char, 1);
+        if (hostname_char && hostname_char[0]) {
+            hostname = hostname_char;
+            curl_free(hostname_char);
+        }
+        curl_url_cleanup(url_handle);
 //        curl_easy_setopt(curl, CURLOPT_URL, source_url);
         curl_easy_setopt(curl, CURLOPT_URL, encoded_url.c_str());
         curl_easy_setopt(curl, CURLOPT_HTTP_VERSION,
                         (long)CURL_HTTP_VERSION_3);
-        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout_s);
 //        std::string user_agent = clockconfig.CallSign()+"-clock-Agent/1.0";
         curl_easy_setopt(curl, CURLOPT_USERAGENT, user_agent.c_str());
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, cache_http_callback);
@@ -127,7 +137,7 @@ uint64_t http_loader(const char* source_url, void** result, const std::string& u
         curl_easy_cleanup(curl);
         if (!curlres) {
 //            std::cout << "HTTP: Fetched "<< httpbuffer.size() <<" Bytes\n";
-            void* temp = result;
+            void* temp = *result;
             *result = realloc(*result, httpbuffer.size()+1);
 
             if (*result) {
@@ -146,7 +156,8 @@ uint64_t http_loader(const char* source_url, void** result, const std::string& u
                 return 0;
             }
         } else {
-            std::cout << "Curl Fetch Error: "<< curl_easy_strerror(curlres) << "\n";
+
+            std::cout << "Curl Fetch Error to "<< hostname << ": "<< curl_easy_strerror(curlres) << "\n";
 ////            SDL_UnlockMutex(mutexes[MUTEX_HTTP]);
             return 0;
         }
@@ -263,6 +274,7 @@ uint64_t http_loader(const char* source_url, void** result, const std::string& u
         flags);
     //SDL_Log("Attemped request. (Error %u)", GetLastError());
     if (!http_request) {
+        std::cout << "Unable to create request to "<< host.c_str() << ": "<< GetLastError() <<"\n";
 //        SDL_Log("Unable to request %ls", exploded_url.lpszUrlPath);
         WinHttpCloseHandle(http_connection);
         WinHttpCloseHandle(http);
@@ -270,6 +282,7 @@ uint64_t http_loader(const char* source_url, void** result, const std::string& u
         return 0;
     }
     else {
+        WinHttpSetTimeouts(http_request, 5000, 5000, 10000, (1000*timeout_s));
 //        SDL_Log("Requested %ls", full_path.c_str());
     }
     read_result = WinHttpSendRequest(http_request, WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0);
@@ -278,6 +291,7 @@ uint64_t http_loader(const char* source_url, void** result, const std::string& u
 //        SDL_Log("Sent Request");
     } else {
 //        SDL_Log("Unable to send request %ls", exploded_url.lpszUrlPath);
+        std::cout << "Unable to submit request to "<< host.c_str() << ": " << GetLastError() << "\n";
         WinHttpCloseHandle(http_request);
         WinHttpCloseHandle(http_connection);
         WinHttpCloseHandle(http);
