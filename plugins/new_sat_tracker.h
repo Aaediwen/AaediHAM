@@ -39,7 +39,7 @@ class OMMRecord {
         // object identification
         std::string         name;
         std::string         object_id;
-        uint32_t            norad_id;
+        std::string         norad_id;
         uint32_t            element_set_no;
         char                class_type;
         aaediclock_Color	color;

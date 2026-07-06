@@ -81,8 +81,11 @@ struct vector3 transform(const struct vector3 input, const struct vector3 matrix
 bool OMMRecord::sgp4_init() {
     const double epoch_1950 =  SGP4Parser::ISO8601_to_Julian("1950-01-01T00:00:00.0000");
 //    const double epoch_J2000 = SGP4Parser::ISO8601_to_Julian("2000-01-01T12:00:00.0000");
-
-    *(host_api->AaediHAM_LogDebug) << "Vallado SGP4 test for " << name  << "\n";
+    if (!valid) {
+        *(host_api->AaediHAM_LogDebug) << "SGP4 Init called with incomplete ephemeris\n";
+        return false;;
+    }
+//    *(host_api->AaediHAM_LogDebug) << "Vallado SGP4 test for " << name  << "\n";
     *(host_api->AaediHAM_LogDebug)
     << "SGP4 Inputs:"
     << " epoch1950=" << (epoch_jd - epoch_1950)
@@ -95,11 +98,14 @@ bool OMMRecord::sgp4_init() {
     << " raan="      << right_ascension_of_ascending_node
     << "\n";
 //                Convert mean motion to rad/min for init per SGP4.cpp line 2328 example
-
+    char norad_temp[6];
+    size_t start = (norad_id.size() > 5) ? (norad_id.size() - 5) : 0;
+    strncpy(norad_temp, (norad_id.c_str()+start),5);
+    norad_temp[5]=0;
     double no_rad_min = mean_motion*2 * M_PI/(86400/60);
     bool initresult = SGP4Funcs::sgp4init(wgs72,
                         'i',
-                        "00001",
+                        norad_temp,
                         (epoch_jd-epoch_1950),
                         bstar,
                         mean_motion_dot,
@@ -508,10 +514,10 @@ void SGP4Parser::XML::process_node(xmlNode* start_node, OMMRecord& result) {
                 if (xml_raw) {
                     try {
                         xml_content = reinterpret_cast<const char*>(xml_raw);
-                        result.norad_id =  std::stoul(xml_content);
+                        result.norad_id =  xml_content;
                     } catch (std::exception &e) {
                         *(host_api->AaediHAM_LogDebug) << "Invalid NORAD Catalog ID: " << e.what() << "\n";
-                        result.norad_id = 0;
+                        result.norad_id = "00000";
                     }
                     xmlFree(xml_raw);
                     xml_raw = nullptr;

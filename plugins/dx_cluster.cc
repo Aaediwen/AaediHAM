@@ -163,7 +163,7 @@ void dxspot::print_spot() {
 //    SDL_Log ("Time: %s\nNote: %s", timestr, note.c_str());
 };
 
-bool lat_valid, lon_valid;
+//bool lat_valid, lon_valid;
 void dxspot::parse_qrz(xmlNode* start_node) {
      xmlNode* current_node = nullptr;
      for (current_node = start_node; current_node; current_node = current_node->next) {
@@ -229,7 +229,7 @@ void dxspot::query_qrz () {
     if (!qrz_key.empty()) {
         *(host_api->AaediHAM_LogDebug) << "checking QRZ for "<< dx << "\n";
         std::string url = "https://xmldata.qrz.com/xml?s=" + qrz_key + ";callsign=" + dx;
-        xml_size = http_loader(url.c_str(), (void**)&xml);
+        xml_size = http_loader(url.c_str(), (void**)&xml, 5);
         if (xml_size) {
           xmlDocPtr xml_tree = 0;
           xml_tree = xmlReadMemory(xml, static_cast<int>(xml_size), nullptr, nullptr, 0);
@@ -265,26 +265,30 @@ unsigned int rand_seed = 0;
 void duplicate_spot(dxspot& needle) {
     size_t old_index = 0;
     bool found=false;
-    const std::lock_guard<std::mutex>cluster_lock(dxspot_mutex);
-    for (size_t c = 0 ; c < dxspots.size() ; c++) {
-        if (dxspots[c].dx == needle.dx) {
-            old_index = c;
-            found=true;
-            break;
+    {
+        const std::lock_guard<std::mutex>cluster_lock(dxspot_mutex);
+        for (size_t c = 0 ; c < dxspots.size() ; c++) {
+            if (dxspots[c].dx == needle.dx) {
+                old_index = c;
+                found=true;
+                break;
+            }
+        }
+        if (found) {
+            if (needle.mode.empty()) {
+                needle.mode = dxspots[old_index].mode;
+            }
+            needle.lat = dxspots[old_index].lat;
+            needle.lon = dxspots[old_index].lon;
+            needle.qrz_valid=dxspots[old_index].qrz_valid;
+            needle.country = dxspots[old_index].country;
+            dxspots.erase(dxspots.begin() + old_index);
         }
     }
-    if (found) {
-        if (needle.mode.empty()) {
-            needle.mode = dxspots[old_index].mode;
-        }
-        needle.lat = dxspots[old_index].lat;
-        needle.lon = dxspots[old_index].lon;
-        needle.qrz_valid=dxspots[old_index].qrz_valid;
-        needle.country = dxspots[old_index].country;
-        dxspots.erase(dxspots.begin() + old_index);
-    } else {
+    if (!found) {
         needle.fill_qrz();
     }
+    const std::lock_guard<std::mutex>cluster_lock(dxspot_mutex);
     *(host_api->AaediHAM_LogDebug) << "DXSPOTS: Pushing Spot " << needle.dx.c_str() << " : Age: " << (time(NULL) - needle.timestamp)<< " Seconds\n" ;
     dxspots.push_back(needle);
 //    SDL_Log ("Stored: %i DX Spots", dxspots.size());

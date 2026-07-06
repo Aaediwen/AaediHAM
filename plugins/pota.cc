@@ -49,19 +49,41 @@ void pota_json_parser(const char* input_string) {
             struct pota_spot new_cache;
             memset(&new_cache, 0, sizeof(new_cache));
             std::string instring;
-            instring 		= spot["activator"].template get<std::string>();
-            strncpy(new_cache.activator, instring.c_str(), 31);
+            try {
+               instring 		= spot["activator"].template get<std::string>();
+               strncpy(new_cache.activator, instring.c_str(), 31);
+            } catch (std::exception &e) {
+                (void) e;
+                *(host_api->AaediHAM_LogDebug) << "Non Critical Json Parse Error \n";
+            }
             new_cache.activator[31] = 0;
+            try {
             instring		= spot["mode"].template get<std::string>();
             strncpy(new_cache.mode, instring.c_str(), 15);
+            } catch (std::exception &e) {
+                (void) e;
+                *(host_api->AaediHAM_LogDebug) << "Non Critical Json Parse Error \n";
+            }
             new_cache.mode[15] = 0;
+            try {
             instring		= spot["reference"].template get<std::string>();
             strncpy(new_cache.park, instring.c_str(), 15);
+            } catch (std::exception &e) {
+                (void) e;
+                *(host_api->AaediHAM_LogDebug) << "Non Critical Json Parse Error \n";
+            }
             new_cache.park[15] = 0;
+            try {
             new_cache.latitude  = spot["latitude"].template get<double>();
             new_cache.longitude = spot["longitude"].template get<double>();
-            instring            = spot["frequency"].template get<std::string>();
+            } catch (std::exception &e) {
+                (void) e;
+                new_cache.latitude = 0;
+                new_cache.longitude = 0;
+                *(host_api->AaediHAM_LogDebug) << "Non Critical Json Parse Error \n";
+            }
             try {
+                 instring            = spot["frequency"].template get<std::string>();
                  new_cache.frequency = stod(instring)/1000;
             } catch (std::exception& e) {
                (void)e;

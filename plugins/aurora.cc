@@ -49,9 +49,17 @@ void aurora_json_parser(const char* input_string) {
         // itterate through the JSON here for each lat/lon coordinate
         for (auto spot : spot_list["coordinates"]) {
            // fetch the raw values from the JSON
-           int latitude = spot[1].template get<int>();
-           int longitude = spot[0].template get<int>();
-           int aurora = spot[2].template get<int>();
+           int latitude, longitude, aurora;
+           try {
+               latitude = spot[1].template get<int>();
+               longitude = spot[0].template get<int>();
+               aurora = spot[2].template get<int>();
+           } catch (std::exception& e) {
+              (void) e;
+              latitude = 0;
+              longitude = 0;
+              aurora = 0;
+           }
 //         convert latitude from geo coordinates to image Y coordinate
            latitude += 90;
            latitude = 180-latitude;
@@ -74,6 +82,10 @@ void aurora_json_parser(const char* input_string) {
            // alpha blending
            uint8_t value = static_cast<uint8_t>(sqrt(aurora / 100.0) * 128.0);
            // copy the pixel value into place
+           if (latitude > 180) { latitude = 180 ; }
+           if (longitude > 360) {longitude = 360 ; }
+           if (latitude < 0) {latitude = 0; }
+           if (longitude < 0) {longitude = 0; }
            int dest_pixel_index =  latitude * stride ;
            dest_pixel_index += longitude * dest_bpp;
            *(alpha_pixels + dest_pixel_index) = red;

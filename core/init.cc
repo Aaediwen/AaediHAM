@@ -31,9 +31,8 @@ Sint64 				max_tex_size;
 struct regen_mask_args* 	night_mask_args;
 SDL_TimerID 			map_timer	=	0;
 std::vector<PluginModule> 	loaded_plugins;
-bool 				interrupt_flag 	= 	false;
-bool				reload_flag 	=	false;
-
+std::atomic<bool>		interrupt_flag;
+std::atomic<bool>		reload_flag;
 #ifdef CLOCK_DEBUG
     static std::ofstream logfile("clock_debug.log");
     std::ostream& debug_log = logfile;
@@ -49,7 +48,6 @@ SDL_ThreadID 			main_thread_id;
 namespace AaediClock_Init {
     bool headless = false;		// used at the base of itterate, set during init. probably doesn't need to exist in itterate
     std::string render_engine;
-
     bool fs_start = false;
 
     SDL_AppResult cmd_line_parser(int argc, char **argv) {
@@ -426,6 +424,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     (void)appstate;
     default_size.h	=	480;
     default_size.w	= 	800;
+    interrupt_flag  	=       false;
+    reload_flag     	=       false;
 
     // debug init
 #ifdef CLOCK_DEBUG

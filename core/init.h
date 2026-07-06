@@ -1,8 +1,6 @@
 #include <string>
 
 extern std::string configfile;
-extern bool                            interrupt_flag;
-extern bool                            reload_flag;
 
 namespace AaediClock_Init {
     SDL_AppResult cmd_line_parser(int argc, char **argv);

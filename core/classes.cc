@@ -851,6 +851,7 @@ void config::set_DX(const GeoCoord& target, const std::string msg) {
 }
 
 const std::string& config::DXmsg() const {
+    const std::lock_guard<std::mutex>dx_lock(dx_set_mutex);
     return m_DXMsg;
 }
 

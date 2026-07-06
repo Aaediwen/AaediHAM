@@ -155,7 +155,7 @@ struct GeoCoord loc_to_geo (const std::string locator) {
              result.longitude = 0;
              return result;
          }
-         result.longitude += (working - 'A')/12;
+         result.longitude += (working - 'A')/12.0;
 
          // sixth character
          working = locator.at(5);
@@ -167,7 +167,7 @@ struct GeoCoord loc_to_geo (const std::string locator) {
              result.longitude = 0;
              return result;
          }
-         result.latitude += (working - 'A')/24;
+         result.latitude += (working - 'A')/24.0;
 
          // final adjustment for 6 character
          result.longitude += (1.0/12.0);

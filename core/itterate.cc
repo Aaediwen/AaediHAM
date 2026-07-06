@@ -18,7 +18,8 @@ struct color_pin {
 std::vector<struct color_pin> push_pins;
 struct color_pin last_used_pin{};
 int map_owner_id = 0;
-bool write_image = false;
+std::atomic<bool> write_image{false};
+
 void render_pin(ScreenFrame *panel, struct map_pin *current_pin) {
     if (!current_pin) {
         return;
@@ -246,7 +247,7 @@ int SDLCALL write_image_thread (void* data) {
 SDL_Thread* save_thread = nullptr;
 
 
-bool resizing = false;
+std::atomic<bool> resizing {false};
 
 SDL_AppResult SDL_AppIterate(void *appstate) {
     (void)appstate;

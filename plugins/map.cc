@@ -372,6 +372,7 @@ void map_plugin::plugin_main(const aaediclock_FRect& dims) const {
         host_api->AaediHAM_GraphicsDrawImage(day_map.texture);
     }
     if (night_mask_refresh) {
+        const std::lock_guard<std::mutex>night_mask_lock(night_mask_mutex);
         if (host_api->AaediHAM_TextureCheck(night_mask_texture)) {
             host_api->AaediHAM_TextureDelete(night_mask_texture);
         }

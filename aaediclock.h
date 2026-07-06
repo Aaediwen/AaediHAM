@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 #include <array>
+#include <atomic>
 #include "core/classes.h"
 #include "plugins/host_api.h"
 #ifdef _WIN32
@@ -48,7 +49,8 @@ extern std::ostream& debug_log;
 
 extern Sint64 max_tex_size;
 extern SDL_ThreadID main_thread_id;
-extern bool interrupt_flag;
+extern std::atomic<bool> interrupt_flag;
+extern std::atomic<bool> reload_flag;
 
 struct pager_node {
     std::vector<enum mod_name> sequence;
