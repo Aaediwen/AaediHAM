@@ -285,6 +285,7 @@ int SDLCALL fetch_kindex (void* data) {
 //    *(host_api->AaediHAM_LogDebug) << "Pre Cleanup Wind Cache address: " << &solar_wind_cache << "\t size " << solar_wind_cache.size() << "\n";
 //    *(host_api->AaediHAM_LogDebug) << "Pre Cleanup Kindex Cache address: " << &kindex_cache << "\t size " << kindex_cache.size() << "\n";
      time_t cutoff = time(NULL) - 2600000;
+     const std::lock_guard<std::mutex>kindex_lock(kindex_mutex);
      if (!kindex_cache.empty()) {
         for (size_t c = kindex_cache.size() ; c-- > 0 ;) {
             if ((kindex_cache[c].timestamp) < cutoff) {

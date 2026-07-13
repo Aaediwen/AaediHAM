@@ -25,7 +25,7 @@
 
 std::mutex dxspot_mutex;
 SDL_TimerID dxspot_timer = 0;
-int exit_shutdown = 0;
+std::atomic<int>exit_shutdown;
 const int max_age=1800;
 aaediclock_host_api* host_api = nullptr;
 
@@ -562,6 +562,7 @@ extern "C" DllExport void destroyPlugin(aaediclock_plugin_api* target) {
 }
 
 void dx_cluster_plugin::plugin_init() const {
+    exit_shutdown = 0;
     if (!dxspot_timer) {
         dxspot_timer = SDL_AddTimer(1000, fetch_dxspots, NULL);
     }

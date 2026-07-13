@@ -16,6 +16,7 @@ struct contest temp;
 bool in_item = false;
 void parse_contests(xmlNode* start_node) {
      xmlNode* current_node = nullptr;
+     const std::lock_guard<std::mutex>contest_lock(contest_mutex);
      for (current_node = start_node; current_node; current_node = current_node->next) {
           if (current_node->type == XML_ELEMENT_NODE) {
                std::string NodeName(reinterpret_cast<const char*>(current_node->name));

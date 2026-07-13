@@ -243,7 +243,7 @@ target_link_libraries(rss_plugin PRIVATE aaediclock_path LibXml2::LibXml2 ${CURL
 add_library(pskreporter_plugin SHARED
     plugins/pskreporter.cc
     utils/http_fetch.cc
-    utils/conversions.cc
+    utils/maidenhead.cc
 )
 target_link_libraries(pskreporter_plugin PRIVATE aaediclock_path paho-mqtt3c LibXml2::LibXml2 ${CURL_NAME})
 

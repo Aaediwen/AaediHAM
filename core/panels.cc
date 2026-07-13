@@ -25,7 +25,7 @@ void panel_assignment(bool increment) {
         }
         // assign plugin
         if ((!loaded_plugins.empty()) && (!panel.plugin_sequence.empty())) {
-            if (panel.plugin_index < panel.plugin_sequence.size()) {
+            if ((panel.plugin_index < panel.plugin_sequence.size()) && (panel.plugin_index < loaded_plugins.size())) {
                 loaded_plugins[panel.plugin_sequence[panel.plugin_index]].host_api->panel = &panel.panel;
                 debug_log << "MOD PAGER: Index:"<< panel.plugin_index << "\tseq size:" << panel.plugin_sequence.size() <<"\tseq id:" << panel.plugin_sequence[panel.plugin_index] << "\n";
                 debug_log << "MOD PAGER: Setting Plugin: "<< loaded_plugins[panel.plugin_sequence[panel.plugin_index]].name << "to panel " << &panel.panel << "\n";

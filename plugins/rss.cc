@@ -204,8 +204,12 @@ std::string rss_feed::next() {
 //          if (SDL_TryLockMutex(this->m_rss_lock)) {
                if (m_entries.empty() || (m_current_index >= m_entries.size())) {
                     thread = SDL_CreateThread(thread_launcher, "RSS Fetcher", this);
-                    SDL_DetachThread(thread);
-                    fetch_state = 1;
+                    if (thread) {
+                        SDL_DetachThread(thread);
+                        fetch_state = 1;
+                    } else {
+                        fetch_state = 0;
+                    }
                } else {
                     result = m_title+": "+m_entries[m_current_index];
                     m_current_index++;

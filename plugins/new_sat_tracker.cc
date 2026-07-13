@@ -791,7 +791,8 @@ double SGP4Parser::ISO8601_to_Julian(const std::string input) {
                 *(host_api->AaediHAM_LogDebug) << "Invalid Day of Year\n";
                 return 0;
             }
-
+            month=1;
+            day = 1;
             // convert to MM-DD
             doy_to_mmdd(year, doy, &(month), &(day));
         } catch (std::exception& e) {

@@ -34,6 +34,12 @@ ScreenFrame::~ScreenFrame() {
 }
 
 ScreenFrame::ScreenFrame(ScreenFrame&& source) noexcept {	// move to new instance
+    if (valid()) {
+        dims = {};
+        texture = nullptr;
+        surface = nullptr;
+        renderer = nullptr;
+    }
     if (valid() && source.valid()) {
         dims = std::move(source.dims);
         renderer = std::move(source.renderer);
@@ -64,6 +70,12 @@ ScreenFrame& ScreenFrame::operator=(ScreenFrame&& source) noexcept {	// move ove
 }
 
 ScreenFrame::ScreenFrame(const ScreenFrame& source) {			// copy to new
+    if (valid()) {
+        dims = {};
+        texture = nullptr;
+        surface = nullptr;
+        renderer = nullptr;
+    }
     if (valid() && source.valid()) {
         dims = source.dims;
         panel_dims_check();
@@ -424,10 +436,12 @@ void config::parse_qrz(void* node) {
                             // attempt to clean up HTML
                         }
                     } else if (NodeName == "error") {
-                         xmlChar* raw = xmlNodeGetContent(current_node);
-
-                        std::string QRZ_Err =  reinterpret_cast<char*>(raw);
-                        printf ("QRZ Session Key Error: %s\n", QRZ_Err.c_str());
+                        xmlChar* raw = xmlNodeGetContent(current_node);
+                        if (raw) {
+                            std::string QRZ_Err =  reinterpret_cast<char*>(raw);
+                            printf ("QRZ Session Key Error: %s\n", QRZ_Err.c_str());
+                            xmlFree(raw);
+                        }
                     }
           } // XML_ELEMENT_NODE
      }
@@ -585,6 +599,7 @@ void config::load_config(const std::string filename) {
     m_sats.clear();
     m_rss.clear();
     m_Plugins.clear();
+    m_PluginIndex = 0;
     m_plugin_path = ".";
     m_cache_path = ".";
     m_asset_path = "images";
@@ -730,20 +745,20 @@ void config::load_config(const std::string filename) {
         }
         if (data.contains("QRZ")) {
             try {
-            if (data["QRZ"].is_string()) {
-                m_QRZ.Secret=data["QRZ"];
-                if (m_QRZ.Secret.size() > 512) m_QRZ.Secret.resize(512);
-                qrz_sesskey();
-            } else if (data["QRZ"].is_array()) {
-                std::vector<std::uint8_t> QRZ_secret;
-                QRZ_secret = data["QRZ"].get<std::vector<std::uint8_t>>();
-                for (size_t i = 0; i < QRZ_secret.size(); ++i) {
-                    QRZ_secret[i] ^= static_cast<uint8_t>(i);
+                if (data["QRZ"].is_string()) {
+                    m_QRZ.Secret=data["QRZ"];
+                    if (m_QRZ.Secret.size() > 512) m_QRZ.Secret.resize(512);
+                    qrz_sesskey();
+                } else if (data["QRZ"].is_array()) {
+                    std::vector<std::uint8_t> QRZ_secret;
+                    QRZ_secret = data["QRZ"].get<std::vector<std::uint8_t>>();
+                    for (size_t i = 0; i < QRZ_secret.size(); ++i) {
+                        QRZ_secret[i] ^= static_cast<uint8_t>(i);
+                    }
+                    m_QRZ.Secret = json::from_cbor(QRZ_secret).get<std::string>();
+                    if (m_QRZ.Secret.size() > 512) m_QRZ.Secret.resize(512);
+                    qrz_sesskey();
                 }
-                m_QRZ.Secret = json::from_cbor(QRZ_secret).get<std::string>();
-                if (m_QRZ.Secret.size() > 512) m_QRZ.Secret.resize(512);
-                qrz_sesskey();
-            }
             } catch (json::parse_error &e) {
                 (void)e;
                 printf ("Invalid QRZ Passowrd\n");
@@ -817,7 +832,6 @@ const std::string& config::AssetPath() const {
 }
 
 const std::string& config::CachePath() const {
-
     return (m_cache_path);
 }
 
@@ -1072,7 +1086,7 @@ uint16_t map_icons::icon_create(uint16_t owner, SDL_Surface* icon_image) {
 }
 
 bool map_icons::icon_update(uint16_t owner, uint16_t index, SDL_Surface* icon_image) {
-    index--;
+//    index--;
     if (icon_list.empty() || index >= icon_list.size()) {
         return false;
     }

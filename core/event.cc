@@ -10,6 +10,7 @@ void config_reload() {
     std::cout << "RELOAD: Reloading config! Stand by\n";
     // kill main system timer
     debug_log << "RELOAD: Killing System Timers.\n\n";
+    SDL_LockMutex(mutexes[MUTEX_MASTER_CLOCK]);
     if (flag_timer) {
         SDL_RemoveTimer(flag_timer);
         flag_timer = 0;
@@ -22,6 +23,7 @@ void config_reload() {
     }
     loaded_plugins.clear();
     overlays.clear();
+    SDL_UnlockMutex(mutexes[MUTEX_MASTER_CLOCK]);
     // clear mutexes
     debug_log << "RELOAD: Cleaning Mutexes.\n\n";
     for (SDL_Mutex*& mtx : mutexes) {

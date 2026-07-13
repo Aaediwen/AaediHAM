@@ -96,7 +96,7 @@ double meeusJD (int year, int month, int day, int hour, int min, double sec) {
 }
 
 
-struct GeoCoord loc_to_geo (const std::string locator) {
+/*struct GeoCoord loc_to_geo (const std::string locator) {
     struct GeoCoord result;
     result.latitude = 0;
     result.longitude = 0;
@@ -183,3 +183,4 @@ struct GeoCoord loc_to_geo (const std::string locator) {
     }
     return result;
 }
+*/

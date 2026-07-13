@@ -283,11 +283,13 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
                     debug_log << "ITTERATE: Calling "<< plugin.name <<" with panel " << plugin.host_api->panel << "\n";
                     try {
                         aaediclock_FRect module_dims;
-                        module_dims.w = plugin.host_api->panel->dims.w;
-                        module_dims.h = plugin.host_api->panel->dims.h;
-                        module_dims.x = plugin.host_api->panel->dims.x;
-                        module_dims.y = plugin.host_api->panel->dims.y;
-                        plugin.plugin->plugin_main(module_dims);
+                        if (plugin.host_api->panel) {
+                            module_dims.w = plugin.host_api->panel->dims.w;
+                            module_dims.h = plugin.host_api->panel->dims.h;
+                            module_dims.x = plugin.host_api->panel->dims.x;
+                            module_dims.y = plugin.host_api->panel->dims.y;
+                            plugin.plugin->plugin_main(module_dims);
+                        }
                     } catch (std::exception& e) {
                         debug_log << "Module Exception in "<< plugin.name << ": "<< e.what() << "\n";
                     } catch (...) {
