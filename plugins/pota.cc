@@ -97,23 +97,29 @@ void pota_json_parser(const char* input_string) {
 }
 
 int SDLCALL fetch_pota (void* data) {
-     (void)data;
-     char* json_spots = 0 ;
-     Uint64 data_size = 0;
-     *(host_api->AaediHAM_LogDebug) <<"POTA: Fetching Spots from pota.app via timer\n";
-     SDL_Log("Fetching Spots from pota.app via timer");
-     std::string user_agent = host_api->AaediHAM_ConfigGetCall();
-     user_agent += "-clock-Agent/1.0";
-     data_size = http_loader("https://api.pota.app/spot/activator", (void**)&json_spots, 30, user_agent);                           // live
-
-     if (data_size) {
-          pota_json_parser(json_spots);
-          if(json_spots) {
-               free (json_spots);
-               json_spots=0;
-          }
-     }
-     return 0;
+	(void)data;
+	char* json_spots = 0 ;
+	Uint64 data_size = 0;
+	*(host_api->AaediHAM_LogDebug) <<"POTA: Fetching Spots from pota.app via timer\n";
+	SDL_Log("Fetching Spots from pota.app via timer");
+	std::string user_agent = host_api->AaediHAM_ConfigGetCall();
+	user_agent += "-clock-Agent/1.0";
+	std::string web_source = host_api->AaediHAM_ConfigGetSiteCache();
+	if (web_source.empty()) {
+		web_source = "https://api.pota.app/spot/activator";
+	} else {
+		web_source += "pota.json";
+	}
+	data_size = http_loader(web_source.c_str(), (void**)&json_spots, 30, user_agent);                           // live
+	
+	if (data_size) {
+	     pota_json_parser(json_spots);
+	     if(json_spots) {
+	          free (json_spots);
+	          json_spots=0;
+	     }
+	}
+	return 0;
 }
 
 Uint32 SDLCALL fetch_pota (void *userdata, SDL_TimerID timerID, Uint32 interval) {

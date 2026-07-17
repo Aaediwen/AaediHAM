@@ -94,6 +94,7 @@ class config {
 		const std::string&		AssetPath() const;
 		const std::string&		PluginPath() const;
 		const std::string&		CachePath() const;
+		const std::string&		SiteCache() const;
 		const std::string&		PSKCall() const;
 		const std::string&		DXmsg() const;
 		const GeoCoord&			DE() const;
@@ -122,6 +123,7 @@ class config {
 		std::string				m_plugin_path;
 		std::string				m_asset_path;
 		std::string				m_cache_path;
+		std::string				m_site_cache;
 		std::vector<std::string>		m_sats;
 		std::vector<std::string>		m_rss;
 		struct GeoCoord				m_DE;

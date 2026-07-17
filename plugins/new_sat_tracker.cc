@@ -29,298 +29,298 @@ std::vector<OMMRecord> satlist;
 
 */
 double get_GMST_rad(const time_t time) {
-    constexpr double JD_UNIX_EPOCH              = 2440587.5;    // offset to 01-01-1970 (2440587.5)
-    constexpr double SECONDS_PER_DAY            = 86400.0;      // seconds per calendar day
-    constexpr double J2000                      = 2451545.0;    // Julian Date of J2000.0, which is January 1, 2000 at 12:00 TT
-    double jd =  (static_cast<double>(time) / SECONDS_PER_DAY) + JD_UNIX_EPOCH; // convert to Julian date
-    double d = jd - J2000;
-    double GMST = fmod(280.46061837 + 360.98564736629 * d, 360.0);
-    if (GMST < 0) GMST += 360.0;
-    GMST *= M_PI/180.0;
-    return GMST;
+	constexpr double JD_UNIX_EPOCH              = 2440587.5;    // offset to 01-01-1970 (2440587.5)
+	constexpr double SECONDS_PER_DAY            = 86400.0;      // seconds per calendar day
+	constexpr double J2000                      = 2451545.0;    // Julian Date of J2000.0, which is January 1, 2000 at 12:00 TT
+	double jd =  (static_cast<double>(time) / SECONDS_PER_DAY) + JD_UNIX_EPOCH; // convert to Julian date
+	double d = jd - J2000;
+	double GMST = fmod(280.46061837 + 360.98564736629 * d, 360.0);
+	if (GMST < 0) GMST += 360.0;
+	GMST *= M_PI/180.0;
+	return GMST;
 }
 
 void apply_GMST (time_t time, const double RA_Rad, const double DEC_Rad, double& lat, double& lon) {
-    if (time ==0) {
-        return;
-    }
-    double GMST = get_GMST_rad(time);
-    double lon_subsat = RA_Rad - GMST ;  // Earth-fixed longitude
-    if (lon_subsat >  M_PI) lon_subsat -= 2*M_PI;
-    if (lon_subsat < -M_PI) lon_subsat += 2*M_PI;
-
-    double lat_subsat = DEC_Rad;
-    // convert result to degrees
-    lat = lat_subsat*180.0/M_PI;
-    lon = lon_subsat*180.0/M_PI;
-
-    return;
+	if (time ==0) {
+		return;
+	}
+	double GMST = get_GMST_rad(time);
+	double lon_subsat = RA_Rad - GMST ;  // Earth-fixed longitude
+	if (lon_subsat >  M_PI) lon_subsat -= 2*M_PI;
+	if (lon_subsat < -M_PI) lon_subsat += 2*M_PI;
+	
+	double lat_subsat = DEC_Rad;
+	// convert result to degrees
+	lat = lat_subsat*180.0/M_PI;
+	lon = lon_subsat*180.0/M_PI;
+	
+	return;
 }
 
 struct vector3 transform(const struct vector3 input, const struct vector3 matrix[3]) {
-    struct vector3 result = {};
-    if (!matrix) {
-        result = input;
-        return result;
-    }
-    result.x =  input.x*matrix[0].x;
-    result.x += input.y*matrix[0].y;
-    result.x += input.z*matrix[0].z;
-
-    result.y =  input.x*matrix[1].x;
-    result.y += input.y*matrix[1].y;
-    result.y += input.z*matrix[1].z;
-
-    result.z =  input.x*matrix[2].x;
-    result.z += input.y*matrix[2].y;
-    result.z += input.z*matrix[2].z;
-
-    return result;
+	struct vector3 result = {};
+	if (!matrix) {
+		result = input;
+		return result;
+	}
+	result.x =  input.x*matrix[0].x;
+	result.x += input.y*matrix[0].y;
+	result.x += input.z*matrix[0].z;
+	
+	result.y =  input.x*matrix[1].x;
+	result.y += input.y*matrix[1].y;
+	result.y += input.z*matrix[1].z;
+	
+	result.z =  input.x*matrix[2].x;
+	result.z += input.y*matrix[2].y;
+	result.z += input.z*matrix[2].z;
+	
+	return result;
 }
 
 bool OMMRecord::sgp4_init() {
-    const double epoch_1950 =  SGP4Parser::ISO8601_to_Julian("1950-01-01T00:00:00.0000");
-//    const double epoch_J2000 = SGP4Parser::ISO8601_to_Julian("2000-01-01T12:00:00.0000");
-    if (!valid) {
-        *(host_api->AaediHAM_LogDebug) << "SGP4 Init called with incomplete ephemeris\n";
-        return false;;
-    }
-//    *(host_api->AaediHAM_LogDebug) << "Vallado SGP4 test for " << name  << "\n";
-    *(host_api->AaediHAM_LogDebug)
-    << "SGP4 Inputs:"
-    << " epoch1950=" << (epoch_jd - epoch_1950)
-    << " bstar="     << bstar
-    << " ecc="       << eccentricity
-    << " argp="      << arg_pericenter
-    << " inc="       << inclination
-    << " M="         << mean_anomaly
-    << " n="         << mean_motion
-    << " raan="      << right_ascension_of_ascending_node
-    << "\n";
-//                Convert mean motion to rad/min for init per SGP4.cpp line 2328 example
-    char norad_temp[6];
-    size_t start = (norad_id.size() > 5) ? (norad_id.size() - 5) : 0;
-    strncpy(norad_temp, (norad_id.c_str()+start),5);
-    norad_temp[5]=0;
-    double no_rad_min = mean_motion*2 * M_PI/(86400/60);
-    bool initresult = SGP4Funcs::sgp4init(wgs72,
-                        'i',
-                        norad_temp,
-                        (epoch_jd-epoch_1950),
-                        bstar,
-                        mean_motion_dot,
-                        mean_motion_ddot,
-                        eccentricity,
-                        arg_pericenter,
-                        inclination,
-                        mean_anomaly,
-                        no_rad_min,
-                        right_ascension_of_ascending_node,
-                        satrec
-                        );
-    if (!initresult) {
-        valid = false;
-         *(host_api->AaediHAM_LogDebug) << "SGP4 Init error for " << name << "satrec error: " << satrec.error << "\n";
-        return false;
-    }
-    *(host_api->AaediHAM_LogDebug)
-    << "satrec:"
-    << " a=" << satrec.a
-    << " altp=" << satrec.altp
-    << " alta=" << satrec.alta
-    << " ecco=" << satrec.ecco
-    << " inclo=" << satrec.inclo
-    << " no_kozai=" << satrec.no_kozai
-    << " no_unkozai=" << satrec.no_unkozai
-    << " nm=" << satrec.nm
-    << " period_sec=" << satrec.period_sec
-    << " radiusearthkm=" << satrec.radiusearthkm
-    << "\n";
-
-    *(host_api->AaediHAM_LogDebug)
-    << "Mean Motion:"
-    << " input=" << mean_motion
-    << " no_kozai=" << satrec.no_kozai
-    << " no_unkozai=" << satrec.no_unkozai
-    << " nm=" << satrec.nm
-    << " mdot=" << satrec.mdot
-    << "\n";
-    valid = true;
-    return true;
+	const double epoch_1950 =  SGP4Parser::ISO8601_to_Julian("1950-01-01T00:00:00.0000");
+	    //    const double epoch_J2000 = SGP4Parser::ISO8601_to_Julian("2000-01-01T12:00:00.0000");
+	if (!valid) {
+		*(host_api->AaediHAM_LogDebug) << "SGP4 Init called with incomplete ephemeris\n";
+		return false;;
+	}
+	    //    *(host_api->AaediHAM_LogDebug) << "Vallado SGP4 test for " << name  << "\n";
+	*(host_api->AaediHAM_LogDebug)
+	<< "SGP4 Inputs:"
+	<< " epoch1950=" << (epoch_jd - epoch_1950)
+	<< " bstar="     << bstar
+	<< " ecc="       << eccentricity
+	<< " argp="      << arg_pericenter
+	<< " inc="       << inclination
+	<< " M="         << mean_anomaly
+	<< " n="         << mean_motion
+	<< " raan="      << right_ascension_of_ascending_node
+	<< "\n";
+	    //                Convert mean motion to rad/min for init per SGP4.cpp line 2328 example
+	char norad_temp[6];
+	size_t start = (norad_id.size() > 5) ? (norad_id.size() - 5) : 0;
+	strncpy(norad_temp, (norad_id.c_str()+start),5);
+	norad_temp[5]=0;
+	double no_rad_min = mean_motion*2 * M_PI/(86400/60);
+	bool initresult = SGP4Funcs::sgp4init(wgs72,
+	                    'i',
+	                    norad_temp,
+	                    (epoch_jd-epoch_1950),
+	                    bstar,
+	                    mean_motion_dot,
+	                    mean_motion_ddot,
+	                    eccentricity,
+	                    arg_pericenter,
+	                    inclination,
+	                    mean_anomaly,
+	                    no_rad_min,
+	                    right_ascension_of_ascending_node,
+	                    satrec
+	                    );
+	if (!initresult) {
+		valid = false;
+		 *(host_api->AaediHAM_LogDebug) << "SGP4 Init error for " << name << "satrec error: " << satrec.error << "\n";
+		return false;
+	}
+	*(host_api->AaediHAM_LogDebug)
+	<< "satrec:"
+	<< " a=" << satrec.a
+	<< " altp=" << satrec.altp
+	<< " alta=" << satrec.alta
+	<< " ecco=" << satrec.ecco
+	<< " inclo=" << satrec.inclo
+	<< " no_kozai=" << satrec.no_kozai
+	<< " no_unkozai=" << satrec.no_unkozai
+	<< " nm=" << satrec.nm
+	<< " period_sec=" << satrec.period_sec
+	<< " radiusearthkm=" << satrec.radiusearthkm
+	<< "\n";
+	
+	*(host_api->AaediHAM_LogDebug)
+	<< "Mean Motion:"
+	<< " input=" << mean_motion
+	<< " no_kozai=" << satrec.no_kozai
+	<< " no_unkozai=" << satrec.no_unkozai
+	<< " nm=" << satrec.nm
+	<< " mdot=" << satrec.mdot
+	<< "\n";
+	valid = true;
+	return true;
 }
 
 
 bool OMMRecord::generate_telemetry(int resolution_min) {
-    double velocity[3];
-    double position[3];
-    if (epoch_jd == 0) {
-        return false;
-    }
-    if (!valid) {
-        *(host_api->AaediHAM_LogDebug) << "Invalid Satellite Elements\n";
-        return false;
-    }
-    if (resolution_min <= 0) {
-        *(host_api->AaediHAM_LogDebug) << "Invalid Telemetry resolution\n";
-        return false;
-    }
-    if (mean_motion <=0) {
-        *(host_api->AaediHAM_LogDebug) << "Invalid Mean Motion\n";
-        return false;
-    }
-    // Step 1, generate the timestamps to use (tsince and timestamp)
-    *(host_api->AaediHAM_LogDebug) << "Sat Epoch JD: " <<  epoch_jd;
-    time_t timestamp = time(NULL); // unmolested timestamp to use
-    double tsince = static_cast<double>(timestamp);
-    *(host_api->AaediHAM_LogDebug) << "\t Now Unix Time: " <<  tsince;
-    // divide Unix Time by seconds per day(86400), and adjust offset to 01-01-1970 (2440587.5)
-    double jd = (tsince / 86400.0) + 2440587.5;
-//    *(host_api->AaediHAM_LogDebug) << "\t Now JD: " <<  jd << "\n";
-    tsince = jd - epoch_jd;
-//    *(host_api->AaediHAM_LogDebug) << "\t Tsince Days: " <<  tsince;
-    tsince *= (24*60);
-//    *(host_api->AaediHAM_LogDebug) << "\t Tsince: " <<  tsince << "\n";
-
-
-    struct vector3 raw_coords;
-
-    // step 4: figure out how many samples we need to cover one orbit
-    double period = ((1440*60)/mean_motion)/60; // period in minutes
-    int sample_count = static_cast<int>(floor(period/resolution_min));
-    telemetry.clear();
-    struct aaediclock_dx DE;
-    DE = host_api->AaediHAM_ConfigGetDE();
-    DE.lat *= M_PI/180.0;
-    DE.lon *= M_PI/180.0;
-    double Re = 6371.0;
-    for (int c = 0 ; c < sample_count ; c++) {
-        // build the new telemetry data here
-        struct SatTelemetry new_telemetry;
-        // run Vallado's SGP4 code to get sat location in TEME
-        // this also returns velocity which is currently not used
-
-        // the input data is TEME
-        // Understanding so far is using a Geocentric reference
-        // Caresian X == intersecting line between Equitorial plane and celestial plane (+ faces sun at Sprint Equinox)
-        // cartesian Z Relative to Celestial plane + == North or Up
-        // Cartesian Y == Lateral movement perpendicular to X and Z, Positive to East
-        // Celestial X is Up/Down from surface reference
-        // Celestial Y is E/W from surface reference
-        // Celestial Z is N/S from sirface reference
-        // Declination is relative to Celestial Plane
-        // RA is Eastward from Cartesian X Positive Axis
-
-        // ultimate target is Geodetic terrestrial latitude and Longitude of the sub sat location
-
-        /*
-           this code treats TEME as ECI as GCRF
-           this is *technically* incorrect, and probably needs to be refined later
-           However, based on Vallado P 233 table 3-5,
-           it looks like this introduces up to half a KM of error.
-           At the scales we are operating here for display and maybe even for tracking
-           This is likely a good starting point.
-
-           Keep in mind that this then compounds later with the  error
-           when converting from GCRF to ITRF because the later only adjusts for GMST
-
-           This will need better refinement later, but may still be good enough for tracking
-           It'll almost certainly be good enough for the display right now.
-        */
-
-
-        bool sgp4_result = SGP4Funcs::sgp4(satrec, tsince, position, velocity);
-        if (!sgp4_result) {
-            *(host_api->AaediHAM_LogDebug) << "Invalid Telemetry result\n";
-            return false;
-        }
-        struct vector3 matrix[3];
-
-        // Approximate altitude in Km
-        double magnitude = sqrt( (position[0]*position[0]) + (position[1]*position[1]) + (position[2]*position[2]));
-        new_telemetry.alt 		= magnitude - Re;
-
-        // Declination and Right Ascention in Inertial Space, stored in Radians
-        new_telemetry.dec 		= atan2(position[2], sqrt(position[0]*position[0]+position[1]*position[1]));
-        new_telemetry.ra 		= atan2(position[1], position[0]);
-//      new_telemetry.dec *= (180/M_PI);
-//      new_telemetry.ra *= (180/M_PI);
-        // set the time data for the telemetry point
-        new_telemetry.timestamp 	= timestamp;
-        new_telemetry.tsince		= tsince;
-        // generate subsat location for ground track
-        apply_GMST (new_telemetry.timestamp, new_telemetry.ra, new_telemetry.dec, new_telemetry.lat, new_telemetry.lon);
-        // now to calculate the Azimuth and Elevation relative to DE
-        // convert from TEME to ECEF by applying GMST transform
-        double GMST =  get_GMST_rad(new_telemetry.timestamp);
-        matrix[0] = {cos(GMST), sin(GMST), 0.0};
-        matrix[1] = {0.0-sin(GMST), cos(GMST), 0.0};
-        matrix[2] = {0.0, 0.0, 1.0};
-        raw_coords.x=position[0];
-        raw_coords.y=position[1];
-        raw_coords.z=position[2];
-        struct vector3 sat_ecef = transform(raw_coords, matrix);
-
-        // convert the coordinate reference frame from ECEF to SEZ/NEZ relative to DE
-        /*
- 	Original manually multiplied rotation matrix
-          matrix[0] = {cos(DE.lat)*cos(DE.lon), cos(DE.lat)*(0.0-sin(DE.lon)), sin(DE.lat)};
-          matrix[1] = {sin(DE.lon), cos(DE.lon), 0.0};
-          matrix[2] = {(0.0-sin(DE.lat))*cos(DE.lon), (0.0-sin(DE.lat))*(0.0-sin(DE.lon)), cos(DE.lat)};
-
-        what X, Y, and Z mean is changing along with the rotation.
-        So the labeling changes as well.
-        A raw 3d rotational matrix assumes no change in the name
-        of what is X, Y, Z. But since those are changing roles,
-        the matrix has to be applied in a different order to reflect that
-
-        in ECEF, Z points at the North Pole, and X points to the vernal equinox.
-        From the observer's perspective, those are North and Up respectively
-        (so Z becomes Y and X becomes Z, which also means Y must become X)
-        that change must be accounted for
-        X matrix[0] (Vernal Equinox)  --> Z 2 (Up)
-        Y matrix[1] (East) --> X 0 (East)
-        Z matrix[2] (North Pole) --> Y 1 (Local North)
-
-        maybe one day I'll understand why the sign change on sin(DE.lon) has to exist
-        */
-
-
-        // rotate the context so that Z' points along the vector from Earth Center to DE
-        // we only actually change sat_local here, because after this, DE is considered to be 0,0,0
-
-        // generate the rotation matrix from DE
-        double slat = sin(DE.lat);
-        double clat = cos(DE.lat);
-        double slon = sin(DE.lon);
-        double clon = cos(DE.lon);
-
-        matrix[0] = {0.0-slon, clon, 0.0};
-        //           slon, clon, 0.0 // old matrix 1
-        matrix[1] = {0.0-slat * clon, 0.0-slat * slon, clat};
-        //	     -slat * clon, -slat * -slon, clat // old matrix 2
-        matrix[2] = {clat * clon, clat * slon, slat};
-        //           clat * clon, clat* -slon, slat // old matrix 0
-
-        // apply it to the satellite
-        struct vector3 sat_local = transform(sat_ecef, matrix);
-
-        // translate the origin along Z' (Original ECEF Z no longer exists) to place the origin at DE
-        sat_local.z -= Re;
-
-        // calculate Azimuth and Elevation
-        /*
-          Az = atan2(x, y)
-          El = atan2(z, sqrt(x²+y²))
-        */
-        new_telemetry.azimuth = (atan2(sat_local.x, sat_local.y))*180.0/M_PI;
-        new_telemetry.elevation = (atan2(sat_local.z, sqrt((sat_local.x*sat_local.x)+(sat_local.y*sat_local.y))))*180.0/M_PI;
-
-        telemetry.push_back(new_telemetry);
-        // prep for the next telemetry point
-        tsince += resolution_min;
-        timestamp += 60*resolution_min;
-    }
-    return true;
+	double velocity[3];
+	double position[3];
+	if (epoch_jd == 0) {
+	    return false;
+	}
+	if (!valid) {
+	    *(host_api->AaediHAM_LogDebug) << "Invalid Satellite Elements\n";
+	    return false;
+	}
+	if (resolution_min <= 0) {
+	    *(host_api->AaediHAM_LogDebug) << "Invalid Telemetry resolution\n";
+	    return false;
+	}
+	if (mean_motion <=0) {
+	    *(host_api->AaediHAM_LogDebug) << "Invalid Mean Motion\n";
+	    return false;
+	}
+	// Step 1, generate the timestamps to use (tsince and timestamp)
+	*(host_api->AaediHAM_LogDebug) << "Sat Epoch JD: " <<  epoch_jd;
+	time_t timestamp = time(NULL); // unmolested timestamp to use
+	double tsince = static_cast<double>(timestamp);
+	*(host_api->AaediHAM_LogDebug) << "\t Now Unix Time: " <<  tsince;
+	// divide Unix Time by seconds per day(86400), and adjust offset to 01-01-1970 (2440587.5)
+	double jd = (tsince / 86400.0) + 2440587.5;
+	    //    *(host_api->AaediHAM_LogDebug) << "\t Now JD: " <<  jd << "\n";
+	tsince = jd - epoch_jd;
+	    //    *(host_api->AaediHAM_LogDebug) << "\t Tsince Days: " <<  tsince;
+	tsince *= (24*60);
+	    //    *(host_api->AaediHAM_LogDebug) << "\t Tsince: " <<  tsince << "\n";
+	
+	
+	struct vector3 raw_coords;
+	
+	// step 4: figure out how many samples we need to cover one orbit
+	double period = ((1440*60)/mean_motion)/60; // period in minutes
+	int sample_count = static_cast<int>(floor(period/resolution_min));
+	telemetry.clear();
+	struct aaediclock_dx DE;
+	DE = host_api->AaediHAM_ConfigGetDE();
+	DE.lat *= M_PI/180.0;
+	DE.lon *= M_PI/180.0;
+	double Re = 6371.0;
+	for (int c = 0 ; c < sample_count ; c++) {
+	    // build the new telemetry data here
+	    struct SatTelemetry new_telemetry;
+	    // run Vallado's SGP4 code to get sat location in TEME
+	    // this also returns velocity which is currently not used
+	
+	    // the input data is TEME
+	    // Understanding so far is using a Geocentric reference
+	    // Caresian X == intersecting line between Equitorial plane and celestial plane (+ faces sun at Sprint Equinox)
+	    // cartesian Z Relative to Celestial plane + == North or Up
+	    // Cartesian Y == Lateral movement perpendicular to X and Z, Positive to East
+	    // Celestial X is Up/Down from surface reference
+	    // Celestial Y is E/W from surface reference
+	    // Celestial Z is N/S from sirface reference
+	    // Declination is relative to Celestial Plane
+	    // RA is Eastward from Cartesian X Positive Axis
+	
+	    // ultimate target is Geodetic terrestrial latitude and Longitude of the sub sat location
+	
+	    /*
+	       this code treats TEME as ECI as GCRF
+	       this is *technically* incorrect, and probably needs to be refined later
+	       However, based on Vallado P 233 table 3-5,
+	       it looks like this introduces up to half a KM of error.
+	       At the scales we are operating here for display and maybe even for tracking
+	       This is likely a good starting point.
+	
+	       Keep in mind that this then compounds later with the  error
+	       when converting from GCRF to ITRF because the later only adjusts for GMST
+	
+	       This will need better refinement later, but may still be good enough for tracking
+	       It'll almost certainly be good enough for the display right now.
+	    */
+	
+	
+	    bool sgp4_result = SGP4Funcs::sgp4(satrec, tsince, position, velocity);
+	    if (!sgp4_result) {
+	        *(host_api->AaediHAM_LogDebug) << "Invalid Telemetry result\n";
+	        return false;
+	    }
+	    struct vector3 matrix[3];
+	
+	    // Approximate altitude in Km
+	    double magnitude = sqrt( (position[0]*position[0]) + (position[1]*position[1]) + (position[2]*position[2]));
+	    new_telemetry.alt 		= magnitude - Re;
+	
+	    // Declination and Right Ascention in Inertial Space, stored in Radians
+	    new_telemetry.dec 		= atan2(position[2], sqrt(position[0]*position[0]+position[1]*position[1]));
+	    new_telemetry.ra 		= atan2(position[1], position[0]);
+	//      new_telemetry.dec *= (180/M_PI);
+	//      new_telemetry.ra *= (180/M_PI);
+	  // set the time data for the telemetry point
+	  new_telemetry.timestamp 	= timestamp;
+	  new_telemetry.tsince		= tsince;
+	  // generate subsat location for ground track
+	  apply_GMST (new_telemetry.timestamp, new_telemetry.ra, new_telemetry.dec, new_telemetry.lat, new_telemetry.lon);
+	  // now to calculate the Azimuth and Elevation relative to DE
+	  // convert from TEME to ECEF by applying GMST transform
+	  double GMST =  get_GMST_rad(new_telemetry.timestamp);
+	  matrix[0] = {cos(GMST), sin(GMST), 0.0};
+	  matrix[1] = {0.0-sin(GMST), cos(GMST), 0.0};
+	  matrix[2] = {0.0, 0.0, 1.0};
+	  raw_coords.x=position[0];
+	  raw_coords.y=position[1];
+	  raw_coords.z=position[2];
+	  struct vector3 sat_ecef = transform(raw_coords, matrix);
+	
+	  // convert the coordinate reference frame from ECEF to SEZ/NEZ relative to DE
+	  /*
+	Original manually multiplied rotation matrix
+	      matrix[0] = {cos(DE.lat)*cos(DE.lon), cos(DE.lat)*(0.0-sin(DE.lon)), sin(DE.lat)};
+	      matrix[1] = {sin(DE.lon), cos(DE.lon), 0.0};
+	      matrix[2] = {(0.0-sin(DE.lat))*cos(DE.lon), (0.0-sin(DE.lat))*(0.0-sin(DE.lon)), cos(DE.lat)};
+	
+	    what X, Y, and Z mean is changing along with the rotation.
+	    So the labeling changes as well.
+	    A raw 3d rotational matrix assumes no change in the name
+	    of what is X, Y, Z. But since those are changing roles,
+	    the matrix has to be applied in a different order to reflect that
+	
+	    in ECEF, Z points at the North Pole, and X points to the vernal equinox.
+	    From the observer's perspective, those are North and Up respectively
+	    (so Z becomes Y and X becomes Z, which also means Y must become X)
+	    that change must be accounted for
+	    X matrix[0] (Vernal Equinox)  --> Z 2 (Up)
+	    Y matrix[1] (East) --> X 0 (East)
+	    Z matrix[2] (North Pole) --> Y 1 (Local North)
+	
+	    maybe one day I'll understand why the sign change on sin(DE.lon) has to exist
+	    */
+	
+	
+	    // rotate the context so that Z' points along the vector from Earth Center to DE
+	    // we only actually change sat_local here, because after this, DE is considered to be 0,0,0
+	
+	    // generate the rotation matrix from DE
+	    double slat = sin(DE.lat);
+	    double clat = cos(DE.lat);
+	    double slon = sin(DE.lon);
+	    double clon = cos(DE.lon);
+	
+	    matrix[0] = {0.0-slon, clon, 0.0};
+	    //           slon, clon, 0.0 // old matrix 1
+	    matrix[1] = {0.0-slat * clon, 0.0-slat * slon, clat};
+	    //	     -slat * clon, -slat * -slon, clat // old matrix 2
+	    matrix[2] = {clat * clon, clat * slon, slat};
+	    //           clat * clon, clat* -slon, slat // old matrix 0
+	
+	    // apply it to the satellite
+	    struct vector3 sat_local = transform(sat_ecef, matrix);
+	
+	    // translate the origin along Z' (Original ECEF Z no longer exists) to place the origin at DE
+	    sat_local.z -= Re;
+	
+	    // calculate Azimuth and Elevation
+	    /*
+	      Az = atan2(x, y)
+	      El = atan2(z, sqrt(x²+y²))
+	    */
+	    new_telemetry.azimuth = (atan2(sat_local.x, sat_local.y))*180.0/M_PI;
+	    new_telemetry.elevation = (atan2(sat_local.z, sqrt((sat_local.x*sat_local.x)+(sat_local.y*sat_local.y))))*180.0/M_PI;
+	
+	    telemetry.push_back(new_telemetry);
+	    // prep for the next telemetry point
+	    tsince += resolution_min;
+	    timestamp += 60*resolution_min;
+	}
+	return true;
 }
 
 time_t OMMRecord::telemetry_age() {
@@ -371,68 +371,68 @@ void OMMRecord::draw_pass(const time_t pass_start, const time_t pass_end,  std::
 }
 
 void OMMRecord::location (aaediclock_FPoint *result) {
-    // get the current lat/lon over which the satellite currently is
-    if (!result) {
-        *(host_api->AaediHAM_LogDebug) << "No Result passed\n";
-        return;
-    }
-    if (!valid) {
-        *(host_api->AaediHAM_LogDebug) << "Invalid Telemetry Data\n";
-        return;
-    }
-    double velocity[3];
-    double position[3];
-    time_t timestamp = time(NULL); // unmolested timestamp to use
-    double tsince = static_cast<double>(timestamp);
-
-    double jd = (tsince / 86400.0) + 2440587.5;
-    tsince = jd - epoch_jd;
-    tsince *= (24*60);
-
-    SGP4Funcs::sgp4(satrec, tsince, position, velocity);
-    double dec = atan2(position[2], sqrt(position[0]*position[0]+position[1]*position[1]));
-    double ra = atan2(position[1], position[0]);
-
-    double lat = 0;
-    double lon = 0;
-    apply_GMST (timestamp, ra, dec, lat, lon);
-    result->x = static_cast<float>(lat);
-    result->y = static_cast<float>(lon);
-    return ;
+	// get the current lat/lon over which the satellite currently is
+	if (!result) {
+	    *(host_api->AaediHAM_LogDebug) << "No Result passed\n";
+	    return;
+	}
+	if (!valid) {
+	    *(host_api->AaediHAM_LogDebug) << "Invalid Telemetry Data\n";
+	    return;
+	}
+	double velocity[3];
+	double position[3];
+	time_t timestamp = time(NULL); // unmolested timestamp to use
+	double tsince = static_cast<double>(timestamp);
+	
+	double jd = (tsince / 86400.0) + 2440587.5;
+	tsince = jd - epoch_jd;
+	tsince *= (24*60);
+	
+	SGP4Funcs::sgp4(satrec, tsince, position, velocity);
+	double dec = atan2(position[2], sqrt(position[0]*position[0]+position[1]*position[1]));
+	double ra = atan2(position[1], position[0]);
+	
+	double lat = 0;
+	double lon = 0;
+	apply_GMST (timestamp, ra, dec, lat, lon);
+	result->x = static_cast<float>(lat);
+	result->y = static_cast<float>(lon);
+	return ;
 }
 
 time_t OMMRecord::pass_start() {
-    // get the start time for a satellite pass
-    if (telemetry.empty()) {
-        return 0;
-    }
-    for (const SatTelemetry& point : this->telemetry) {
-        if (point.elevation >0) {
-            return point.timestamp;
-        }
-    }
-    return 0;
+	// get the start time for a satellite pass
+	if (telemetry.empty()) {
+	    return 0;
+	}
+	for (const SatTelemetry& point : this->telemetry) {
+	    if (point.elevation >0) {
+	        return point.timestamp;
+	    }
+	}
+	return 0;
 }
 
 time_t OMMRecord::pass_end() {
-    // get the end time for a satellite pass
-    if (telemetry.empty()) {
-        return 0;
-    }
-    bool started_flag=false;
-    for (const SatTelemetry& point : this->telemetry) {
-        if (point.elevation >0) {
-            started_flag = true;
-        }
-        if (started_flag && point.elevation < 0) {
-            return point.timestamp;
-        }
-    }
-    if (started_flag) {
-        return (this->telemetry.back().timestamp);
-    } else {
-        return 0;
-    }
+	// get the end time for a satellite pass
+	if (telemetry.empty()) {
+	    return 0;
+	}
+	bool started_flag=false;
+	for (const SatTelemetry& point : this->telemetry) {
+	    if (point.elevation >0) {
+	        started_flag = true;
+	    }
+	    if (started_flag && point.elevation < 0) {
+	        return point.timestamp;
+	    }
+	}
+	if (started_flag) {
+	    return (this->telemetry.back().timestamp);
+	} else {
+	    return 0;
+	}
 }
 
 
@@ -937,8 +937,15 @@ int SDLCALL fetch_celestrak(void* data) {
             amateur_tle = nullptr;
         }
 
-
-        data_size = http_loader("https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=xml", (void**)&amateur_tle, 60);   //
+	std::string web_source = host_api->AaediHAM_ConfigGetSiteCache();
+	if (web_source.empty()) {
+//		std::cout << "Empty Local Site Cache path\n";
+		web_source = "https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=xml";
+	} else {
+		web_source += "celestrak.xml";
+//		std::cout << "Using Local Site Cache Path "<< web_source << "\n";
+	}
+        data_size = http_loader(web_source.c_str(), (void**)&amateur_tle, 60);   //
         *(host_api->AaediHAM_LogDebug) << "Celestrak Fetch returned\n";
         if (data_size > 256) {
             disk_file.open(full_cache_path.c_str(), (std::fstream::binary | std::fstream::out | std::fstream::trunc));
@@ -1061,8 +1068,8 @@ void draw_pass_tracker(const aaediclock_FRect dims, OMMRecord& sat) {
     // if we have a pass coming, render its start and end times
     time_t pass_time = sat.pass_start();
     if (pass_time) {
-        tm* test_time;
-        TextRect.y=dims.h - (dims.h/11)-4;
+        tm* test_time = new tm;
+	TextRect.y=dims.h - (dims.h/11)-4;
         TextRect.w=dims.w /3;
         #ifdef _WIN32
             localtime_s(test_time, &pass_time);
@@ -1210,10 +1217,10 @@ void new_sat_tracker_plugin::plugin_main(const aaediclock_FRect& dims) const {
             case 10:
                 break;
             case 2:
-                sat_timer = SDL_AddTimer(interval * 6, fetch_celestrak, NULL);
+                sat_timer = SDL_AddTimer(interval * 12, fetch_celestrak, NULL);
                 break;
             case 3:
-                sat_timer = SDL_AddTimer(interval * 2, fetch_celestrak, NULL);
+                sat_timer = SDL_AddTimer(interval * 4, fetch_celestrak, NULL);
                 break;
         }
     }

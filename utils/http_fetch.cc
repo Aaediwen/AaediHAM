@@ -2,101 +2,101 @@
 #include <iostream>
 
 const std::string hexencode (const std::string source) {
-    std::string result;
-    result.clear();
-    result.reserve(source.size()*3);
-    for (unsigned int pos = 0 ; pos < source.size() ; pos++) {
-        unsigned char c = source.at(pos);
-        // we have an already URL Clean character
-        if ((c >= '0' && c <= '9') ||
-            (c >= 'a' && c <= 'z') ||
-            (c >= 'A' && c <= 'Z') ||
-            c == '-' || c == '_' || c == '.' || c == '!' || c == '~' ||
-            c == '*' || c == '\'' || c == '(' || c == ')') {
-            result.push_back(c);
-        } else {
-             // something else
-             result.push_back('%');
-             char hex;
-             hex = c / 16;
-             hex += hex <= 9 ? '0' : 'a' - 10;
-             result.push_back(hex);
-             hex = c % 16;
-             hex += hex <= 9 ? '0' : 'a' - 10;
-             result.push_back(hex);
-        }
-    }
-    return result;
+	std::string result;
+	result.clear();
+	result.reserve(source.size()*3);
+	for (unsigned int pos = 0 ; pos < source.size() ; pos++) {
+		unsigned char c = source.at(pos);
+		// we have an already URL Clean character
+		if ((c >= '0' && c <= '9') ||
+			(c >= 'a' && c <= 'z') ||
+			(c >= 'A' && c <= 'Z') ||
+			c == '-' || c == '_' || c == '.' || c == '!' || c == '~' ||
+			c == '*' || c == '\'' || c == '(' || c == ')') {
+			result.push_back(c);
+		} else {
+			 // something else
+			 result.push_back('%');
+			 char hex;
+			 hex = c / 16;
+			 hex += hex <= 9 ? '0' : 'a' - 10;
+			 result.push_back(hex);
+			 hex = c % 16;
+			 hex += hex <= 9 ? '0' : 'a' - 10;
+			 result.push_back(hex);
+		}
+	}
+	return result;
 }
 
 std::string url_encode(const std::string& input) {
-    static const char hex[] = "0123456789ABCDEF";
-    std::string result;
-    result.reserve(input.size() * 3);
-
-    for (unsigned char c : input) {
-        if ((c >= 'A' && c <= 'Z') ||
-            (c >= 'a' && c <= 'z') ||
-            (c >= '0' && c <= '9')) {
-            result.push_back(c);
-        } else {
-            result.push_back('%');
-            result.push_back(hex[c >> 4]);
-            result.push_back(hex[c & 0xF]);
-        }
-    }
+	static const char hex[] = "0123456789ABCDEF";
+	std::string result;
+	result.reserve(input.size() * 3);
+	
+	for (unsigned char c : input) {
+		if ((c >= 'A' && c <= 'Z') ||
+			(c >= 'a' && c <= 'z') ||
+			(c >= '0' && c <= '9')) {
+			result.push_back(c);
+		} else {
+			result.push_back('%');
+			result.push_back(hex[c >> 4]);
+			result.push_back(hex[c & 0xF]);
+		}
+	}
 //    SDL_Log ("DEBUG URL_Encoded string: %s", result.c_str());
-    return result;
+	return result;
 }
 
 
 const std::string URL_Encode(const char* source) {
-    std::string result;
-    result.clear();
-    if (!source || !source[0]) {
-        return (result);
-    }
-    std::string working(source);
-    size_t tag_start, tag_stop, equalpos;
-    tag_start=0;
-    // copy in the base of the URL
-    tag_stop = working.find("?");
-    if (tag_stop != std::string::npos) {
-        result = working.substr(0,tag_stop+1);
-        tag_start = tag_stop+1;
-        //if we have arguments encode them
-        while (tag_start != std::string::npos) {
-            // grab the next segment
-            tag_stop = working.find_first_of("&;",tag_start+1);
-            std::string argument;
-            if (tag_stop != std::string::npos) {
-                argument = working.substr(tag_start, tag_stop - tag_start);
-            } else {
-                argument = working.substr(tag_start, tag_stop);
-            }
-            equalpos = argument.find("=");
-            if (equalpos != std::string::npos) {
-                // we have a key=value pair, copy the key and encode the value
-                result += argument.substr(0,equalpos+1);
-                // temporarilly just copying this , need to URLencode this piece
-                result += hexencode(argument.substr(equalpos+1,std::string::npos));
-            } else {
-                // whatever is in argument has no value. just copy it
-                result += argument.substr(0,equalpos);
-            }
-            tag_start = tag_stop;
-        }
-    } else {
-        // there is nothing to do here
-        result = working;
-    }
-    return result;
+	std::string result;
+	result.clear();
+	if (!source || !source[0]) {
+		return (result);
+	}
+	std::string working(source);
+	size_t tag_start, tag_stop, equalpos;
+	tag_start=0;
+	// copy in the base of the URL
+	tag_stop = working.find("?");
+	if (tag_stop != std::string::npos) {
+		result = working.substr(0,tag_stop+1);
+		tag_start = tag_stop+1;
+		//if we have arguments encode them
+		while (tag_start != std::string::npos) {
+			// grab the next segment
+			tag_stop = working.find_first_of("&;",tag_start+1);
+			std::string argument;
+			if (tag_stop != std::string::npos) {
+				argument = working.substr(tag_start, tag_stop - tag_start);
+			} else {
+				argument = working.substr(tag_start, tag_stop);
+			}
+			equalpos = argument.find("=");
+			if (equalpos != std::string::npos) {
+				// we have a key=value pair, copy the key and encode the value
+				result += argument.substr(0,equalpos+1);
+				// temporarilly just copying this , need to URLencode this piece
+				result += hexencode(argument.substr(equalpos+1,std::string::npos));
+			} else {
+				// whatever is in argument has no value. just copy it
+				result += argument.substr(0,equalpos);
+			}
+			tag_start = tag_stop;
+		}
+	} else {
+		// there is nothing to do here
+		result = working;
+	}
+	return result;
 }
 
 size_t cache_http_callback( char* in, size_t size, size_t nmemb, void* out) {
-    std::string* buffer = static_cast<std::string*>(out);
-    buffer->append(in, (size*nmemb));
-    return (size*nmemb);
+	std::string* buffer = static_cast<std::string*>(out);
+	buffer->append(in, (size*nmemb));
+	return (size*nmemb);
 }
 
 uint64_t http_loader(const char* source_url, void** result, const uint8_t timeout_s, const std::string& user_agent) {
@@ -134,6 +134,11 @@ uint64_t http_loader(const char* source_url, void** result, const uint8_t timeou
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&httpbuffer);
 //            std::cout << "HTTP: Calling CURL fetch \n";
         curlres = curl_easy_perform(curl);
+	uint32_t  http_code = 0;
+	curl_easy_getinfo (curl, CURLINFO_RESPONSE_CODE, &http_code);
+	if (http_code != 200) {
+		std::cout << "Curl HTTP code from "<< hostname << ": "<< http_code << "\n";
+	}
         curl_easy_cleanup(curl);
         if (!curlres) {
 //            std::cout << "HTTP: Fetched "<< httpbuffer.size() <<" Bytes\n";

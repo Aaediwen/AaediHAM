@@ -602,8 +602,8 @@ void dx_cluster_plugin::plugin_main(const aaediclock_FRect& dims) const {
 
     const char* callsign = host_api->AaediHAM_ConfigGetCall();
     if (!dxsocket) {
-        std::cout << "Error Connecting to DX Spot Telnet Session\n";
-        *(host_api->AaediHAM_LogDebug) << "Error Connecting to DX Spot Telnet Session\n";
+        std::cout << "Not Connected to DX Spot Telnet Session\n";
+        *(host_api->AaediHAM_LogDebug) << "Not Connected to DX Spot Telnet Session\n";
         aaediclock_Color tempcolor={128,0,0,0};
         aaediclock_FRect TextRect;
         TextRect.x=2;

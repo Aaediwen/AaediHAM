@@ -509,6 +509,9 @@ void config::write_config() {
 	} else {
 		data["PluginPath"]	= m_plugin_path;
 	}
+	if (!m_site_cache.empty()) {
+		data["SiteCacheServer"]	= m_site_cache;
+	}
 	if (m_asset_path.empty()) {
 		data["AssetPath"]	= "images";
 	} else {
@@ -586,6 +589,7 @@ void config::load_config(const std::string filename) {
 	m_PluginIndex		= 0;
 	m_plugin_path		= ".";
 	m_cache_path		= ".";
+	m_site_cache.clear();
 	m_asset_path		= "images";
 	m_DE			= {0, 0};
 	m_DX			= {0, 0};
@@ -668,7 +672,16 @@ void config::load_config(const std::string filename) {
 			}
 		}
 		m_plugin_path = path_seperator(m_plugin_path);
-		
+		if (data.contains("SiteCacheServer")) {
+			if (data["SiteCacheServer"].is_string()) {
+				m_site_cache = data["SiteCacheServer"];
+			}
+			if (!m_site_cache.empty() && m_site_cache.back() != '/') { 
+				m_site_cache += '/';
+			}
+
+		}
+
 		if (data.contains("AssetPath")) {
 			if (data["AssetPath"].is_string()) {
 				m_asset_path = data["AssetPath"];
@@ -815,7 +828,11 @@ const std::string& config::AssetPath() const {
 }
 
 const std::string& config::CachePath() const {
-	return (m_cache_path);
+	return m_cache_path;
+}
+
+const std::string& config::SiteCache() const {
+	return m_site_cache;
 }
 
 const std::string& config::PSKCall() const {

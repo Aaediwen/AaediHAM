@@ -424,6 +424,11 @@ const char* HostAPI::AaediHAM_ConfigGetPSKCall() {
     return(clockconfig.PSKCall().c_str());
 }
 
+const char* HostAPI::AaediHAM_ConfigGetSiteCache() {
+    return(clockconfig.SiteCache().c_str());
+}
+
+
 const struct aaediclock_FRect HostAPI::AaediHAM_GetMapSize() {
     aaediclock_FRect result;
     result.x = winboxes[PANEL_MAP].panel.dims.x;
