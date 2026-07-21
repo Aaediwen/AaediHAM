@@ -971,7 +971,7 @@ bool SGP4Parser::fromCSV(std::string& input) {
 				if (position != std::string::npos) {
 					field_buffer = csv_line.substr(consumed, position-consumed);
 				} else {
-					field_buffer = input.substr(consumed);
+					field_buffer = csv_line.substr(consumed);
 
 				}
 				consumed += field_buffer.size()+1;
