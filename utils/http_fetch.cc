@@ -33,7 +33,7 @@ std::string url_encode(const std::string& input) {
 	static const char hex[] = "0123456789ABCDEF";
 	std::string result;
 	result.reserve(input.size() * 3);
-	
+
 	for (unsigned char c : input) {
 		if ((c >= 'A' && c <= 'Z') ||
 			(c >= 'a' && c <= 'z') ||

@@ -48,12 +48,12 @@ void apply_GMST (time_t time, const double RA_Rad, const double DEC_Rad, double&
 	double lon_subsat = RA_Rad - GMST ;  // Earth-fixed longitude
 	if (lon_subsat >  M_PI) lon_subsat -= 2*M_PI;
 	if (lon_subsat < -M_PI) lon_subsat += 2*M_PI;
-	
+
 	double lat_subsat = DEC_Rad;
 	// convert result to degrees
 	lat = lat_subsat*180.0/M_PI;
 	lon = lon_subsat*180.0/M_PI;
-	
+
 	return;
 }
 
@@ -66,15 +66,15 @@ struct vector3 transform(const struct vector3 input, const struct vector3 matrix
 	result.x =  input.x*matrix[0].x;
 	result.x += input.y*matrix[0].y;
 	result.x += input.z*matrix[0].z;
-	
+
 	result.y =  input.x*matrix[1].x;
 	result.y += input.y*matrix[1].y;
 	result.y += input.z*matrix[1].z;
-	
+
 	result.z =  input.x*matrix[2].x;
 	result.z += input.y*matrix[2].y;
 	result.z += input.z*matrix[2].z;
-	
+
 	return result;
 }
 
@@ -136,7 +136,7 @@ bool OMMRecord::sgp4_init() {
 	<< " period_sec=" << satrec.period_sec
 	<< " radiusearthkm=" << satrec.radiusearthkm
 	<< "\n";
-	
+
 	*(host_api->AaediHAM_LogDebug)
 	<< "Mean Motion:"
 	<< " input=" << mean_motion
@@ -180,10 +180,10 @@ bool OMMRecord::generate_telemetry(int resolution_min) {
 	    //    *(host_api->AaediHAM_LogDebug) << "\t Tsince Days: " <<  tsince;
 	tsince *= (24*60);
 	    //    *(host_api->AaediHAM_LogDebug) << "\t Tsince: " <<  tsince << "\n";
-	
-	
+
+
 	struct vector3 raw_coords;
-	
+
 	// step 4: figure out how many samples we need to cover one orbit
 	double period = ((1440*60)/mean_motion)/60; // period in minutes
 	int sample_count = static_cast<int>(floor(period/resolution_min));
@@ -198,7 +198,7 @@ bool OMMRecord::generate_telemetry(int resolution_min) {
 	    struct SatTelemetry new_telemetry;
 	    // run Vallado's SGP4 code to get sat location in TEME
 	    // this also returns velocity which is currently not used
-	
+
 	    // the input data is TEME
 	    // Understanding so far is using a Geocentric reference
 	    // Caresian X == intersecting line between Equitorial plane and celestial plane (+ faces sun at Sprint Equinox)
@@ -209,9 +209,9 @@ bool OMMRecord::generate_telemetry(int resolution_min) {
 	    // Celestial Z is N/S from sirface reference
 	    // Declination is relative to Celestial Plane
 	    // RA is Eastward from Cartesian X Positive Axis
-	
+
 	    // ultimate target is Geodetic terrestrial latitude and Longitude of the sub sat location
-	
+
 	    /*
 	       this code treats TEME as ECI as GCRF
 	       this is *technically* incorrect, and probably needs to be refined later
@@ -219,26 +219,26 @@ bool OMMRecord::generate_telemetry(int resolution_min) {
 	       it looks like this introduces up to half a KM of error.
 	       At the scales we are operating here for display and maybe even for tracking
 	       This is likely a good starting point.
-	
+
 	       Keep in mind that this then compounds later with the  error
 	       when converting from GCRF to ITRF because the later only adjusts for GMST
-	
+
 	       This will need better refinement later, but may still be good enough for tracking
 	       It'll almost certainly be good enough for the display right now.
 	    */
-	
-	
+
+
 	    bool sgp4_result = SGP4Funcs::sgp4(satrec, tsince, position, velocity);
 	    if (!sgp4_result) {
 	        *(host_api->AaediHAM_LogDebug) << "Invalid Telemetry result\n";
 	        return false;
 	    }
 	    struct vector3 matrix[3];
-	
+
 	    // Approximate altitude in Km
 	    double magnitude = sqrt( (position[0]*position[0]) + (position[1]*position[1]) + (position[2]*position[2]));
 	    new_telemetry.alt 		= magnitude - Re;
-	
+
 	    // Declination and Right Ascention in Inertial Space, stored in Radians
 	    new_telemetry.dec 		= atan2(position[2], sqrt(position[0]*position[0]+position[1]*position[1]));
 	    new_telemetry.ra 		= atan2(position[1], position[0]);
@@ -259,20 +259,20 @@ bool OMMRecord::generate_telemetry(int resolution_min) {
 	  raw_coords.y=position[1];
 	  raw_coords.z=position[2];
 	  struct vector3 sat_ecef = transform(raw_coords, matrix);
-	
+
 	  // convert the coordinate reference frame from ECEF to SEZ/NEZ relative to DE
 	  /*
 	Original manually multiplied rotation matrix
 	      matrix[0] = {cos(DE.lat)*cos(DE.lon), cos(DE.lat)*(0.0-sin(DE.lon)), sin(DE.lat)};
 	      matrix[1] = {sin(DE.lon), cos(DE.lon), 0.0};
 	      matrix[2] = {(0.0-sin(DE.lat))*cos(DE.lon), (0.0-sin(DE.lat))*(0.0-sin(DE.lon)), cos(DE.lat)};
-	
+
 	    what X, Y, and Z mean is changing along with the rotation.
 	    So the labeling changes as well.
 	    A raw 3d rotational matrix assumes no change in the name
 	    of what is X, Y, Z. But since those are changing roles,
 	    the matrix has to be applied in a different order to reflect that
-	
+
 	    in ECEF, Z points at the North Pole, and X points to the vernal equinox.
 	    From the observer's perspective, those are North and Up respectively
 	    (so Z becomes Y and X becomes Z, which also means Y must become X)
@@ -280,33 +280,33 @@ bool OMMRecord::generate_telemetry(int resolution_min) {
 	    X matrix[0] (Vernal Equinox)  --> Z 2 (Up)
 	    Y matrix[1] (East) --> X 0 (East)
 	    Z matrix[2] (North Pole) --> Y 1 (Local North)
-	
+
 	    maybe one day I'll understand why the sign change on sin(DE.lon) has to exist
 	    */
-	
-	
+
+
 	    // rotate the context so that Z' points along the vector from Earth Center to DE
 	    // we only actually change sat_local here, because after this, DE is considered to be 0,0,0
-	
+
 	    // generate the rotation matrix from DE
 	    double slat = sin(DE.lat);
 	    double clat = cos(DE.lat);
 	    double slon = sin(DE.lon);
 	    double clon = cos(DE.lon);
-	
+
 	    matrix[0] = {0.0-slon, clon, 0.0};
 	    //           slon, clon, 0.0 // old matrix 1
 	    matrix[1] = {0.0-slat * clon, 0.0-slat * slon, clat};
 	    //	     -slat * clon, -slat * -slon, clat // old matrix 2
 	    matrix[2] = {clat * clon, clat * slon, slat};
 	    //           clat * clon, clat* -slon, slat // old matrix 0
-	
+
 	    // apply it to the satellite
 	    struct vector3 sat_local = transform(sat_ecef, matrix);
-	
+
 	    // translate the origin along Z' (Original ECEF Z no longer exists) to place the origin at DE
 	    sat_local.z -= Re;
-	
+
 	    // calculate Azimuth and Elevation
 	    /*
 	      Az = atan2(x, y)
@@ -314,7 +314,7 @@ bool OMMRecord::generate_telemetry(int resolution_min) {
 	    */
 	    new_telemetry.azimuth = (atan2(sat_local.x, sat_local.y))*180.0/M_PI;
 	    new_telemetry.elevation = (atan2(sat_local.z, sqrt((sat_local.x*sat_local.x)+(sat_local.y*sat_local.y))))*180.0/M_PI;
-	
+
 	    telemetry.push_back(new_telemetry);
 	    // prep for the next telemetry point
 	    tsince += resolution_min;
@@ -384,15 +384,15 @@ void OMMRecord::location (aaediclock_FPoint *result) {
 	double position[3];
 	time_t timestamp = time(NULL); // unmolested timestamp to use
 	double tsince = static_cast<double>(timestamp);
-	
+
 	double jd = (tsince / 86400.0) + 2440587.5;
 	tsince = jd - epoch_jd;
 	tsince *= (24*60);
-	
+
 	SGP4Funcs::sgp4(satrec, tsince, position, velocity);
 	double dec = atan2(position[2], sqrt(position[0]*position[0]+position[1]*position[1]));
 	double ra = atan2(position[1], position[0]);
-	
+
 	double lat = 0;
 	double lon = 0;
 	apply_GMST (timestamp, ra, dec, lat, lon);
@@ -875,25 +875,273 @@ double SGP4Parser::ISO8601_to_Julian(const std::string input) {
 }
 
 
-void SGP4Parser::fromXML(std::string& input) {
+bool SGP4Parser::fromXML(std::string& input) {
     // prep the XML Tree
     input.erase(std::remove(input.begin(), input.end(), '\r'), input.end());
     if (input.empty()) {
-        return;
+        return false;
     }
     xmlDocPtr xml_tree = 0;
     xml_tree = xmlReadMemory(input.data(), static_cast<int>(input.size()), nullptr, nullptr, 0);
     if (!xml_tree) {
         *(host_api->AaediHAM_LogDebug) << "Failed to parse Satellite XML\n";
+        return false;
     } else {
         // holding area for the OMM Record
         OMMRecord result;
         SGP4Parser::XML::process_node(xmlDocGetRootElement(xml_tree), result);
         xmlFreeDoc (xml_tree);
         xml_tree = nullptr;
+        return true;
     }
-    return;
 }
+
+void SGP4Parser::CSV::parse_headers(const std::string& input, std::vector<std::string>& headers) {
+	headers.clear();
+	if (input.empty()) {
+		*(host_api->AaediHAM_LogDebug) << "Empty CSV header line\n";
+		return;
+	}
+//	if (input.back() != '\n') {
+//		*(host_api->AaediHAM_LogDebug) << "Empty CSV, bad header line\n";
+//		return;
+//	}
+	size_t consumed = 0; 
+	size_t position = 0;
+	std::string header_name;
+	*(host_api->AaediHAM_LogDebug) << "parsing CSV header line\n";
+
+	while (position != std::string::npos) {
+		position = input.find (',',consumed);
+		if (position != std::string::npos) {
+			header_name = input.substr(consumed, position-consumed);
+		} else {
+			header_name = input.substr(consumed);
+
+		}
+		consumed += header_name.size()+1;
+		if (!header_name.empty()) {
+			headers.push_back(header_name);
+			*(host_api->AaediHAM_LogDebug) << "Header: "<< header_name << "\n";
+		}
+	}
+	*(host_api->AaediHAM_LogDebug) << "done parsing CSV header line\n";
+
+	return;
+}
+
+bool SGP4Parser::fromCSV(std::string& input) {
+	std::vector<std::string> headers;
+	size_t consumed = 0;
+	input.erase(std::remove(input.begin(), input.end(), '\r'), input.end());
+	if (input.empty()) {
+		*(host_api->AaediHAM_LogDebug) << "Empty CSV\n";
+		return false;
+	}
+	std::istringstream csv_stream(input);
+	std::string csv_line;
+	std::getline(csv_stream, csv_line);
+	if (csv_line.empty()) {
+		*(host_api->AaediHAM_LogDebug) << "Empty CSV, bad first line\n";
+		return false;
+	}
+	SGP4Parser::CSV::parse_headers(csv_line, headers);
+	if (headers.empty()) {
+		*(host_api->AaediHAM_LogDebug) << "Error parsing CSV headers\n";
+		return false;
+	}
+	consumed += csv_line.size();
+	aaediclock_Color trackcols = {255,0,0,255};
+
+	while (!csv_line.empty()) {
+		OMMRecord result;
+		result = {};
+
+		std::getline(csv_stream, csv_line);
+		if (!csv_line.empty()) {
+			std::string content_buffer;
+			std::vector<std::string>fields;
+			fields.clear();
+			size_t consumed = 0;
+			size_t position = 0;
+			std::string field_buffer;
+			// explode the row into an array matching the header fields
+			while (position != std::string::npos) {
+				position = csv_line.find (',',consumed);
+				if (position != std::string::npos) {
+					field_buffer = csv_line.substr(consumed, position-consumed);
+				} else {
+					field_buffer = input.substr(consumed);
+
+				}
+				consumed += field_buffer.size()+1;
+				fields.push_back(field_buffer);
+			}
+			// go through headers matching with the fields
+			for (size_t header_index = 0 ; header_index < headers.size(); header_index++) {
+				if (header_index < fields.size()) {
+					if (headers[header_index] == "OBJECT_NAME") {
+						result.name = fields[header_index];
+						if (result.name.empty()) {
+							result.name = "UNKNOWN";
+						}
+					} else if (headers[header_index] == "OBJECT_ID") {
+ 						result.object_id =  fields[header_index];
+						if (result.object_id.empty()) {
+							result.object_id = "UNKNOWN";
+						}
+					} else if (headers[header_index] == "EPOCH") {
+						result.epoch_raw = fields[header_index];
+						result.epoch_jd =  ISO8601_to_Julian(result.epoch_raw);
+					} else if (headers[header_index] == "MEAN_MOTION") {
+						try {
+			                        	content_buffer = fields[header_index];
+							result.mean_motion =  std::stod(content_buffer);
+						} catch (std::exception &e) {
+							*(host_api->AaediHAM_LogDebug) << "Invalid Mean Motion: " << e.what() << "\n";
+							result.valid = false;
+						}
+					} else if (headers[header_index] == "ECCENTRICITY") {
+						try {
+							content_buffer = fields[header_index];
+							result.eccentricity =  std::stod(content_buffer);
+						} catch (std::exception &e) {
+							*(host_api->AaediHAM_LogDebug) << "Invalid Eccentricity: " << e.what() << "\n";
+							result.valid = false;
+						}
+					} else if (headers[header_index] == "INCLINATION") {
+						content_buffer = fields[header_index];
+						try {
+						    result.inclination =  std::stod(content_buffer);
+								double conversion = result.inclination * M_PI / 180.0;
+								result.inclination = conversion;
+						} catch (std::exception &e) {
+								*(host_api->AaediHAM_LogDebug) << "Invalid Inclination: " << e.what() << "\n";
+								result.valid = false;
+						}
+					} else if (headers[header_index] == "RA_OF_ASC_NODE") {
+						content_buffer = fields[header_index];
+						try {
+							result.right_ascension_of_ascending_node =  std::stod(content_buffer);
+                        				double conversion = result.right_ascension_of_ascending_node * M_PI / 180.0;
+                        				result.right_ascension_of_ascending_node = conversion;
+        					} catch (std::exception &e) {
+                        				*(host_api->AaediHAM_LogDebug) << "Invalid RA of Ascending Node: " << e.what() << "\n";
+                        				result.valid = false;
+                    				}
+					} else if (headers[header_index] == "ARG_OF_PERICENTER") {
+						content_buffer = fields[header_index];
+						try {
+							result.arg_pericenter =  std::stod(content_buffer);
+							double conversion = result.arg_pericenter * M_PI / 180.0;
+							result.arg_pericenter = conversion;
+						} catch (std::exception &e) {
+							*(host_api->AaediHAM_LogDebug) << "Invalid Argument of Pericenter: " << e.what() << "\n";
+							result.valid = false;
+						}
+
+					} else if (headers[header_index] == "MEAN_ANOMALY") {
+						content_buffer = fields[header_index];
+						try {
+							result.mean_anomaly =  std::stod(content_buffer);
+							double conversion = result.mean_anomaly * M_PI / 180.0;
+							result.mean_anomaly = conversion;
+						} catch (std::exception &e) {
+							*(host_api->AaediHAM_LogDebug) << "Invalid Mean Anomaly: " << e.what() << "\n";
+							result.valid = false;
+						}
+					} else if (headers[header_index] == "EPHEMERIS_TYPE") {
+						content_buffer = fields[header_index];
+						try {
+							result.ephemeris_type =  std::stoi(content_buffer);
+						} catch (std::exception &e) {
+							*(host_api->AaediHAM_LogDebug) << "Invalid Ephemeris Type: " << e.what() << "\n";
+							result.valid = false;
+						}
+					} else if (headers[header_index] == "CLASSIFICATION_TYPE") {
+						content_buffer = fields[header_index];
+						if (!content_buffer.empty()) {
+							result.class_type =  content_buffer.front();
+						}
+					} else if (headers[header_index] == "NORAD_CAT_ID") {
+						result.norad_id = fields[header_index];
+						if (result.norad_id.empty()) {
+							*(host_api->AaediHAM_LogDebug) << "Invalid NORAD Catalog ID\n";
+							result.norad_id = "00000";
+						}
+					} else if (headers[header_index] == "ELEMENT_SET_NO") {
+						content_buffer = fields[header_index];
+						try { 
+							result.element_set_no =  std::stoul(content_buffer);
+
+						} catch (std::exception &e) {
+							*(host_api->AaediHAM_LogDebug) << "Invalid Element Set Number: " << e.what() << "\n";
+
+						}
+					} else if (headers[header_index] == "REV_AT_EPOCH") {
+						content_buffer = fields[header_index];
+						try {
+							result.revolution_at_epoch =  std::stoul(content_buffer);
+						} catch (std::exception &e) {
+						    *(host_api->AaediHAM_LogDebug) << "Invalid Revolution: " << e.what() << "\n";
+						    result.valid = false;
+						}
+					} else if (headers[header_index] == "BSTAR") {
+						try {
+							content_buffer = fields[header_index];
+							result.bstar =  std::stod(content_buffer);
+						} catch (std::exception &e) {
+							*(host_api->AaediHAM_LogDebug) << "Invalid Eccentricity: " << e.what() << "\n";
+							result.valid = false;
+						}
+					} else if (headers[header_index] == "MEAN_MOTION_DOT") {
+						content_buffer = fields[header_index];
+						try {
+					 		result.mean_motion_dot =  std::stod(content_buffer);
+						} catch (std::exception &e) {
+							*(host_api->AaediHAM_LogDebug) << "Invalid Mean Motion DOT: " << e.what() << "\n";
+							result.valid = false;
+						}
+					} else if (headers[header_index] == "MEAN_MOTION_DDOT") {
+						content_buffer = fields[header_index];
+						try {
+					 		result.mean_motion_ddot =  std::stod(content_buffer);
+						} catch (std::exception &e) {
+							*(host_api->AaediHAM_LogDebug) << "Invalid Mean Motion DDOT: "<< content_buffer<<" -- " << e.what() << "\n";
+							result.valid = false;
+						}
+					}
+				}
+			}
+
+ 			if (!result.name.empty()) {
+				result.valid = true;
+			}
+			if (result.valid) {
+				trackcols.r -= 20;
+				trackcols.g += 20;
+				trackcols.b += 10;
+				int sat_count = host_api->AaediHAM_ConfigGetSatCount();
+				for (int x = 0 ; x < sat_count ; x++) {
+					std::string instring;
+					instring = result.name;
+					const std::string stropt = host_api->AaediHAM_ConfigGetSat(x);
+					if (instring.compare(0,stropt.length(),stropt)==0) {
+						result.color = trackcols;
+						satlist.push_back(result);
+						satlist.back().sgp4_init();
+						satlist.back().generate_telemetry(1);
+					}
+				}
+			}
+
+		}
+
+	}
+	return true;
+}
+
+
 
 
 
@@ -942,7 +1190,9 @@ int SDLCALL fetch_celestrak(void* data) {
 //		std::cout << "Empty Local Site Cache path\n";
 		web_source = "https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=xml";
 	} else {
-		web_source += "celestrak.xml";
+//		web_source += "celestrak.xml";
+	web_source += "celestrak.csv";
+
 //		std::cout << "Using Local Site Cache Path "<< web_source << "\n";
 	}
         data_size = http_loader(web_source.c_str(), (void**)&amateur_tle, 60);   //
@@ -960,11 +1210,23 @@ int SDLCALL fetch_celestrak(void* data) {
         }
     }
     if (data_size > 256) {
+        bool parse_result = false;
         *(host_api->AaediHAM_LogDebug) << "Fetched New Sat data\n";
-        const std::lock_guard<std::mutex>sat_lock(sat_tracker_mutex);
+//        const std::lock_guard<std::mutex>sat_lock(sat_tracker_mutex);
         satlist.clear();
         std::string raw_xml = amateur_tle;
-        SGP4Parser::fromXML(raw_xml);
+        *(host_api->AaediHAM_LogDebug) << "Trying XML Parser\n";
+        parse_result = SGP4Parser::fromXML(raw_xml);
+        if (!parse_result || satlist.empty()) {
+            // try csv
+            *(host_api->AaediHAM_LogDebug) << "Trying CSV Parser\n";
+            parse_result = SGP4Parser::fromCSV(raw_xml);
+            if (!parse_result) {
+                *(host_api->AaediHAM_LogDebug) << "CSV Parse error\n";
+            } else {
+                *(host_api->AaediHAM_LogDebug) << "parsed CSV \n";
+            }
+        }
 
         if (amateur_tle) {
             free(amateur_tle);
@@ -994,7 +1256,7 @@ Uint32 SDLCALL fetch_celestrak (void *userdata, SDL_TimerID timerID, Uint32 inte
     (void)userdata;
     (void)interval;
      if (timerID) {
-         const std::lock_guard<std::mutex>sat_lock(sat_tracker_mutex);
+//         const std::lock_guard<std::mutex>sat_lock(sat_tracker_mutex);
          fetch_result = 10;
          SDL_Thread* thread = SDL_CreateThread(fetch_celestrak, "Celestrak Fetcher", nullptr);
           if (thread) {
@@ -1024,7 +1286,7 @@ void new_sat_tracker_plugin::plugin_init() const {
 }
 
 void new_sat_tracker_plugin::plugin_exit() const {
-    const std::lock_guard<std::mutex>sat_lock(sat_tracker_mutex);
+//    const std::lock_guard<std::mutex>sat_lock(sat_tracker_mutex);
     if (sat_timer) {
         SDL_RemoveTimer(sat_timer);
     }
@@ -1237,18 +1499,20 @@ void new_sat_tracker_plugin::plugin_main(const aaediclock_FRect& dims) const {
     redraw_flag = (!host_api->AaediHAM_OverlayCheck());
 //    aaediclock_FRect textrect;
 //    textrect.x=2;
-    const std::lock_guard<std::mutex>sat_lock(sat_tracker_mutex);
-    if (!satlist.empty()) {
-        if (pass_pager[0] >= satlist.size()) {
-            pass_pager[0]=0;
-        }
-        draw_pass_tracker(dims, satlist[pass_pager[0]]);
-        if (pass_pager[1] >5) {
-            pass_pager[0]++;
-            pass_pager[1]=0;
-        }
-        pass_pager[1]++;
-    }
+
+	const std::lock_guard<std::mutex>sat_lock(sat_tracker_mutex);
+		if (!satlist.empty()) {
+			if (pass_pager[0] >= satlist.size()) {
+			    pass_pager[0]=0;
+			}
+			draw_pass_tracker(dims, satlist[pass_pager[0]]);
+			if (pass_pager[1] >5) {
+			    pass_pager[0]++;
+			    pass_pager[1]=0;
+			}
+			pass_pager[1]++;
+		}
+
 //    textrect.w=dims.w/3;
 //    textrect.h=dims.h/10;
 //    textrect.y=2;

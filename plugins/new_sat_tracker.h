@@ -78,7 +78,12 @@ namespace SGP4Parser {
         void process_node(xmlNode* start_node, OMMRecord& result);
     }
     double ISO8601_to_Julian(std::string);
-    void fromXML(std::string& input);
+    bool fromXML(std::string& input);
+
+    namespace CSV {
+        void parse_headers(const std::string& input, std::vector<std::string>& headers);
+    }
+    bool fromCSV(std::string& input);
 }
 
 class DllExport new_sat_tracker_plugin : public aaediclock_plugin_api {
