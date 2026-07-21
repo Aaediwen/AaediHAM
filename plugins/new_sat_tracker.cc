@@ -975,6 +975,10 @@ bool SGP4Parser::fromCSV(std::string& input) {
 
 				}
 				consumed += field_buffer.size()+1;
+				if (field_buffer.size() > 1024) {
+					field_buffer.resize(1024);
+					*(host_api->AaediHAM_LogDebug) << "Oversize field buffer!!";
+				}
 				fields.push_back(field_buffer);
 			}
 			// go through headers matching with the fields
@@ -1501,17 +1505,17 @@ void new_sat_tracker_plugin::plugin_main(const aaediclock_FRect& dims) const {
 //    textrect.x=2;
 
 	const std::lock_guard<std::mutex>sat_lock(sat_tracker_mutex);
-		if (!satlist.empty()) {
-			if (pass_pager[0] >= satlist.size()) {
-			    pass_pager[0]=0;
-			}
-			draw_pass_tracker(dims, satlist[pass_pager[0]]);
-			if (pass_pager[1] >5) {
-			    pass_pager[0]++;
-			    pass_pager[1]=0;
-			}
-			pass_pager[1]++;
+	if (!satlist.empty()) {
+		if (pass_pager[0] >= satlist.size()) {
+		    pass_pager[0]=0;
 		}
+		draw_pass_tracker(dims, satlist[pass_pager[0]]);
+		if (pass_pager[1] >5) {
+		    pass_pager[0]++;
+		    pass_pager[1]=0;
+		}
+		pass_pager[1]++;
+	}
 
 //    textrect.w=dims.w/3;
 //    textrect.h=dims.h/10;
@@ -1534,32 +1538,32 @@ void new_sat_tracker_plugin::plugin_main(const aaediclock_FRect& dims) const {
             icon = 0;
         }
     }
-    for (auto& sat : satlist) {
-        if ((sat.telemetry_age() - time_now) < 60) {
-            sat.generate_telemetry(1);
-//            redraw_flag = true;
-        }
-
-        draw_sat_groundtrack(sat, mapsize);
-        struct aaediclock_map_pin sat_pin;
-        aaediclock_FPoint sat_loc;
-        sat.location(&sat_loc);
-        sat_pin.owner   =               0;
-        memset (sat_pin.label,0,32);
-        int length = sat.name.size();
-        if (length > 31) {
-            length = 31;
-        }
-        memcpy(sat_pin.label, sat.name.c_str(), length);
-        sat_pin.lat     =               sat_loc.x;
-        sat_pin.lon     =               sat_loc.y;
-        sat_pin.icon = 0;
-        sat_pin.icon        =       icon;
-        sat_pin.color   =               sat.color;
-        sat_pin.tooltip[0]      =               0;
-        host_api->AaediHAM_MapPinAdd(sat_pin);
-//        textrect.y += dims.h/10;
-    }
+	for (auto& sat : satlist) {
+		if ((sat.telemetry_age() - time_now) < 60) {
+		    sat.generate_telemetry(1);
+			// redraw_flag = true;
+		}
+		
+		draw_sat_groundtrack(sat, mapsize);
+		struct aaediclock_map_pin sat_pin;
+		aaediclock_FPoint sat_loc;
+		sat.location(&sat_loc);
+		sat_pin.owner   =               0;
+		memset (sat_pin.label,0,32);
+		int length = sat.name.size();
+		if (length > 31) {
+		    length = 31;
+		}
+		memcpy(sat_pin.label, sat.name.c_str(), length);
+		sat_pin.lat     =               sat_loc.x;
+		sat_pin.lon     =               sat_loc.y;
+		sat_pin.icon = 0;
+		sat_pin.icon        =       icon;
+		sat_pin.color   =               sat.color;
+		sat_pin.tooltip[0]      =               0;
+		host_api->AaediHAM_MapPinAdd(sat_pin);
+		//  textrect.y += dims.h/10;
+	}
 }
 
 const char* new_sat_tracker_plugin::getName() const {
