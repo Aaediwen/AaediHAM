@@ -24,7 +24,10 @@ set(CURL_NAME )
 if (NOT WIN32)
 	set(CURL_NAME CURL::libcurl)
 endif()
+set(LIBXML2_WITH_TESTS OFF CACHE BOOL "" FORCE)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+set(CMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE PRE_TEST)
 
 set (SOURCES
 	core/init.cc
@@ -175,22 +178,28 @@ add_library(dx_cluster_plugin SHARED
 )
 target_link_libraries(dx_cluster_plugin PRIVATE aaediclock_path SDL3::SDL3 LibXml2::LibXml2 ${CURL_NAME})
 
+#add_library(sat_tracker_plugin SHARED
+#    plugins/sat_tracker.cc
+#    utils/http_fetch.cc
+#    utils/conversions.cc
+#)
+#target_link_libraries(sat_tracker_plugin PRIVATE aaediclock_path sgp4 SDL3::SDL3 SDL3_image::SDL3_image ${CURL_NAME})
 add_library(sat_tracker_plugin SHARED
-    plugins/sat_tracker.cc
-    utils/http_fetch.cc
-    utils/conversions.cc
-)
-target_link_libraries(sat_tracker_plugin PRIVATE aaediclock_path sgp4 SDL3::SDL3 SDL3_image::SDL3_image ${CURL_NAME})
-
-add_library(new_sat_tracker_plugin SHARED
-    plugins/new_sat_tracker.cc 
+    plugins/sat_tracker.cc 
     plugins/SGP4/SGP4.cpp
     utils/http_fetch.cc
     utils/conversions.cc
 )
+target_link_libraries(sat_tracker_plugin PRIVATE aaediclock_path SDL3::SDL3 SDL3_image::SDL3_image LibXml2::LibXml2 ${CURL_NAME})
+#add_library(new_sat_tracker_plugin SHARED
+#    plugins/new_sat_tracker.cc 
+#    plugins/SGP4/SGP4.cpp
+#    utils/http_fetch.cc
+#    utils/conversions.cc
+#)
 #temporary for Vallado test
 #target_compile_options(new_sat_tracker_plugin PRIVATE -fpermissive)
-target_link_libraries(new_sat_tracker_plugin PRIVATE aaediclock_path SDL3::SDL3 SDL3_image::SDL3_image LibXml2::LibXml2 ${CURL_NAME})
+#target_link_libraries(new_sat_tracker_plugin PRIVATE aaediclock_path SDL3::SDL3 SDL3_image::SDL3_image LibXml2::LibXml2 ${CURL_NAME})
 
 
 add_library(aurora_plugin SHARED
@@ -273,7 +282,7 @@ set(PLUGIN_TARGETS
     dx_plugin
     dx_cluster_plugin
     sat_tracker_plugin
-    new_sat_tracker_plugin
+#    new_sat_tracker_plugin
     aurora_plugin
     sdo_plugin
     contest_plugin
@@ -334,8 +343,8 @@ if(WIN32)
     	list(APPEND CMAKE_PREFIX_PATH "${EXTERNAL_DIR}")
 
     	target_include_directories(clock PRIVATE ${EXTERNAL_DIR}/json-develop/include)
-	find_build(sgp4 https://github.com/dnwrnr/sgp4.git "master"  "sgp4-src/")
-        target_include_directories(sat_tracker_plugin SYSTEM PRIVATE ${sgp4_SOURCE_DIR})
+#	find_build(sgp4 https://github.com/dnwrnr/sgp4.git "master"  "sgp4-src/")
+#        target_include_directories(sat_tracker_plugin SYSTEM PRIVATE ${sgp4_SOURCE_DIR})
 	find_build(libxml2 "https://gitlab.gnome.org/GNOME/libxml2.git" "master" .)
 	
 elseif(APPLE)
@@ -345,8 +354,8 @@ elseif(APPLE)
 	find_package(ZLIB REQUIRED)
 	find_build(CURL "https://github.com/curl/curl.git" master .)  	
 	target_link_libraries(clock PRIVATE ZLIB::ZLIB CURL::libcurl m) 
-        find_build(sgp4 https://github.com/dnwrnr/sgp4.git "master" "sgp4-src/")
-        target_include_directories(sat_tracker_plugin SYSTEM PRIVATE ${sgp4_SOURCE_DIR})
+ #       find_build(sgp4 https://github.com/dnwrnr/sgp4.git "master" "sgp4-src/")
+ #       target_include_directories(sat_tracker_plugin SYSTEM PRIVATE ${sgp4_SOURCE_DIR})
 	find_build(libXml2 "https://gitlab.gnome.org/GNOME/libxml2.git" "master" .)
 	list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew")
 	find_build(Fontconfig "https://gitlab.freedesktop.org/fontconfig/fontconfig.git" "main" .)
@@ -360,8 +369,8 @@ else()
         find_build(Fontconfig "https://gitlab.freedesktop.org/fontconfig/fontconfig.git" "main" .)
 #	find_package(Fontconfig REQUIRED)
 	target_link_libraries(clock PRIVATE ZLIB::ZLIB CURL::libcurl m fontconfig) 
-        find_build(sgp4 https://github.com/dnwrnr/sgp4.git "master" "sgp4-src/")
-        target_include_directories(sat_tracker_plugin SYSTEM PRIVATE ${sgp4_SOURCE_DIR})
+ #       find_build(sgp4 https://github.com/dnwrnr/sgp4.git "master" "sgp4-src/")
+ #       target_include_directories(sat_tracker_plugin SYSTEM PRIVATE ${sgp4_SOURCE_DIR})
 	find_build(libxml2 "https://gitlab.gnome.org/GNOME/libxml2.git" "master" .)
 
 endif()
@@ -379,7 +388,7 @@ endif()
 	find_build("paho-mqtt3c" "https://github.com/eclipse-paho/paho.mqtt.c.git" "master" .)
 	find_build(nlohmann_json "https://github.com/nlohmann/json.git" "master" .)
 	set(LIBXML2_WITH_TESTS OFF CACHE BOOL "" FORCE)
-	set(SGP4_LIB sgp4)
+#	set(SGP4_LIB sgp4)
 
 # ================================================================================
 # PLATFORM DEPENDANT FETCHES AND CLEANUP

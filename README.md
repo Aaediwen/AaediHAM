@@ -242,9 +242,9 @@ The program now requires a config file (default: aaediclock_config.json in the C
   - https://api.pota.app/spot/activator
   - Current Active POTA Spots for POTA module and plotted on the map
   - downloaded every 5 minutes at runtime
-- **Satellite Data**
+- **Celestrak Satellite Data -- T.S. Kelso**
   - https://celestrak.org/NORAD/elements/
-  - Current AmSat Tracking data for Satellite Tracking module
+  - Current Tracking data for Satellite Tracking module
   - downloaded every couple hours at runtime
 - **K Index Data**
   - https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json
