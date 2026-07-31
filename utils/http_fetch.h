@@ -12,7 +12,7 @@
 #include <error.h>
 #include <curl/curl.h>
 #endif
-
+constexpr SDL_Time HR_NS = 3600000000000;
 
 struct http_payload {
 	std::string source_url;

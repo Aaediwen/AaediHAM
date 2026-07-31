@@ -89,8 +89,8 @@ int SDLCALL fetch_contests (void* data) {
 	if (contest_feed.empty()) {
 		std::string error_string;
 		*(host_api->AaediHAM_LogDebug) <<"Reading Contests from WA7BNM Disk Cache via timer\n";
-		// 3 hour max cache age
-		data_size = disk_cache_read (full_cache_path, (void**)&fetch_spots, 10800000000000, error_string);
+		// 6 hour max cache age
+		data_size = disk_cache_read (full_cache_path, (void**)&fetch_spots, 6 * HR_NS, error_string);
 		if (data_size == 0) {
 			*(host_api->AaediHAM_LogDebug) <<"Cache Result: " << error_string << "\n";
 		} else {
@@ -98,9 +98,19 @@ int SDLCALL fetch_contests (void* data) {
 		}
 	}
 	if (!file_valid) {
+		std::string web_source = host_api->AaediHAM_ConfigGetSiteCache();
+		if (web_source.empty()) {
+			web_source = "https://www.contestcalendar.com/calendar.rss";
+		} else {
+			web_source += "contests.rss";
+		}
+
 		*(host_api->AaediHAM_LogDebug) <<"Fetching Contests from WA7BNM via timer\n";
 		SDL_Log("Fetching contests from WA7BNM via timer");
-		data_size = http_loader("https://www.contestcalendar.com/calendar.rss", (void**)&fetch_spots);
+		struct http_payload payload;
+		payload.source_url = web_source;
+		payload.result = (void**)&fetch_spots;
+		data_size = http_loader(payload);
 	}
 	if (data_size) {
 		if (!file_valid) {

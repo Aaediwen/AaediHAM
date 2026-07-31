@@ -1161,7 +1161,7 @@ int SDLCALL fetch_celestrak(void* data) {
 	std::fstream disk_file;
 	std::string full_cache_path = host_api->AaediHAM_ConfigGetCachePath();
 	full_cache_path += "celestrak.cache";
-	data_size = disk_cache_read (full_cache_path, (void**)&amateur_tle, 21600000000000, error_string);
+	data_size = disk_cache_read (full_cache_path, (void**)&amateur_tle, 6 * HR_NS, error_string);
 	if (data_size == 0) {
  		*(host_api->AaediHAM_LogDebug) <<"Cache Result: " << error_string << "\n";
  	} else {

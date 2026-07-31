@@ -47,24 +47,25 @@ std::array<std::string,5>VHF_Conditions;
 void parse_n0nbh(xmlNode* start_node) {
 	xmlNode* current_node = nullptr;
 	for (current_node = start_node; current_node; current_node = current_node->next) {
-        	if (current_node->type == XML_ELEMENT_NODE) {
-        		std::string NodeName(reinterpret_cast<const char*>(current_node->name));
-//               	*(host_api->AaediHAM_LogDebug) << "XML Node Name: "<< NodeName << "\n";
-               		std::transform(NodeName.begin(), NodeName.end(), NodeName.begin(), ::tolower);
-               		if ((NodeName == "solar") || NodeName == "solardata" || NodeName == "calculatedconditions" || NodeName == "calculatedvhfconditions") {
-               			parse_n0nbh(current_node->children);
+		if (current_node->type == XML_ELEMENT_NODE) {
+			std::string NodeName(reinterpret_cast<const char*>(current_node->name));
+		//	*(host_api->AaediHAM_LogDebug) << "XML Node Name: "<< NodeName << "\n";
+			std::transform(NodeName.begin(), NodeName.end(), NodeName.begin(), ::tolower);
+			if ((NodeName == "solar") || NodeName == "solardata" || 
+				NodeName == "calculatedconditions" || NodeName == "calculatedvhfconditions") {
+				parse_n0nbh(current_node->children);
 			} else if (NodeName == "band") {
-                        	std::string xml_content;
-                        	xmlChar* attribute;
-                        	xmlNodeGetAttrValue(current_node, (const xmlChar*)"name", NULL, &attribute);
-                        	enum bands band = bands::BAND_ENULL;
-                        	if (attribute) {
-                        		xml_content = reinterpret_cast<const char*>(attribute);
-
-                        		if (xml_content == "80m-40m") {
-                        			band = bands::BAND_80_40;
-                        		} else if (xml_content == "30m-20m") {
-                        			band = bands::BAND_30_20;
+				std::string xml_content;
+				xmlChar* attribute;
+				xmlNodeGetAttrValue(current_node, (const xmlChar*)"name", NULL, &attribute);
+				enum bands band = bands::BAND_ENULL;
+				if (attribute) {
+					xml_content = reinterpret_cast<const char*>(attribute);
+			
+					if (xml_content == "80m-40m") {
+						band = bands::BAND_80_40;
+					} else if (xml_content == "30m-20m") {
+						band = bands::BAND_30_20;
 					} else if (xml_content == "17m-15m") {
 						band = bands::BAND_17_15;
 					} else if (xml_content == "12m-10m") {
@@ -86,10 +87,10 @@ void parse_n0nbh(xmlNode* start_node) {
 				MUF Module: E-Skip      europe_6m       Band Closed
 				MUF Module: E-Skip      europe_4m       Band Closed
 
-                             */
-                             		xml_content.clear();
-                             		free(attribute);
-                             		attribute = nullptr;
+				*/
+					xml_content.clear();
+					free(attribute);
+					attribute = nullptr;
 				}
 				xmlNodeGetAttrValue(current_node, (const xmlChar*)"time", NULL, &attribute);
 				xmlChar* xmlRaw;
@@ -125,31 +126,31 @@ void parse_n0nbh(xmlNode* start_node) {
 				}
 
 			} else if (NodeName == "phenomenon") {
-                        	std::string xml_content;
-                        	xmlChar* attribute;
-                        	xmlNodeGetAttrValue(current_node, (const xmlChar*)"name", NULL, &attribute);
-                        	if (attribute) {
+				std::string xml_content;
+				xmlChar* attribute;
+				xmlNodeGetAttrValue(current_node, (const xmlChar*)"name", NULL, &attribute);
+				if (attribute) {
 					std::string attr_name = reinterpret_cast<const char*>(attribute);
 					free(attribute);
 					attribute = nullptr;
-                        	}
-	                        xmlNodeGetAttrValue(current_node, (const xmlChar*)"location", NULL, &attribute);
-	                        enum VHFLocations location = VHFLocations::VHF_ENULL;
-	                        if (attribute) {
-        	                	xml_content = reinterpret_cast<const char*>(attribute);
-        	                	if (xml_content == "northern_hemi") {
-                	        		location = VHFLocations::AURORA;
+				}
+				xmlNodeGetAttrValue(current_node, (const xmlChar*)"location", NULL, &attribute);
+				enum VHFLocations location = VHFLocations::VHF_ENULL;
+				if (attribute) {
+					xml_content = reinterpret_cast<const char*>(attribute);
+					if (xml_content == "northern_hemi") {
+						location = VHFLocations::AURORA;
 					} else if (xml_content == "europe") {
-                	        		location = VHFLocations::SKIP_EU_2M;
+						location = VHFLocations::SKIP_EU_2M;
 					} else if (xml_content == "europe_4m") {
-                	        		location = VHFLocations::SKIP_EU_4M;
-                	        	} else if (xml_content == "europe_6m") {
-                	        		location = VHFLocations::SKIP_EU_6M;
-                	        	}  else if (xml_content == "north_america") {
-                	        		location = VHFLocations::SKIP_NA;
-                	        	}
-                	        	free(attribute);
-                	        	attribute = nullptr;
+						location = VHFLocations::SKIP_EU_4M;
+					} else if (xml_content == "europe_6m") {
+						location = VHFLocations::SKIP_EU_6M;
+					}  else if (xml_content == "north_america") {
+						location = VHFLocations::SKIP_NA;
+					}
+					free(attribute);
+					attribute = nullptr;
 				}
 				if (location != VHFLocations::VHF_ENULL) {
 					xmlChar* xmlRaw;
@@ -170,44 +171,29 @@ int SDLCALL fetch_HamQSL (void* data) {
 	Uint64 data_size = 0;
 	bool file_valid = false;
 	std::fstream disk_file;
-        SDL_PathInfo fileinfo;
-        std::string full_cache_path = host_api->AaediHAM_ConfigGetCachePath();
-        full_cache_path += "n0nbh.cache";
-        if (SDL_GetPathInfo(full_cache_path.c_str(), &fileinfo)) {
-        	SDL_Time sdl_now;
-        	SDL_GetCurrentTime(&sdl_now);
-        	if ((sdl_now - fileinfo.modify_time) < 10800000000000  ) { // 3 Hours in ns
-                	data_size = fileinfo.size;
-                	disk_file.open(full_cache_path.c_str(), (std::fstream::binary | std::fstream::in ));
-                	if (disk_file.is_open()) {
-                		fetch_spots = (char*)malloc(fileinfo.size+1);
-                		if (fetch_spots) {
-                			if (disk_file.read(fetch_spots, fileinfo.size)) {
-                				fetch_spots[fileinfo.size] = '\0';
-                				*(host_api->AaediHAM_LogDebug) <<"Reading Band Data from N0NBH Disk Cache via timer\n";
-                				file_valid = true;
-					} else {
-						free(fetch_spots);
-						fetch_spots = 0;
-					}
-				}
-				disk_file.close();
-			}
-		}
-
+	SDL_PathInfo fileinfo;
+	std::string full_cache_path = host_api->AaediHAM_ConfigGetCachePath();
+	full_cache_path += "n0nbh.cache";
+	std::string error_string;
+	data_size = disk_cache_read (full_cache_path, (void**)&fetch_spots, 3 * HR_NS, error_string);
+	if (data_size == 0) {
+		*(host_api->AaediHAM_LogDebug) <<"Cache Result: " << error_string << "\n";
+	} else {
+		*(host_api->AaediHAM_LogDebug) <<"Reading Band Data from N0NBH Disk Cache via timer\n";
+		file_valid = true;
 	}
 	if (!file_valid) {
-        	*(host_api->AaediHAM_LogDebug) <<"Fetching Contests from HamQSO (N0NBH) via timer\n";
-        	SDL_Log("Fetching contests from HamQSL (N0NBH) via timer");
-        	data_size = http_loader("https://www.hamqsl.com/solarxml.php", (void**)&fetch_spots);
+		*(host_api->AaediHAM_LogDebug) <<"Fetching Contests from HamQSO (N0NBH) via timer\n";
+		SDL_Log("Fetching contests from HamQSL (N0NBH) via timer");
+		data_size = http_loader("https://www.hamqsl.com/solarxml.php", (void**)&fetch_spots);
 	}
 	if (data_size) {
-        	if (!file_valid) {
-        		disk_file.open(full_cache_path.c_str(), (std::fstream::binary | std::fstream::out | std::fstream::trunc));
-        		if (disk_file.is_open()) {
-        			disk_file.write(fetch_spots, data_size);
-        			if (!disk_file.good()) {
-        				*(host_api->AaediHAM_LogDebug) << "Cache write failed\n";
+		if (!file_valid) {
+			disk_file.open(full_cache_path.c_str(), (std::fstream::binary | std::fstream::out | std::fstream::trunc));
+			if (disk_file.is_open()) {
+				disk_file.write(fetch_spots, data_size);
+				if (!disk_file.good()) {
+					*(host_api->AaediHAM_LogDebug) << "Cache write failed\n";
 				}
 			}
 			disk_file.close();
@@ -223,8 +209,8 @@ int SDLCALL fetch_HamQSL (void* data) {
 		}
 	}
 	if(fetch_spots) {
-        	free (fetch_spots);
-        	fetch_spots=0;
+		free (fetch_spots);
+		fetch_spots=0;
 	}
 	return 0;
 }
@@ -233,15 +219,15 @@ Uint32 SDLCALL fetch_HamQSL (void *userdata, SDL_TimerID timerID, Uint32 interva
 	(void)interval;
 	(void)userdata;
 	if (timerID) {
-        	SDL_Thread* thread = SDL_CreateThread(fetch_HamQSL, "HamQSL Fetcher", nullptr);
-        	if (thread) {
-        		SDL_DetachThread(thread);
+		SDL_Thread* thread = SDL_CreateThread(fetch_HamQSL, "HamQSL Fetcher", nullptr);
+		if (thread) {
+			SDL_DetachThread(thread);
 		} else {
 			*(host_api->AaediHAM_LogDebug) << "Failed to Create HamQSL Fetch Thread\n";
 		}
 		return (10800000); // 3 Hrs
 	} else {
-        	return 0;
+		return 0;
 	}
 }
 
@@ -258,7 +244,7 @@ extern "C" DllExport void destroyPlugin(aaediclock_plugin_api* target) {
 
 void muf_plugin::plugin_init() const {
 	if (!n0nbh_timer) {
-        	n0nbh_timer = SDL_AddTimer(30, fetch_HamQSL, NULL);
+		n0nbh_timer = SDL_AddTimer(30, fetch_HamQSL, NULL);
 	}
 	return;
 }
