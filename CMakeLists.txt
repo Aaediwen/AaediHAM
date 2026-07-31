@@ -98,7 +98,7 @@ else()
 	if (ASAN_ENABLE)
         	target_compile_options(clock PRIVATE
                 	$<$<CONFIG:Debug>:-Wall -Wextra -Werror -Wunused -O0 -fsanitize=address -pg -g >
-	                $<$<CONFIG:Release>:-O3 -DNDEBUG>
+	                $<$<CONFIG:Release>:-O3 -Wno-psabi -DNDEBUG>
         	)
 		target_link_options(clock PRIVATE
     			$<$<CONFIG:Debug>:LINKER:--no-undefined,-E,-fsanitize=address>
@@ -107,7 +107,7 @@ else()
 	else ()
         	target_compile_options(clock PRIVATE
                 	$<$<CONFIG:Debug>:-Wall -Wextra -Werror -Wunused -O0 -pg -g >
-	                $<$<CONFIG:Release>: -O3>
+	                $<$<CONFIG:Release>: -Wno-psabi -O3>
         	)
 		target_link_options(clock PRIVATE
     			$<$<CONFIG:Debug>:LINKER:--no-undefined,-E>
