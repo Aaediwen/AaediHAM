@@ -1001,7 +1001,7 @@ void map_overlay::remove_overlay(uint16_t owner) {
 		if (it->owner == owner) {
 			debug_log << "OVERLAY: Removing overlay for " << owner << "\n";
 			it->panel.Reset();
-			overlay_list.erase(it);
+			it = overlay_list.erase(it);
 			return;
 		}
 	}
