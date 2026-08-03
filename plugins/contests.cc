@@ -186,10 +186,11 @@ void contest_plugin::plugin_exit() const {
 	return;
 }
 size_t contest_page[2]={0,2};
-bool cycle = false;
+bool cycle = true;
 
 void contest_plugin::plugin_main(const aaediclock_FRect& dims) const {
 	//    const size_t contest_start = contest_page[0]*15;
+	const int page_size = 7;
 	if ((dims.h < 10) || (dims.w < 10)) {
 	    return;
 	}
@@ -203,12 +204,13 @@ void contest_plugin::plugin_main(const aaediclock_FRect& dims) const {
 	    }
 	}
 
-	 aaediclock_FRect TextRect;
-	 aaediclock_Color panel_color;
+	aaediclock_FRect TextRect;
+	aaediclock_Color title_color;
+	aaediclock_Color sched_color = {128, 128, 0, 255};
 	 if (cycle) {
-	     panel_color = {0, 128, 128, 255};
+	     title_color = {0, 128, 128, 255};
 	 } else {
-	     panel_color = {0, 128, 200, 255};
+	     title_color = {0, 128, 200, 255};
 	 }
 
 	 host_api->AaediHAM_GraphicsClear();
@@ -219,25 +221,30 @@ void contest_plugin::plugin_main(const aaediclock_FRect& dims) const {
 	 TextRect.h=unity;
 	 TextRect.x=unitx/2;
 	 TextRect.y=2;
-	 host_api->AaediHAM_GraphicsDrawText("WA7BNM Contest Calendar", panel_color, TextRect);
+	 host_api->AaediHAM_GraphicsDrawText("WA7BNM Contest Calendar", title_color, TextRect);
 	 TextRect.y += unity;
 	//     const std::lock_guard<std::mutex>contest_lock(contest_mutex);
 	if (!contest_feed.empty()) {
 		for (const auto& contest : contest_feed) {
-			if ((TextRect.y <= unity*15) && (contest_index >= contest_page[0]*15) && (contest_index<(contest_page[0]*15)+15)) {
+			if ((TextRect.y <= unity*15) && (contest_index >= contest_page[0]*page_size) && (contest_index<(contest_page[0]*page_size)+page_size)) {
 				TextRect.x = 2;
-				TextRect.w = unitx*10;
+				TextRect.w = unitx*15;
 				if (!contest.title.empty()) {
-					host_api->AaediHAM_GraphicsDrawText(contest.title.c_str(), panel_color, TextRect);
+					host_api->AaediHAM_GraphicsDrawText(contest.title.c_str(), title_color, TextRect);
 				}
-				TextRect.x = unitx*11;
-				TextRect.w = unitx*8;
+				TextRect.y += unity;
+				TextRect.x = unitx*7;
+				TextRect.w = unitx*12;
 				if (!contest.description.empty()) {
 					std::string tempdesc = contest.description;
 					size_t resize_point = tempdesc.size();
-					if (resize_point > 32) { resize_point = 32; }
+					if (resize_point > 38) { resize_point = 38; }
+					if (resize_point > 20) {
+						TextRect.x = unitx*3;
+						TextRect.w = unitx*16;
+					}
 					tempdesc.resize(resize_point);
-					host_api->AaediHAM_GraphicsDrawText(tempdesc.c_str(), panel_color, TextRect);
+					host_api->AaediHAM_GraphicsDrawText(tempdesc.c_str(), sched_color, TextRect);
 				}
 				TextRect.y += unity;
 			}
@@ -245,10 +252,10 @@ void contest_plugin::plugin_main(const aaediclock_FRect& dims) const {
 		}
 		if (cycle) {
 			contest_page[1]++;
-			if (contest_page[1] > 10) {
+			if (contest_page[1] > 5) {
 				contest_page[0]++;
 				contest_page[1]=0;
-				if (contest_page[0] > (contest_feed.size()/15)) {
+				if (contest_page[0] > (contest_feed.size()/page_size)) {
 					contest_page[0]=0;
 				}
 			}
