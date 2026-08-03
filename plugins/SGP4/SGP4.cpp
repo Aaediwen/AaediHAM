@@ -146,8 +146,8 @@ double& mm, double& xni, double& nodem, double& dndt, double& nm
 
 static void initl
 (
-// not needeed. included in satrec if needed later 
-// int satn,      
+// not needeed. included in satrec if needed later
+// int satn,
 // sgp4fix assin xke and j2
 // gravconsttype whichconst,
 double xke, double j2,
@@ -707,7 +707,7 @@ namespace SGP4Funcs
 	static void dsinit
 		(
 		// sgp4fix just send in xke as a constant and eliminate getgravconst call
-		// gravconsttype whichconst, 
+		// gravconsttype whichconst,
 		double xke,
 		double cosim, double emsq, double argpo, double s1, double s2,
 		double s3, double s4, double s5, double sinim, double ss1,
@@ -1207,10 +1207,10 @@ namespace SGP4Funcs
 
 	static void initl
 		(
-		// sgp4fix satn not needed. include in satrec in case needed later  
-		// int satn,      
+		// sgp4fix satn not needed. include in satrec in case needed later
+		// int satn,
 		// sgp4fix just pass in xke and j2
-		// gravconsttype whichconst, 
+		// gravconsttype whichconst,
 		double xke, double j2,
 		double ecco, double epoch, double inclo, double no_kozai, char opsmode,
 		char& method, double& ainv, double& ao, double& con41, double& con42, double& cosio,
@@ -2248,7 +2248,8 @@ namespace SGP4Funcs
 
 		int strIndex, index;
 		if (isdigit(satrec.satnumStr[0]))
-			satrec.satnum = (int)(satrec.satnumStr);
+			satrec.satnum = std::stoi(satrec.satnumStr);
+//			satrec.satnum = (int)(satrec.satnumStr);
 		else
 		{
 			int alpha5[] = {10, 11, 12, 13, 14, 15, 16, 17, 0, 18, 19, 20, 21, 22, 0, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33};
@@ -2449,7 +2450,7 @@ namespace SGP4Funcs
 				}
 			}
 
-			// ------------ perform complete catalog evaluation, -+ 1 day ----------- 
+			// ------------ perform complete catalog evaluation, -+ 1 day -----------
 			if (typerun == 'c')
 			{
 				startmfe = -1440.0;
@@ -2533,7 +2534,7 @@ namespace SGP4Funcs
 	*
 	*                           function mag_SGP4
 	*
-	*  this procedure finds the magnitude of a vector.  
+	*  this procedure finds the magnitude of a vector.
 	*
 	*  author        : david vallado                  719-573-2600    1 mar 2001
 	*
@@ -2541,7 +2542,7 @@ namespace SGP4Funcs
 	*    vec         - vector
 	*
 	*  outputs       :
-	*    mag         - answer 
+	*    mag         - answer
 	*
 	*  locals        :
 	*    none.
@@ -2863,7 +2864,7 @@ namespace SGP4Funcs
 		// switch this to an integer msvs seems to have probelms with this and strncpy_s
 		//char typeorbit[2];
 		int typeorbit;
-		// here 
+		// here
 		// typeorbit = 1 = 'ei'
 		// typeorbit = 2 = 'ce'
 		// typeorbit = 3 = 'ci'

@@ -55,13 +55,14 @@ dx_socket_t init_fd(const struct plugin_server_info dx_server, aaediclock_host_a
     if (connect(dxsocket, serveraddr->ai_addr, static_cast<int>(serveraddr->ai_addrlen)) == SOCKET_ERROR) {
         *(host_api->AaediHAM_LogDebug) << "DXSPOTS: server connect error on client: " << WSAGetLastError() << "\n";
         shutdown(dxsocket, SHUT_RDWR);
+        closesocket(dxsocket);
         WSACleanup();
         dxsocket = 0;
     } else {
         *(host_api->AaediHAM_LogDebug) << "DXSPOTS: client reporting connected to server on fd " << dxsocket << "with errno: " << errno << "\n";
     }
 #else
-    int addrerr =getaddrinfo(serverip.c_str(), serverport.c_str(), &hints, &serveraddr);
+    int addrerr = getaddrinfo(serverip.c_str(), serverport.c_str(), &hints, &serveraddr);
     if (addrerr !=0) {
         *(host_api->AaediHAM_LogDebug) << "DXSPOTS: DX Spots connection error: " << gai_strerror(addrerr) << "\n";
         return 0;
@@ -72,19 +73,16 @@ dx_socket_t init_fd(const struct plugin_server_info dx_server, aaediclock_host_a
         freeaddrinfo(serveraddr);
         return 0;
     }
-/*
-    if (connect(dxsocket, serveraddr->ai_addr, serveraddr->ai_addrlen) == -1) {
-        *(host_api->AaediHAM_LogDebug) << "DXSPOTS: server connect error on client: " << errno << "\n";
-        *(host_api->AaediHAM_LogDebug) << "DXSPOTS: Connecting to " << serverip << " " << serverport << "\n";
-        shutdown(dxsocket, SHUT_RDWR);
-        dxsocket = 0;
-    } else {
-        *(host_api->AaediHAM_LogDebug) << "DXSPOTS: client reporting connected to server on fd " << dxsocket << "with errno: " << errno << "\n";
-    }
-*/
-// test code
+
     // Set non-blocking
     int flags = fcntl(dxsocket, F_GETFL, 0);
+    if (flags == -1) {
+        *(host_api->AaediHAM_LogDebug) << "Error setting non blocking on DX File Descriptor\n";
+        shutdown(dxsocket, SHUT_RDWR);
+        close(dxsocket);
+        freeaddrinfo(serveraddr);
+        return 0;
+    }
     fcntl(dxsocket, F_SETFL, flags | O_NONBLOCK);
 
     if (connect(dxsocket, serveraddr->ai_addr, serveraddr->ai_addrlen) == -1) {
@@ -95,21 +93,35 @@ dx_socket_t init_fd(const struct plugin_server_info dx_server, aaediclock_host_a
             int res = poll(&pfd, 1, 5000);
             std::cout << "RES: " << res << "\tREVENTS: " << pfd.revents << "\n";
             if (res <= 0 || !(pfd.revents & POLLOUT)) {
-                *(host_api->AaediHAM_LogDebug) << "DXSPOTS: connect timeout\n";
+                *(host_api->AaediHAM_LogDebug) << "connect timeout\n";
                 shutdown(dxsocket, SHUT_RDWR);
+                close(dxsocket);
                 freeaddrinfo(serveraddr);
                 return 0;
             }
-        } else {
+        } else if (errno == ECONNREFUSED) {
+            *(host_api->AaediHAM_LogDebug) << "connection refused\n";
             shutdown(dxsocket, SHUT_RDWR);
+            close(dxsocket);
+            freeaddrinfo(serveraddr);
+            return 0;
+        }else {
+            shutdown(dxsocket, SHUT_RDWR);
+            close(dxsocket);
             freeaddrinfo(serveraddr);
             return 0;
         }
     }
     // Restore blocking for reads
-flags = fcntl(dxsocket, F_GETFL, 0);
-fcntl(dxsocket, F_SETFL, flags & ~O_NONBLOCK);
-// end test coed
+    flags = fcntl(dxsocket, F_GETFL, 0);
+    if (flags == -1) {
+        *(host_api->AaediHAM_LogDebug) << "Error Restoring blocking flag on DX File Descriptor\n";
+        shutdown(dxsocket, SHUT_RDWR);
+        close(dxsocket);
+        freeaddrinfo(serveraddr);
+        return 0;
+    }
+    fcntl(dxsocket, F_SETFL, flags & ~O_NONBLOCK);
 #endif
     freeaddrinfo(serveraddr);
     return dxsocket;

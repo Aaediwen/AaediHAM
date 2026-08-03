@@ -15,9 +15,10 @@ In light of recent news, I want to specifically post my respects for Elwood Down
 |-----------------|---------------------------------------|-------------------------------------------------------------------------|
 | **`--headless`**  | `./clock --headless --output=out.jpg` | Run in a headless mode with graphical output redirected to a disk file  |
 | **`--fullscreen`**| `./clock --fullscreen`                | Start the program in fullscreen mode                                    |
-| **`--renderer`**  | `./clock --renderer=software`         | set the SDL renderer to use. renderer=help or renderer=list will show a list of avaliable rendering engines|
+| **`--renderer`**  | `./clock --renderer=software`         | set the SDL renderer to use. `renderer=help` or `renderer=list` will show a list of avaliable rendering engines|
 | **`--geometry`**  | `./clock --geometry=1920x1080`        | Resolution of the output from `--headless`, or the starting window resolution in a GUI environment|
 | **`--output`**    | `./clock --headless --output=out.jpg` | Output file path for `--headless`                                         |
+| **`--config`**    | `./clock --config=myconfig.json`      | Config file to use. defaults to `./aaediclock_config.json`                  |
 | **`--QRZ_Pass`**  | `./clock --QRZ_Pass=mypassword`       | Set the password to use for QRZ.com and exit (uses the Callsign for UserName)    |
 | **`--help`**      | `./clock --help`                      | This usage text                                                         |
 
@@ -26,21 +27,34 @@ In light of recent news, I want to specifically post my respects for Elwood Down
 ## Keyboard Commands
 | Key Combo       | Action                                          |
 |-----------------|--------------------------------------------------|
-| **Alt + C**     | Dump contents of the primary program cache to disk       |
-| **R**           | Toggle resize each frame (stress-test resize code)    |
+| **Alt + C**     | Reload the config file                           |
 | **F11**         | Toggle fullscreen                                |
 | **Alt + Enter** | Toggle fullscreen                                |
 | **Q**           | Quit                                             |
 | **Alt + F4**    | Quit                                             |
 
+---
+
+## Mouse Commands
+|Module           | Click Action                                    |
+|-----------------|--------------------------------------------------|
+| **POTA**        | Set DX to POTA spot                              |
+| **DX Cluster**  | Set DX to Cluster Spot                           |
+| **Map**         | Set DX to map pin                                |
+| **Contests**    | Toggle Paging of contest panel                   |
+| **Alt + F4**    | Quit                                             |
 
 ---
 ## Config File Format
-The program now requires a config file (aaediclock_config.json) in the Current Directory. 
+The program now requires a config file (default: aaediclock_config.json in the Current Directory). 
 ```jsonc
 {
      "CallSign": "N0CALL",             // your callsign here
      "PSKCall": "N0CALL",             // Optional -- if you want  PSK Reporter to show for a callsign other than your own
+     "PluginPath": "plugins",          // path for plugin libraries
+     "AssetPath": "images",            // path for iamge assets
+     "CachePath": ".",                 // path for cache data
+     "SiteCacheServer": "",		// local web server hosting a manually updated cache of celestrak, POTA, and contest data. Use this for running multiple instances from one public IP address
      "DE": {                           // your location
           "Latitude": 36.978,         
           "Longitude": -82.495
@@ -92,87 +106,87 @@ The program now requires a config file (aaediclock_config.json) in the Current D
      ],
     "Plugins": [                         // plugin loading, refresh intervals, and screen configuration
         {
-            "plugin": "plugins/libmap_plugin.so",     // plugin library file name relative to the current directory
+            "plugin": "libmap_plugin.so",             // plugin library file name relative to PluginPath
             "panel": 2,                               // Screen panel ID to use for this plugin. See the Screen Map JPG for details
             "interval": 10                            // how often to trigger this plugin, in 1/10s
         },
        {
-            "plugin": "plugins/libclock_plugin.so",
+            "plugin": "libclock_plugin.so",
             "panel": 1,
             "interval": 2
         },
         {
-            "plugin": "plugins/libcallsign_plugin.so",
+            "plugin": "libcallsign_plugin.so",
             "panel": 0,
             "interval": 300
         },
         {
-            "plugin": "plugins/libncdxf_plugin.so",
+            "plugin": "libncdxf_plugin.so",
             "panel": 5,
             "interval": 50
         },
         {
-            "plugin": "plugins/libpota_plugin.so",
+            "plugin": "libpota_plugin.so",
             "panel": 5,
             "interval": 50
         },
         {
-            "plugin": "plugins/libde_plugin.so",
+            "plugin": "libde_plugin.so",
             "panel": 3,
             "interval": 50
         },
         {
-            "plugin": "plugins/libdx_plugin.so",
+            "plugin": "libdx_plugin.so",
             "panel": 4,
             "interval": 50
         },
         {
-            "plugin": "plugins/libdx_cluster_plugin.so",
+            "plugin": "libdx_cluster_plugin.so",
             "panel": 7,
             "interval": 50
         },
         {
-            "plugin": "plugins/libsat_tracker_plugin.so",
+            "plugin": "libnew_sat_tracker_plugin.so",
             "panel": 6,
             "interval": 10
         },
         {
-            "plugin": "plugins/libaurora_plugin.so",
+            "plugin": "libaurora_plugin.so",
             "panel": 10,
             "interval": 170
         },
         {
-            "plugin": "plugins/librss_plugin.so",
+            "plugin": "librss_plugin.so",
             "panel": 10,
             "interval": 1
         },
         {
-            "plugin": "plugins/libsdo_plugin.so",
+            "plugin": "libsdo_plugin.so",
             "panel": 9,
             "interval": 50
         },
         {
-            "plugin": "plugins/libcontest_plugin.so",
+            "plugin": "libcontest_plugin.so",
             "panel": 8,
             "interval": 50
         },
         {
-            "plugin": "plugins/libkindex_plugin.so",
+            "plugin": "libkindex_plugin.so",
             "panel": 8,
             "interval": 50
         },
         {
-            "plugin": "plugins/liblunar_plugin.so",
+            "plugin": "liblunar_plugin.so",
             "panel": 9,
             "interval": 50
         },
         {
-            "plugin": "plugins/libwspr_plugin.so",
+            "plugin": "libwspr_plugin.so",
             "panel": 9,
             "interval": 50
         },
         {
-            "plugin": "plugins/libpskreporter_plugin.so",
+            "plugin": "libpskreporter_plugin.so",
             "panel": 6,
             "interval": 50
         }
@@ -205,7 +219,11 @@ The program now requires a config file (aaediclock_config.json) in the Current D
   - Used on Windows for HTTP Fetches
 - **LibSGP4 -- Daniel Warner**
   - https://github.com/dnwrnr/sgp4
-  - Used for parsing TLE Satellite Data and generating satellite tracks
+  - Used In the old Sat Tracker Module for parsing TLE Satellite Data and generating satellite tracks
+  - deprecated dependancy
+- **Fundamentals of Astrodynamics**
+  - https://github.com/CelesTrak/fundamentals-of-astrodynamics
+  - Used for SGP4 Satellite calculations
 - **FontConfig**
   - https://www.freedesktop.org/wiki/Software/fontconfig/
   - Used for font selection under Linux to find a suitable font based on those installed on the system
@@ -235,9 +253,9 @@ The program now requires a config file (aaediclock_config.json) in the Current D
   - https://api.pota.app/spot/activator
   - Current Active POTA Spots for POTA module and plotted on the map
   - downloaded every 5 minutes at runtime
-- **Satellite Data**
+- **Celestrak Satellite Data -- T.S. Kelso**
   - https://celestrak.org/NORAD/elements/
-  - Current AmSat Tracking data for Satellite Tracking module
+  - Current Tracking data for Satellite Tracking module
   - downloaded every couple hours at runtime
 - **K Index Data**
   - https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json
@@ -264,6 +282,10 @@ The program now requires a config file (aaediclock_config.json) in the Current D
  - **Astronomical Algorithms -- Jean Meeus (1991)**
    - https://archive.org/details/astronomicalalgorithmsjeanmeeus1991
    - Source for the calculations to get SubSolar and Sublunar position, as well as calculating lunar phase
+   - no run time query
+ - **Fundamentals of Astrodynamics -- David A. Vallado**
+   - Source for how to calculate satellite ground track and pass prediction based on NORAD/Celesrtak data
+   - used in the new Sat Tracker Module
    - no run time query
  - **NASA Moon Image**
    - https://science.nasa.gov/photojournal/nearside-spectacular/
@@ -334,7 +356,7 @@ CMake will attempt to fetch the direct dependancies as listed above. However, it
       
  **Runtime Requirements (Both Platforms)**
 
-The directory that contains the clock or clock.exe binary must also contain:
+By default, the directory that contains the clock or clock.exe binary must also contain:
 
 - aaediclock_config.json
 - An images/ directory containing:
@@ -344,5 +366,7 @@ The directory that contains the clock or clock.exe binary must also contain:
   - Moon image
   - Satellite icon images
 - plugin libraries for the plugins you want to load
+
+  The Image path, plugin path, and cache location can now be specified in the config file. The config file to use can itself now be specified via `--config` on the command line
 
 If these are missing, the program will fail to render the corresponding assets.

@@ -49,19 +49,41 @@ void pota_json_parser(const char* input_string) {
             struct pota_spot new_cache;
             memset(&new_cache, 0, sizeof(new_cache));
             std::string instring;
-            instring 		= spot["activator"].template get<std::string>();
-            strncpy(new_cache.activator, instring.c_str(), 31);
+            try {
+               instring 		= spot["activator"].template get<std::string>();
+               strncpy(new_cache.activator, instring.c_str(), 31);
+            } catch (std::exception &e) {
+                (void) e;
+                *(host_api->AaediHAM_LogDebug) << "Non Critical Json Parse Error \n";
+            }
             new_cache.activator[31] = 0;
+            try {
             instring		= spot["mode"].template get<std::string>();
             strncpy(new_cache.mode, instring.c_str(), 15);
+            } catch (std::exception &e) {
+                (void) e;
+                *(host_api->AaediHAM_LogDebug) << "Non Critical Json Parse Error \n";
+            }
             new_cache.mode[15] = 0;
+            try {
             instring		= spot["reference"].template get<std::string>();
             strncpy(new_cache.park, instring.c_str(), 15);
+            } catch (std::exception &e) {
+                (void) e;
+                *(host_api->AaediHAM_LogDebug) << "Non Critical Json Parse Error \n";
+            }
             new_cache.park[15] = 0;
+            try {
             new_cache.latitude  = spot["latitude"].template get<double>();
             new_cache.longitude = spot["longitude"].template get<double>();
-            instring            = spot["frequency"].template get<std::string>();
+            } catch (std::exception &e) {
+                (void) e;
+                new_cache.latitude = 0;
+                new_cache.longitude = 0;
+                *(host_api->AaediHAM_LogDebug) << "Non Critical Json Parse Error \n";
+            }
             try {
+                 instring            = spot["frequency"].template get<std::string>();
                  new_cache.frequency = stod(instring)/1000;
             } catch (std::exception& e) {
                (void)e;
@@ -75,23 +97,29 @@ void pota_json_parser(const char* input_string) {
 }
 
 int SDLCALL fetch_pota (void* data) {
-     (void)data;
-     char* json_spots = 0 ;
-     Uint64 data_size = 0;
-     *(host_api->AaediHAM_LogDebug) <<"POTA: Fetching Spots from pota.app via timer\n";
-     SDL_Log("Fetching Spots from pota.app via timer");
-     std::string user_agent = host_api->AaediHAM_ConfigGetCall();
-     user_agent += "-clock-Agent/1.0";
-     data_size = http_loader("https://api.pota.app/spot/activator", (void**)&json_spots, user_agent);                           // live
-
-     if (data_size) {
-          pota_json_parser(json_spots);
-          if(json_spots) {
-               free (json_spots);
-               json_spots=0;
-          }
-     }
-     return 0;
+	(void)data;
+	char* json_spots = 0 ;
+	Uint64 data_size = 0;
+	*(host_api->AaediHAM_LogDebug) <<"POTA: Fetching Spots from pota.app via timer\n";
+	SDL_Log("Fetching Spots from pota.app via timer");
+	std::string user_agent = host_api->AaediHAM_ConfigGetCall();
+	user_agent += "-clock-Agent/1.0";
+	std::string web_source = host_api->AaediHAM_ConfigGetSiteCache();
+	if (web_source.empty()) {
+		web_source = "https://api.pota.app/spot/activator";
+	} else {
+		web_source += "pota.json";
+	}
+	data_size = http_loader(web_source.c_str(), (void**)&json_spots, 30, user_agent);                           // live
+	
+	if (data_size) {
+	     pota_json_parser(json_spots);
+	     if(json_spots) {
+	          free (json_spots);
+	          json_spots=0;
+	     }
+	}
+	return 0;
 }
 
 Uint32 SDLCALL fetch_pota (void *userdata, SDL_TimerID timerID, Uint32 interval) {

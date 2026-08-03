@@ -412,9 +412,22 @@ const char* HostAPI::AaediHAM_ConfigGetCall() {
     return(clockconfig.CallSign().c_str());
 }
 
+const char* HostAPI::AaediHAM_ConfigGetCachePath() {
+    return(clockconfig.CachePath().c_str());
+}
+
+const char* HostAPI::AaediHAM_ConfigGetAssetPath() {
+    return(clockconfig.AssetPath().c_str());
+}
+
 const char* HostAPI::AaediHAM_ConfigGetPSKCall() {
     return(clockconfig.PSKCall().c_str());
 }
+
+const char* HostAPI::AaediHAM_ConfigGetSiteCache() {
+    return(clockconfig.SiteCache().c_str());
+}
+
 
 const struct aaediclock_FRect HostAPI::AaediHAM_GetMapSize() {
     aaediclock_FRect result;
@@ -659,6 +672,9 @@ bool HostAPI::AaediHAM_IconUpdate (uint16_t icon_index, const aaediclock_image& 
     if (!image_data.pixels) {
         return false;
     }
+    if (icon_index == 0) {
+       return false;
+    }
     uint16_t owner = plugin_id ;
     icon_index--;
     if (icon_bin.icon_check(icon_index, owner)) {
@@ -682,7 +698,7 @@ void HostAPI::AaediHAM_IconDelete (uint16_t icon_index) {
     }
     uint16_t owner = plugin_id;
     icon_index--;
-    icon_bin.icon_delete(icon_index, owner);
+    icon_bin.icon_delete(owner, icon_index);
     return;
 }
 
@@ -751,7 +767,7 @@ bool HostAPI::AaediHAM_TextureUpdate (uint16_t index, const aaediclock_image& im
         return result;
     }
 
-    if ((static_cast<size_t>(index) > texture_cache.size()) || texture_cache.empty()) {
+    if ((static_cast<size_t>(index) > texture_cache.size()) || texture_cache.empty() || index < 1) {
         return false;
     }
     index--;
@@ -769,7 +785,7 @@ void HostAPI::AaediHAM_TextureDelete(uint16_t index) {
            debug_log << debug_log_buffer.plugin_name << ": Texture call from non-parent thread. ignoring\n";
            return;
     }
-    if ((static_cast<size_t>(index) > texture_cache.size()) || texture_cache.empty()) {
+    if ((static_cast<size_t>(index) > texture_cache.size()) || texture_cache.empty() || index < 1) {
         return;
     }
     index--;

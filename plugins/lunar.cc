@@ -146,7 +146,10 @@ int SDLCALL regen_lunar_surface(void* data) {
     // load the base moon image from disk
     //================================================================================
     float x, y;
-    SDL_Surface* image_load = IMG_Load("images/PIA14011.jpg");
+    std::string asset_path = host_api->AaediHAM_ConfigGetAssetPath();
+    asset_path += "PIA14011.jpg";
+
+    SDL_Surface* image_load = IMG_Load(asset_path.c_str());
     SDL_Surface* image_surface = nullptr;
     const std::lock_guard<std::mutex>lunar_lock(moon_mutex);
     if (image_load) {

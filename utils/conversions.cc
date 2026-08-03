@@ -39,7 +39,7 @@ bool isLeapYear(int year) {
     return (year % 400 == 0) || (year % 4 == 0 && year % 100 != 0);
 }
 
-void doy_to_mmdd(const int year, int doy, int* mm, int* dd) {
+void doy_to_mmdd(const int year, uint16_t doy, int* mm, int* dd) {
     static int months[14]={0, 31, 28,  31, 30, 31, 30, 31, 31, 30, 31, 30, 31, 0};
     if ((!mm) || (!dd)) {
 //        std::cout << "Invalid result locations\n";
@@ -96,7 +96,7 @@ double meeusJD (int year, int month, int day, int hour, int min, double sec) {
 }
 
 
-struct GeoCoord loc_to_geo (const std::string locator) {
+/*struct GeoCoord loc_to_geo (const std::string locator) {
     struct GeoCoord result;
     result.latitude = 0;
     result.longitude = 0;
@@ -155,7 +155,7 @@ struct GeoCoord loc_to_geo (const std::string locator) {
              result.longitude = 0;
              return result;
          }
-         result.longitude += (working - 'A')/12;
+         result.longitude += (working - 'A')/12.0;
 
          // sixth character
          working = locator.at(5);
@@ -167,7 +167,7 @@ struct GeoCoord loc_to_geo (const std::string locator) {
              result.longitude = 0;
              return result;
          }
-         result.latitude += (working - 'A')/24;
+         result.latitude += (working - 'A')/24.0;
 
          // final adjustment for 6 character
          result.longitude += (1.0/12.0);
@@ -183,3 +183,4 @@ struct GeoCoord loc_to_geo (const std::string locator) {
     }
     return result;
 }
+*/

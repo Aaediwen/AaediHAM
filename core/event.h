@@ -1,2 +1,3 @@
 #include <csignal>
-void interrupt_handler(int signal);
+void config_reload	();
+void interrupt_handler	(int signal);

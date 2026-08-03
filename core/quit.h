@@ -1,1 +1,2 @@
 int window_destroy();
+

@@ -120,7 +120,10 @@ void TrackedWSPR::save_cache() {
     std::string cache_string;
     cache_string = cache_stream.str();
     std::fstream disk_file;
-    disk_file.open((this->m_tx_sign+std::to_string(static_cast<int>(m_band))+".wspr"), (std::fstream::binary | std::fstream::out ));
+    std::string full_cache_path = host_api->AaediHAM_ConfigGetCachePath();
+    full_cache_path += this->m_tx_sign+std::to_string(static_cast<int>(m_band))+".wspr";
+    disk_file.open((full_cache_path.c_str()), (std::fstream::binary | std::fstream::out ));
+//    disk_file.open((this->m_tx_sign+std::to_string(static_cast<int>(m_band))+".wspr"), (std::fstream::binary | std::fstream::out ));
     if (disk_file.is_open()) {
         disk_file.write(cache_string.data(), cache_string.size());
             // read cache from disk
@@ -171,6 +174,9 @@ void TrackedWSPR::load_new_telemetry(std::istream& input) {
                 datapoint.rx_loc.longitude = std::stod(fields[5]);
                 datapoint.tx_loc.latitude = std::stod(fields[8]);
                 datapoint.tx_loc.longitude = std::stod(fields[9]);
+                memset(datapoint.rx_sign,0,32);
+                memset(datapoint.tx_grid,0,10);
+                memset(datapoint.rx_grid,0,10);
                 strncpy (datapoint.rx_sign, fields[3].c_str(),31);
                 strncpy (datapoint.tx_grid, fields[10].c_str(),8);
                 strncpy (datapoint.rx_grid, fields[6].c_str(),8);
@@ -249,7 +255,10 @@ bool TrackedWSPR::gen_telemetry() {
         *(host_api->AaediHAM_LogDebug) << "WSPR: Trying Disk cache\n";
         cache_time = 0;
         std::fstream disk_file;
-        disk_file.open((this->m_tx_sign+std::to_string(static_cast<int>(m_band))+".wspr"), (std::fstream::binary | std::fstream::in ));
+          std::string full_cache_path = host_api->AaediHAM_ConfigGetCachePath();
+          full_cache_path += this->m_tx_sign+std::to_string(static_cast<int>(m_band))+".wspr";
+          disk_file.open((full_cache_path.c_str()), (std::fstream::binary | std::fstream::in ));
+//        disk_file.open((this->m_tx_sign+std::to_string(static_cast<int>(m_band))+".wspr"), (std::fstream::binary | std::fstream::in ));
         if (disk_file.is_open()) {
             load_telemetry(disk_file);
             if (!m_telemetry.empty()) {
@@ -299,9 +308,6 @@ void TrackedWSPR::draw_telemetry(aaediclock_FRect dims) {
 */
     if (this->m_telemetry.empty()) { return; }
 
-//    SDL_SetRenderTarget(map.GetRenderer(), map.texture);
-//    SDL_SetRenderDrawBlendMode(map.GetRenderer(), SDL_BLENDMODE_BLEND);
-//    SDL_SetRenderDrawColor(map.GetRenderer(), this->m_color.r, this->m_color.g, this->m_color.b, this->m_color.a);
     int index=0;
     int render_size=0;
     int xt, yt;
@@ -310,37 +316,31 @@ void TrackedWSPR::draw_telemetry(aaediclock_FRect dims) {
     const std::lock_guard<std::mutex>wspr_lock(wspr_mutex);
 //    SDL_LockMutex(mutexes[MUTEX_WSPR]);
     aaediclock_FPoint* SDLPoints = (aaediclock_FPoint*)malloc(sizeof(aaediclock_FPoint)*this->m_telemetry.size());
-    *(host_api->AaediHAM_LogDebug) << "Drawing "<< m_telemetry.size() << " telemetry entries\n";
-    for (WSPRTelemetry point : m_telemetry) {
-        *(host_api->AaediHAM_LogDebug) << "Drawing TX from "<< point.tx_grid << ", ("<<point.tx_loc.latitude<<", "<< point.tx_loc.longitude << ") \n";
-        cords_to_px(point.tx_loc.latitude, point.tx_loc.longitude, xt, yt, &(SDLPoints[index]));
-        render_size++;
-//         SDL_SetRenderDrawColor(map.GetRenderer(), 128, 128, 255, 255);
-         aaediclock_FRect visirect = {SDLPoints[index].x, SDLPoints[index].y, 4.0, 4.0};
-         host_api->AaediHAM_OverlaySet(dims, OVERLAY_BASE);
-         host_api->AaediHAM_GraphicsDrawRect(aaediclock_Color{128,128,255,255},visirect,1);
-//         SDL_RenderFillRect(map.GetRenderer(), &visirect);
-         if (index > 1) {
-             if (abs(SDLPoints[index-1].x - SDLPoints[index].x) > (xt/8)) {
-                  host_api->AaediHAM_GraphicsDrawLines(this->m_color, SDLPoints, render_size-1);
-//                  if (SDL_SetRenderDrawColor(map.GetRenderer(), this->m_color.r, this->m_color.g, this->m_color.b, this->m_color.a)) {
-//                      SDL_RenderLines(map.GetRenderer(), );
-                      index = 0;
-                      render_size = 1;
-                      // re-gen the current pixel
-                      cords_to_px(point.tx_loc.latitude, point.tx_loc.longitude, xt, yt, &(SDLPoints[index]));
-//                  }
+    if (SDLPoints) {
+        *(host_api->AaediHAM_LogDebug) << "Drawing "<< m_telemetry.size() << " telemetry entries\n";
+        for (WSPRTelemetry point : m_telemetry) {
+            *(host_api->AaediHAM_LogDebug) << "Drawing TX from "<< point.tx_grid << ", ("<<point.tx_loc.latitude<<", "<< point.tx_loc.longitude << ") \n";
+            cords_to_px(point.tx_loc.latitude, point.tx_loc.longitude, xt, yt, &(SDLPoints[index]));
+            render_size++;
+             aaediclock_FRect visirect = {SDLPoints[index].x, SDLPoints[index].y, 4.0, 4.0};
+             host_api->AaediHAM_OverlaySet(dims, OVERLAY_BASE);
+             host_api->AaediHAM_GraphicsDrawRect(aaediclock_Color{128,128,255,255},visirect,1);
+             if (index > 1) {
+                 if (abs(SDLPoints[index-1].x - SDLPoints[index].x) > (xt/8)) {
+                      host_api->AaediHAM_GraphicsDrawLines(this->m_color, SDLPoints, render_size-1);
+                          index = 0;
+                          render_size = 1;
+                          // re-gen the current pixel
+                          cords_to_px(point.tx_loc.latitude, point.tx_loc.longitude, xt, yt, &(SDLPoints[index]));
+    //                  }
 
+                 }
              }
-         }
-         index++;
+             index++;
+        }
+        host_api->AaediHAM_GraphicsDrawLines(this->m_color, SDLPoints, render_size);
+        free (SDLPoints);
     }
-//    SDL_UnlockMutex(mutexes[MUTEX_WSPR]);
-    host_api->AaediHAM_GraphicsDrawLines(this->m_color, SDLPoints, render_size);
-//    SDL_SetRenderDrawColor(map.GetRenderer(), this->m_color.r, this->m_color.g, this->m_color.b, this->m_color.a);
-//    SDL_RenderLines(map.GetRenderer(), SDLPoints, render_size);
-    free (SDLPoints);
-//    SDL_SetRenderTarget(map.GetRenderer(), NULL);
     return;
 }
 

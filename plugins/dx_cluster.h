@@ -27,6 +27,8 @@ class dxspot {
         double frequency;
         double lat;
         double lon;
+        bool lat_valid = false;
+        bool lon_valid = false;
         bool qrz_valid;
         int entity;
         // country name?

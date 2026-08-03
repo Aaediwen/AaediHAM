@@ -47,41 +47,55 @@ void aurora_json_parser(const char* input_string) {
         uint8_t* alpha_pixels = aurora_map;
         *(host_api->AaediHAM_LogDebug) << "generating auroral map\n";
         // itterate through the JSON here for each lat/lon coordinate
-        for (auto spot : spot_list["coordinates"]) {
-           // fetch the raw values from the JSON
-           int latitude = spot[1].template get<int>();
-           int longitude = spot[0].template get<int>();
-           int aurora = spot[2].template get<int>();
-//         convert latitude from geo coordinates to image Y coordinate
-           latitude += 90;
-           latitude = 180-latitude;
-//	convert longitude from geo coordinates relative to Genwich
-//	to image X position starting at antimeridian
-           longitude += 180;
-           if (longitude >= 360) {
-              longitude -=360;
-           }
-           // color coding between Green, Yellow, and Red
-           uint8_t red, green;
-           red = 128;
-           green = 255;
-           if (aurora <= 50) {
-              red += static_cast<uint8_t>(128.0*(aurora/50.0)) ;
-           } else {
-              red = 255;
-              green -= static_cast<uint8_t>(128.0*((aurora-50)/50.0)) ;
-           }
-           // alpha blending
-           uint8_t value = static_cast<uint8_t>(sqrt(aurora / 100.0) * 128.0);
-           // copy the pixel value into place
-           int dest_pixel_index =  latitude * stride ;
-           dest_pixel_index += longitude * dest_bpp;
-           *(alpha_pixels + dest_pixel_index) = red;
-           *(alpha_pixels + dest_pixel_index+1) = green;
-           *(alpha_pixels + dest_pixel_index+2) = 0;
-           *(alpha_pixels + dest_pixel_index+3) = value;
+        if (spot_list["coordinates"].is_array()) {
+            for (auto spot : spot_list["coordinates"]) {
+               // fetch the raw values from the JSON
+               int latitude, longitude, aurora;
+               try {
+                   latitude = spot[1].template get<int>();
+                   longitude = spot[0].template get<int>();
+                   aurora = spot[2].template get<int>();
+               } catch (std::exception& e) {
+                  (void) e;
+                  latitude = 0;
+                  longitude = 0;
+                  aurora = 0;
+               }
+    //         convert latitude from geo coordinates to image Y coordinate
+               latitude += 90;
+               latitude = 180-latitude;
+    //	convert longitude from geo coordinates relative to Genwich
+    //	to image X position starting at antimeridian
+               longitude += 180;
+               if (longitude >= 360) {
+                  longitude -=360;
+               }
+               // color coding between Green, Yellow, and Red
+               uint8_t red, green;
+               red = 128;
+               green = 255;
+               if (aurora <= 50) {
+                  red += static_cast<uint8_t>(128.0*(aurora/50.0)) ;
+               } else {
+                  red = 255;
+                  green -= static_cast<uint8_t>(128.0*((aurora-50)/50.0)) ;
+               }
+               // alpha blending
+               uint8_t value = static_cast<uint8_t>(sqrt(aurora / 100.0) * 128.0);
+               // copy the pixel value into place
+               if (latitude > 181) { latitude = 181 ; }
+               if (longitude > 360) {longitude = 360 ; }
+               if (latitude < 0) {latitude = 0; }
+               if (longitude < 0) {longitude = 0; }
+               int dest_pixel_index =  latitude * stride ;
+               dest_pixel_index += longitude * dest_bpp;
+               *(alpha_pixels + dest_pixel_index) = red;
+               *(alpha_pixels + dest_pixel_index+1) = green;
+               *(alpha_pixels + dest_pixel_index+2) = 0;
+               *(alpha_pixels + dest_pixel_index+3) = value;
+            }
+            *(host_api->AaediHAM_LogDebug) << "AURORA: Map Rebuilt \n";
         }
-        *(host_api->AaediHAM_LogDebug) << "AURORA: Map Rebuilt \n";
     }
     update_map_tex_flag = true;
     return;
@@ -179,7 +193,6 @@ void aurora_plugin::plugin_main(const aaediclock_FRect& dims) const {
             } else {
                aurora_tex_id = host_api->AaediHAM_TextureCreate(new_image);
             }
-            aurora_mutex.unlock();
         } else {
             *(host_api->AaediHAM_LogDebug) << "Missing Aurora Map (" << aurora_map << ")\n";
         }

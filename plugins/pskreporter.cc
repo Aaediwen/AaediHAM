@@ -1,7 +1,8 @@
 #include "pskreporter.h"
 //#include "aaediclock.h"
 #include "utils/http_fetch.h"
-#include "utils/conversions.h"
+//#include "utils/conversions.h"
+#include "utils/maidenhead.h"
 //#include "core/utils.h"
 //#include <iostream>
 #include <sstream>
