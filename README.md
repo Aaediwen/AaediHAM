@@ -33,6 +33,16 @@ In light of recent news, I want to specifically post my respects for Elwood Down
 | **Q**           | Quit                                             |
 | **Alt + F4**    | Quit                                             |
 
+---
+
+## Mouse Commands
+|Module           | Click Action                                    |
+|-----------------|--------------------------------------------------|
+| **POTA**        | Set DX to POTA spot                              |
+| **DX Cluster**  | Set DX to Cluster Spot                           |
+| **Map**         | Set DX to map pin                                |
+| **Contests**    | Toggle Paging of contest panel                   |
+| **Alt + F4**    | Quit                                             |
 
 ---
 ## Config File Format
@@ -44,6 +54,7 @@ The program now requires a config file (default: aaediclock_config.json in the C
      "PluginPath": "plugins",          // path for plugin libraries
      "AssetPath": "images",            // path for iamge assets
      "CachePath": ".",                 // path for cache data
+     "SiteCacheServer": "",		// local web server hosting a manually updated cache of celestrak, POTA, and contest data. Use this for running multiple instances from one public IP address
      "DE": {                           // your location
           "Latitude": 36.978,         
           "Longitude": -82.495

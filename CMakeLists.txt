@@ -130,7 +130,7 @@ endif()
 
 
 
-target_link_libraries(clock PRIVATE aaediclock_path LibXml2::LibXml2)
+target_link_libraries(clock PRIVATE dl aaediclock_path LibXml2::LibXml2)
 
 #---------------------------
 # libraries start here
