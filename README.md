@@ -217,11 +217,7 @@ The program now requires a config file (default: aaediclock_config.json in the C
 - **WinHTTP2**
   - Part of the Windows SDK from Microsoft
   - Used on Windows for HTTP Fetches
-- **LibSGP4 -- Daniel Warner**
-  - https://github.com/dnwrnr/sgp4
-  - Used In the old Sat Tracker Module for parsing TLE Satellite Data and generating satellite tracks
-  - deprecated dependancy
-- **Fundamentals of Astrodynamics**
+- **Fundamentals of Astrodynamics -- David Vallado**
   - https://github.com/CelesTrak/fundamentals-of-astrodynamics
   - Used for SGP4 Satellite calculations
 - **FontConfig**
@@ -334,6 +330,7 @@ CMake will attempt to fetch the direct dependancies as listed above. However, it
   - aaediclock_config.json
   - images/ (image assets)
   - plugins/ (plugin module libraries)
+  - cache/ (local disk cache)
   
   However, it's not a big deal if you choose to do that in the source tree as shown above, and run from there. That's what I do a lot during development
       
