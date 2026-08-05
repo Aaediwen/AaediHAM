@@ -1499,8 +1499,6 @@ void draw_sat_groundtrack(OMMRecord& sat, aaediclock_FRect& mapsize) {
 Uint16 pass_pager[2] = {0,0};
 void new_sat_tracker_plugin::plugin_main(const aaediclock_FRect& dims) const {
 	if (!sat_timer) {
-		Uint32 interval;
-		interval = 3600000 ;
 		switch (fetch_result) {
 			case 0:
 			        sat_timer = SDL_AddTimer(10000, fetch_celestrak, NULL);
@@ -1509,11 +1507,11 @@ void new_sat_tracker_plugin::plugin_main(const aaediclock_FRect& dims) const {
 			case 10:
 			        break;
 			case 2:
-			        sat_timer = SDL_AddTimer(interval * 12, fetch_celestrak, NULL);
+			        sat_timer = SDL_AddTimer(HR_MS * 12, fetch_celestrak, NULL);
 				fetch_active = true;
 			        break;
 			case 3:
-			        sat_timer = SDL_AddTimer(interval * 4, fetch_celestrak, NULL);
+			        sat_timer = SDL_AddTimer(HR_MS * 4, fetch_celestrak, NULL);
 				fetch_active = true;
 			        break;
 			default:

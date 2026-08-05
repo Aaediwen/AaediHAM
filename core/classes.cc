@@ -1073,10 +1073,17 @@ uint16_t map_icons::icon_create(uint16_t owner, SDL_Surface* icon_image) {
 	if (scaled_surface) {
 		SDL_ClearSurface(scaled_surface, 0,0,0,0);
 		if (SDL_BlitSurfaceScaled(icon_image, NULL, scaled_surface, NULL, SDL_SCALEMODE_NEAREST)) {
-			new_icon.icon = SDL_CreateTextureFromSurface(clock_renderer, scaled_surface);
-			icon_list.push_back(new_icon);
-			result = (static_cast<uint16_t>(icon_list.size()));
-			debug_log << "ICON: Created icon ID: "<< result << "\n";
+//			new_icon.icon = SDL_CreateTextureFromSurface(clock_renderer, scaled_surface);
+			new_icon.icon = SDL_CreateTexture(clock_renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STATIC, scaled_surface->w, scaled_surface->h);
+			if (new_icon.icon) {
+				result = SDL_UpdateTexture(new_icon.icon, NULL, scaled_surface->pixels , scaled_surface->pitch);
+				icon_list.push_back(new_icon);
+				result = (static_cast<uint16_t>(icon_list.size()));
+				debug_log << "ICON: Created icon ID: "<< result << "\n";
+			} else {
+				debug_log << "ICON: Unable to create texture\n";
+
+			}
 		} else {
 			debug_log << "ICON: Unable to blit surface\n";
 		}

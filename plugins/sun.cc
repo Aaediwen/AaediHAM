@@ -11,35 +11,37 @@ aaediclock_host_api* host_api = nullptr;
 uint16_t sun_tex_id = 0;
 uint16_t sun_icon_id = 0;
 bool refresh_icon_flag = false;
+std::mutex sun_mutex;
 
 int SDLCALL  fetch_sdo (void *data) {
-     (void)data;
-     Uint64 data_size = 0;
-     char* raw_image = 0 ;
-     *(host_api->AaediHAM_LogDebug) << "Fetching SDO image from NASA --  ";
-//     data_size = http_loader("https://soho.nascom.nasa.gov/data/realtime/hmi_igr/1024/latest.jpg", (void**)&raw_image);                           // live
-     data_size = http_loader("https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg", (void**)&raw_image);                           // live
-     if (data_size > 10) {
-     	SDL_Surface* temp;
-          try {
-          	if(SDO_Surface) {
-               	SDL_DestroySurface(SDO_Surface);
-                    SDO_Surface = nullptr;
-               }
-
-               *(host_api->AaediHAM_LogDebug) << "Loaded image size: " << data_size << " bytes\n";
-               SDL_IOStream *imgdata = SDL_IOFromConstMem((void*)raw_image, static_cast<size_t>(data_size));
-
-               temp = IMG_Load_IO(imgdata, true);
-               // preconvert this in software because older versions of OpenGL can't handle it
-               if (temp) {
-               	SDO_Surface = SDL_ConvertSurface(temp, SDL_PIXELFORMAT_RGBA32);
-                    if (SDO_Surface) {
-                    	SDL_SetSurfaceColorKey(SDO_Surface, 1, 0);
-                         refresh_icon_flag = true;
-                    } else {
-                         *(host_api->AaediHAM_LogDebug) << "Failed to convert SDL Surface for icon\n";
-                    }
+	(void)data;
+	Uint64 data_size = 0;
+	char* raw_image = 0 ;
+	*(host_api->AaediHAM_LogDebug) << "Fetching SDO image from NASA --  ";
+	//     data_size = http_loader("https://soho.nascom.nasa.gov/data/realtime/hmi_igr/1024/latest.jpg", (void**)&raw_image);                           // live
+	data_size = http_loader("https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg", (void**)&raw_image);                           // live
+	if (data_size > 10) {
+		const std::lock_guard<std::mutex>sdo_lock(sun_mutex);
+		SDL_Surface* temp;
+		try {
+			if(SDO_Surface) {
+				SDL_DestroySurface(SDO_Surface);
+				SDO_Surface = nullptr;
+			}
+			
+			*(host_api->AaediHAM_LogDebug) << "Loaded image size: " << data_size << " bytes\n";
+			SDL_IOStream *imgdata = SDL_IOFromConstMem((void*)raw_image, static_cast<size_t>(data_size));
+			
+			temp = IMG_Load_IO(imgdata, true);
+			// preconvert this in software because older versions of OpenGL can't handle it
+			if (temp) {
+				SDO_Surface = SDL_ConvertSurface(temp, SDL_PIXELFORMAT_RGBA32);
+				if (SDO_Surface) {
+					SDL_SetSurfaceColorKey(SDO_Surface, 1, 0);
+					refresh_icon_flag = true;
+				} else {
+					*(host_api->AaediHAM_LogDebug) << "Failed to convert SDL Surface for icon\n";
+				}
 			} else {
 				*(host_api->AaediHAM_LogDebug) << "Error Initializing SDO Icon  \n";
 			}
@@ -74,8 +76,8 @@ Uint32 SDLCALL fetch_sdo (void *userdata, SDL_TimerID timerID, Uint32 interval) 
               SDL_DetachThread(thread);
           } else {
               *(host_api->AaediHAM_LogDebug) << "Failed to Create SDO Fetch Thread\n";
-          }
-          return (1200000); // 2 hours
+          } 
+          return (HR_MS*2); // 2 hours
      } else {
           return 0;
      }
@@ -102,6 +104,7 @@ void sdo_plugin::plugin_exit() const {
 		SDL_RemoveTimer(sdo_timer);
 	}
 	if(SDO_Surface) {
+		const std::lock_guard<std::mutex>sdo_lock(sun_mutex);
 		SDL_DestroySurface(SDO_Surface);
 		SDO_Surface = nullptr;
 	}
@@ -129,7 +132,7 @@ void sdo_plugin::plugin_main(const aaediclock_FRect& dims) const {
 	solar_pin.color=aaediclock_Color{255,255,0,255};
 	solar_pin.tooltip[0]=0;
 	host_api->AaediHAM_MapPinDelete();
-
+	const std::lock_guard<std::mutex>sdo_lock(sun_mutex);
 	// recreate the SDO GPU texture as needed
 	if (refresh_icon_flag && SDO_Surface) {
 		*(host_api->AaediHAM_LogDebug) << "Loaded SDO Texture\n";

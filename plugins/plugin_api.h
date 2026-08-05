@@ -14,7 +14,8 @@ static const uint8_t OVERLAY_BACKGROUND = 0;
 static const uint8_t OVERLAY_BASE       = 1;
 static const uint8_t OVERLAY_DEFAULT	= 1;
 static const uint8_t OVERLAY_FOREGROUND = 2;
-
+constexpr uint64_t HR_NS = 3600000000000;
+constexpr uint32_t HR_MS = 3600000000;
 struct aaediclock_FRect {
     float x;
     float y;
