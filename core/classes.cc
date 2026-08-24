@@ -85,7 +85,7 @@ ScreenFrame::ScreenFrame(const ScreenFrame& source) {			// copy to new
 		if (source.surface) {
 			surface		= SDL_DuplicateSurface(source.surface);
 			if (!surface) {
-				SDL_Log("Failed to copy surface: %s", SDL_GetError());
+//				SDL_Log("Failed to copy surface: %s", SDL_GetError());
 				debug_log << "SCREENFRAME: Failed to copy surface: " << SDL_GetError() << "\n";
         			// Handle error if needed
 			}
@@ -96,7 +96,7 @@ ScreenFrame::ScreenFrame(const ScreenFrame& source) {			// copy to new
 			texture			= SDL_CreateTextureFromSurface(renderer, surface);
 		//        SDL_Log("texture Create result code: %s", SDL_GetError());
             		if (!texture) {
-                		SDL_Log("Failed to create texture: %s", SDL_GetError());
+//                		SDL_Log("Failed to create texture: %s", SDL_GetError());
                 		debug_log << "SCREENFRAME: Failed to create Texture: " << SDL_GetError() << "\n";
                 		// Handle error if needed
             		}
@@ -117,18 +117,18 @@ ScreenFrame& ScreenFrame::operator=(const ScreenFrame& source) {	// copy with ov
 			if (source.surface) {
 				surface	= SDL_DuplicateSurface(source.surface);
 				if (!surface) {
-					SDL_Log("Failed to copy surface: %s", SDL_GetError());
+//					SDL_Log("Failed to copy surface: %s", SDL_GetError());
 					debug_log << "SCREENFRAME: Failed to copy surface: " << SDL_GetError() << "\n";
 				}
 			}
 			if (renderer && surface) {
 				texture	= SDL_CreateTextureFromSurface(renderer, surface);
 				if (!texture) {
-					SDL_Log("Failed to create texture: %s", SDL_GetError());
+//					SDL_Log("Failed to create texture: %s", SDL_GetError());
 					debug_log << "SCREENFRAME: Failed to create Texture: " << SDL_GetError() << "\n";
 				}
 			} else {
-				SDL_Log("Missing Render or Surface in Overwrite Copy");
+//				SDL_Log("Missing Render or Surface in Overwrite Copy");
 				debug_log << "SCREENFRAME: Missing Render or Surface in Overwrite Copy\n";
 			}
 		}
@@ -187,7 +187,7 @@ bool ScreenFrame::Create (SDL_Renderer* parent, const SDL_FRect size) {
 	texture = SDL_CreateTexture (parent, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET,
                                    w, h );
 	if (!texture) {
-		SDL_Log("Error Creating Texture!");
+//		SDL_Log("Error Creating Texture!");
 		debug_log << "SCREENFRAME: Error Creating Texture!\n";
 		Reset();
 		return false;
@@ -252,7 +252,7 @@ void ScreenFrame::draw_border() {
 	if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
 		SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
 	} else {
-		SDL_Log("Draw Border during resize event!");
+//		SDL_Log("Draw Border during resize event!");
 		return;
 	}
 	if (texture && renderer) {
@@ -267,7 +267,7 @@ void ScreenFrame::draw_border() {
 		SDL_SetRenderTarget(renderer, NULL);
 		SDL_RenderTexture(renderer, texture, NULL, &(dims));
 	} else {
-		SDL_Log("Bad renderer or texture on border draw");
+//		SDL_Log("Bad renderer or texture on border draw");
 		debug_log << "SCREENFRAME: Bad renderer or texture on border draw\n";
 	}
 	return;
@@ -277,7 +277,7 @@ void ScreenFrame::render_text(const SDL_FRect& text_box, TTF_Font *font, const S
 	if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
 		SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
 	} else {
-		SDL_Log("Text Draw during resize event!");
+//		SDL_Log("Text Draw during resize event!");
 		return;
 	}
 	if (str.empty()) {
@@ -326,7 +326,7 @@ void ScreenFrame::render_text(const SDL_FRect& text_box, TTF_Font *font, const S
 	if (SDL_TryLockMutex(mutexes[MUTEX_RESIZE])) {
 		SDL_UnlockMutex(mutexes[MUTEX_RESIZE]);
 	} else {
-		SDL_Log("Text Draw during resize event!");
+//		SDL_Log("Text Draw during resize event!");
 		return;
 	}
 	if (text_box.w <= 0 || text_box.h <= 0) {
@@ -391,7 +391,7 @@ void ScreenFrame::Clear(const SDL_Color& color) {
 		debug_log << "SCREENFRAME: Clear Result " << SDL_GetError()  << "\n";
 		SDL_ClearError();
 	} else {
-		SDL_Log("Bad Renderer or Texture on Clear");
+//		SDL_Log("Bad Renderer or Texture on Clear");
 		debug_log << "SCREENFRAME: Bad renderer or texture on Clear\n";
 	}
 	return;
@@ -440,7 +440,7 @@ void config::qrz_sesskey() {
 	Uint64 key_size =0;
 	m_QRZ.Key.clear();
 	if (!m_QRZ.Secret.empty()) {
-		SDL_Log ("Fetching QRZ Session Key");
+		user_log << "Fetching QRZ Session Key\n";
 		std::string url = "https://xmldata.qrz.com/xml/current/?username=" + m_CallSign + ";password=" + m_QRZ.Secret;
 		key_size = http_loader(url.c_str(), (void**)&xml);
 	}

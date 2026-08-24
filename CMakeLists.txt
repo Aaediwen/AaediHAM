@@ -30,6 +30,7 @@ set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(CMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE PRE_TEST)
 
 set (SOURCES
+	core/user_log.cc
 	core/init.cc
 	core/classes.cc
 	core/panels.cc
@@ -208,6 +209,11 @@ add_library(aurora_plugin SHARED
 )
 target_link_libraries(aurora_plugin PRIVATE aaediclock_path SDL3::SDL3 nlohmann_json::nlohmann_json ${CURL_NAME})
 
+add_library(syslog_plugin SHARED
+    plugins/syslog.cc
+)
+target_link_libraries(syslog_plugin PRIVATE aaediclock_path SDL3::SDL3 )
+
 add_library(sdo_plugin SHARED
     plugins/sun.cc
     utils/http_fetch.cc
@@ -247,20 +253,20 @@ add_library(rss_plugin SHARED
     plugins/rss.cc
     utils/http_fetch.cc
 )
-target_link_libraries(rss_plugin PRIVATE aaediclock_path LibXml2::LibXml2 ${CURL_NAME})
+target_link_libraries(rss_plugin PRIVATE aaediclock_path SDL3::SDl3 LibXml2::LibXml2 ${CURL_NAME})
 
 add_library(pskreporter_plugin SHARED
     plugins/pskreporter.cc
     utils/http_fetch.cc
     utils/maidenhead.cc
 )
-target_link_libraries(pskreporter_plugin PRIVATE aaediclock_path paho-mqtt3c LibXml2::LibXml2 ${CURL_NAME})
+target_link_libraries(pskreporter_plugin PRIVATE aaediclock_path paho-mqtt3c SDL3::SDL3 LibXml2::LibXml2 ${CURL_NAME})
 
 add_library(muf_plugin SHARED
     plugins/muf.cc
     utils/http_fetch.cc
 )
-target_link_libraries(muf_plugin PRIVATE aaediclock_path LibXml2::LibXml2 ${CURL_NAME})
+target_link_libraries(muf_plugin PRIVATE aaediclock_path SDL3::SDL3 LibXml2::LibXml2 ${CURL_NAME})
 
 
 add_library(map_plugin SHARED
@@ -356,7 +362,7 @@ elseif(APPLE)
 	target_link_libraries(clock PRIVATE ZLIB::ZLIB CURL::libcurl m) 
  #       find_build(sgp4 https://github.com/dnwrnr/sgp4.git "master" "sgp4-src/")
  #       target_include_directories(sat_tracker_plugin SYSTEM PRIVATE ${sgp4_SOURCE_DIR})
-	find_build(libXml2 "https://gitlab.gnome.org/GNOME/libxml2.git" "master" .)
+	find_build(LibXml2 "https://gitlab.gnome.org/GNOME/libxml2.git" "master" .)
 	list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew")
 	find_build(Fontconfig "https://gitlab.freedesktop.org/fontconfig/fontconfig.git" "main" .)
 	

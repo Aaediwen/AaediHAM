@@ -1,4 +1,5 @@
 #include "host_api.h"
+#include "core/user_log.h"
 #include <iostream>
 #ifndef _WIN32
 #include <dlfcn.h>
@@ -180,6 +181,54 @@ bool register_module(const std::string& module_lib) {
 }
 
 //********************************************************************************
+// User Log
+//********************************************************************************
+
+int userbuf::overflow(int c) {
+    const std::lock_guard<std::recursive_mutex>char_lock(user_lock);
+    if (c != EOF) {
+        strbuf.push_back(static_cast<char>(c));
+    }
+    if (c == '\n') {
+        user_log << plugin_name << ": " << strbuf;
+        strbuf.clear();
+    }
+    if (strbuf.size() > 1024) {
+        user_log << plugin_name << ": " << strbuf << "\n";
+        strbuf.clear();
+    }
+    if (c == EOF) {
+        user_log << plugin_name << ": " << strbuf << "\n";
+        strbuf.clear();
+    }
+    return c;
+}
+
+std::streamsize userbuf::xsputn (const char* s, std::streamsize n) {
+    std::streamsize count = 0;
+    const std::lock_guard<std::recursive_mutex>str_lock(user_lock);
+    for (std::streamsize i = 0; i < n; i++) {
+        int result = overflow(static_cast<unsigned char>(s[i]));
+        if (result != EOF) {
+            count++;
+        }
+    }
+    return count;
+}
+
+int userbuf::sync() {
+    if (!strbuf.empty()) {
+        user_log << plugin_name << ": " << strbuf << "\n";
+        strbuf.clear();
+    }
+    user_log.flush();
+//	std::cout << user_log.str();
+    return 0;
+}
+
+
+
+//********************************************************************************
 // Debug Log
 //********************************************************************************
 
@@ -232,6 +281,9 @@ int debugbuf::sync() {
 HostAPI::HostAPI(uint16_t new_id) {
     api_debug_log 	= new std::istream(&debug_log_buffer);
     AaediHAM_LogDebug 	= new std::ostream(&debug_log_buffer);
+    api_user_log 	= new std::istream(&user_log_buffer);
+    AaediHAM_LogUser 	= new std::ostream(&user_log_buffer);
+
     plugin_id = new_id;
     texture_cache.clear();
     text_surface = nullptr;
@@ -245,6 +297,11 @@ HostAPI::~HostAPI() {
     if (AaediHAM_LogDebug) {
         delete (AaediHAM_LogDebug);
     }
+
+    if (AaediHAM_LogUser) {
+        delete (AaediHAM_LogUser);
+    }
+
     if (text_surface) {
         SDL_DestroySurface(text_surface);
     }
@@ -261,8 +318,9 @@ HostAPI::~HostAPI() {
 }
 
 void HostAPI::set_plugin_name(const std::string& new_name) {
-    debug_log_buffer.plugin_name = new_name;
-    return;
+	debug_log_buffer.plugin_name = new_name;
+	user_log_buffer.plugin_name = new_name;
+	return;
 }
 
 void HostAPI::AaediHAM_SetTarget() {
@@ -358,7 +416,7 @@ void HostAPI::AaediHAM_GraphicsDrawLines(const aaediclock_Color color, const aae
     return;
 }
 
-void HostAPI::AaediHAM_GraphicsDrawImage (uint16_t index) {
+void HostAPI::AaediHAM_GraphicsDrawImage (uint16_t index, aaediclock_FRect* destrect) {
     if ((static_cast<size_t>(index) > texture_cache.size()) || texture_cache.empty()) {
         return;
     }
@@ -369,7 +427,17 @@ void HostAPI::AaediHAM_GraphicsDrawImage (uint16_t index) {
     index--;
     if (texture_cache[index]) {
         debug_log << "HostAPI: Drawing Texture ID: "<< index << " for plugin "<< plugin_id << "\n";
-        SDL_RenderTexture(this->panel->GetRenderer(), texture_cache[index], nullptr, nullptr);
+	SDL_FRect SDLDest;
+	if (destrect != nullptr) {
+		SDLDest.w = destrect->w;
+		SDLDest.h = destrect->h;
+		SDLDest.x = destrect->x;
+		SDLDest.y = destrect->y;
+		 SDL_RenderTexture(this->panel->GetRenderer(), texture_cache[index], nullptr, &SDLDest);
+
+	} else {
+	        SDL_RenderTexture(this->panel->GetRenderer(), texture_cache[index], nullptr, nullptr);
+	}
     }
     return;
 }
@@ -754,6 +822,38 @@ uint16_t HostAPI::AaediHAM_TextureCreate (const aaediclock_image& image_data) {
     return result;
 }
 
+uint16_t HostAPI::AaediHAM_TextureCreateString (const char* string, const aaediclock_Color& foreground) {
+	uint16_t result = 0;
+	if (SDL_GetCurrentThreadID() != main_thread_id) {
+		debug_log << debug_log_buffer.plugin_name << ": Texture call from non-parent thread. ignoring\n";
+		return result;
+	}
+	if (!string || string[0] ==0) {
+		return result;
+	}
+	std::string str (string);
+	if (str.size() > 2048) {
+		debug_log << debug_log_buffer.plugin_name << ": Text Render input overflow. Discarded\n";
+ 		return result;
+ 	}
+	SDL_Surface* textsurface = nullptr;
+ 	SDL_Texture* TextTexture = nullptr;
+
+	textsurface = TTF_RenderText_Shaded(Sans, str.c_str(), str.size(), SDL_Color{foreground.r, foreground.g, foreground.b, foreground.a}, SDL_Color{0,0,0,0});
+	if (textsurface==NULL) {
+ 		debug_log << debug_log_buffer.plugin_name << ": Text render error: " << SDL_GetError() << "\n";
+		return result;
+	}
+	TextTexture = SDL_CreateTextureFromSurface(this->panel->GetRenderer(), textsurface);
+	if (TextTexture) {
+		texture_cache.push_back(TextTexture);
+		result =  static_cast<uint16_t>(texture_cache.size());
+		SDL_DestroySurface(textsurface);
+	}
+	return result;
+
+}
+
 bool HostAPI::AaediHAM_TextureUpdate (uint16_t index, const aaediclock_image& image_data) {
     uint16_t result = 0;
     if (SDL_GetCurrentThreadID() != main_thread_id) {
@@ -929,4 +1029,26 @@ void HostAPI::AaediHAM_ScrollerDelete() {
     }
     scroll_buffer.clear();
     return;
+}
+
+//********************************************************************************
+//Log Read  Calls
+//********************************************************************************
+
+const char* HostAPI::AaediHAM_LogGetNew() {
+	last_log_str =  ((sysuserbuf*)user_log.rdbuf())->readline();
+	return last_log_str.c_str();
+}
+
+uint16_t HostAPI::AaediHAM_LogGetCount() {
+	return ((sysuserbuf*)user_log.rdbuf())->size();
+}
+
+const char* HostAPI::AaediHAM_LogGetIndex(uint16_t index) {
+	uint16_t log_size = ((sysuserbuf*)user_log.rdbuf())->size();
+	if (index < log_size) {
+		return ((sysuserbuf*)user_log.rdbuf())->read_index(index).c_str();
+	} else {
+		return nullptr;
+	}
 }

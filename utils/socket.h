@@ -5,7 +5,9 @@
 #include <ws2tcpip.h>
 #else
 #include <poll.h>
+#ifndef __APPLE__
 #include <error.h>
+#endif
 #endif
 #include "aaediclock.h"
 #ifdef _WIN32

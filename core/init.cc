@@ -10,6 +10,7 @@
 #include <fstream>
 #include "aaediclock.h"
 #include "core/core.h"
+#include "core/user_log.h"
 #include "core/init.h"
 #include "core/event.h"
 #include "core/panels.h"
@@ -33,6 +34,10 @@ SDL_TimerID 			map_timer		=	0;
 std::vector<PluginModule> 	loaded_plugins;
 std::atomic<bool>		interrupt_flag;
 std::atomic<bool>		reload_flag;
+//std::ostringstream		user_log;
+sysuserbuf			system_user_buffer;
+std::ostream			user_log(&system_user_buffer);
+
 #ifdef CLOCK_DEBUG
 static std::ofstream		logfile("clock_debug.log");
 std::ostream&			debug_log		=	logfile;
@@ -430,6 +435,9 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 #endif
 
 	debug_log << "------------------------ NEW RUN ------------\n";
+	user_log << "------------------ USER NEW RUN ------------\n";
+//	std::cout << user_log.str();
+
 	SDL_AppResult init_result;
 	init_result = AaediClock_Init::cmd_line_parser(argc, argv);
 	if (init_result != SDL_APP_CONTINUE) {
