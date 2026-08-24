@@ -101,7 +101,7 @@ int SDLCALL fetch_pota (void* data) {
 	char* json_spots = 0 ;
 	Uint64 data_size = 0;
 	*(host_api->AaediHAM_LogDebug) <<" Fetching Spots from pota.app via timer\n";
-	*(host_api->AaediHAM_LogUser) << "Fetching Spots from pota.app via timer\n");
+	*(host_api->AaediHAM_LogUser) << "Fetching Spots from pota.app via timer\n";
 	std::string user_agent = host_api->AaediHAM_ConfigGetCall();
 	user_agent += "-clock-Agent/1.0";
 	std::string web_source = host_api->AaediHAM_ConfigGetSiteCache();
