@@ -253,7 +253,7 @@ add_library(rss_plugin SHARED
     plugins/rss.cc
     utils/http_fetch.cc
 )
-target_link_libraries(rss_plugin PRIVATE aaediclock_path SDL3::SDl3 LibXml2::LibXml2 ${CURL_NAME})
+target_link_libraries(rss_plugin PRIVATE aaediclock_path SDL3::SDL3 LibXml2::LibXml2 ${CURL_NAME})
 
 add_library(pskreporter_plugin SHARED
     plugins/pskreporter.cc
