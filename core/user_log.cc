@@ -32,7 +32,9 @@ void sysuserbuf::buffer_stuff() {
 	struct log_entry new_log;
 	new_log.fetched = false;
 	new_log.log_entry = strbuf;
+	std::cout << "USER LOG: "<< new_log.log_entry;
 	log_buffer.push_back(new_log);
+
 	strbuf.clear();
 	while (log_buffer.size() > 2048) {
 		log_buffer.erase(log_buffer.begin());

@@ -151,7 +151,7 @@ int msgarrvd(void *context, char *topicName, int topicLen, MQTTClient_message *m
         }
 //        SDL_LockMutex(psk_mutex);
         const std::lock_guard<std::mutex>psk_lock(psk_mutex);
-        SDL_Log("PSK Reporter adding contact %s", new_spot.rx_call.c_str());
+	*(host_api->AaediHAM_LogDebug) << "PSK Reporter adding contact " << new_spot.rx_call << "\n";
         psk_reports.push_back(new_spot);
 
 //        SDL_UnlockMutex(psk_mutex);

@@ -207,8 +207,8 @@ void TrackedWSPR::load_telemetry(std::istream& input) {
 void TrackedWSPR::wspr_live_update() {
     Uint64 data_size;
     void* http_buffer = nullptr;
-    SDL_Log ("Checking for new data from db1.wspr.live");
-    *(host_api->AaediHAM_LogDebug) << "WSPR: Checking for new data from db1.wspr.live\n";
+    *(host_api->AaediHAM_LogUser) << "Checking for new data from db1.wspr.live\n";
+    *(host_api->AaediHAM_LogDebug) << "Checking for new data from db1.wspr.live\n";
     std::string query = "SELECT * FROM wspr.rx WHERE tx_sign='"+m_tx_sign+"'";
     query += " AND band="+std::to_string(static_cast<int16_t>(m_band));
     if (!m_telemetry.empty()) {

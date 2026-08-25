@@ -5,6 +5,7 @@
 #include <dlfcn.h>
 #endif
 
+
 //********************************************************************************
 // Library Loading / Unloading
 //********************************************************************************
@@ -19,7 +20,7 @@ bool unregister_module (struct PluginModule* module) {
                 module->destroy(module->plugin);
             }
         } catch (...) {
-            std::cout << "Error Unloading module\n";
+            user_log << "Error Unloading module\n";
         }
         module->plugin = nullptr;
     }
@@ -51,133 +52,149 @@ bool unregister_module (struct PluginModule* module) {
 }
 
 bool register_module(const std::string& module_lib) {
-    struct PluginModule new_plugin;
-    char* library_error = nullptr;
-    if (module_lib.empty()) {
-        return false;
-    }
-    std::cout << "Loading Plugin: " << module_lib << "\n";
-    std::cout.flush();
-    // load library file
+	struct PluginModule new_plugin;
+	char* library_error = nullptr;
+	if (module_lib.empty()) {
+		return false;
+	}
+	user_log << "Loading Plugin: " << module_lib << "\n";
+	user_log.flush();
+	// load library file
 #ifdef _WIN32
-    SetLastError(0);
-    new_plugin.library = LoadLibraryA(module_lib.c_str());
-    if (!new_plugin.library) {
-        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&library_error, 0, NULL);
-    }
+	SetLastError(0);
+	new_plugin.library = LoadLibraryA(module_lib.c_str());
+	if (!new_plugin.library) {
+		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+		    NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&library_error, 0, NULL);
+	}
 #else
-    library_error = dlerror();
-    new_plugin.library = dlopen(module_lib.c_str(), RTLD_LAZY);
-    library_error = dlerror();
+	library_error = dlerror();
+	new_plugin.library = dlopen(module_lib.c_str(), RTLD_LAZY);
+	library_error = dlerror();
 #endif
-    if (!new_plugin.library) {
-        std::cout << "Error Loading Plugin Library File: " << module_lib;
-        if (library_error) {
-            std::cout << " Error Code: " << library_error;
-            #ifdef _WIN32
-            LocalFree(library_error);
-            library_error = nullptr;
-            #endif
-        }
-        std::cout << "\n";
-        unregister_module(&new_plugin);
-        return false;
-    }
-    // load the constructor and destructor functions for the module
+	if (!new_plugin.library) {
+		user_log << "Error Loading Plugin Library File: " << module_lib;
+		std::cerr << "Error Loading Plugin Library File: " << module_lib;
+		
+		if (library_error) {
+			user_log << " Error Code: " << library_error;
+			std::cerr << " Error Code: " << library_error;
+			
+			#ifdef _WIN32
+			LocalFree(library_error);
+			library_error = nullptr;
+			#endif
+		}
+		std::cout << "\n";
+		unregister_module(&new_plugin);
+		return false;
+	}
+	// load the constructor and destructor functions for the module
 #ifdef _WIN32
-    SetLastError(0);
-    new_plugin.create   = (aaediclock_plugin_api * (*)())GetProcAddress(new_plugin.library, "createPlugin");
-    if (!new_plugin.create) {
-        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&library_error, 0, NULL);
-    }
+	SetLastError(0);
+	new_plugin.create   = (aaediclock_plugin_api * (*)())GetProcAddress(new_plugin.library, "createPlugin");
+	if (!new_plugin.create) {
+		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+		    NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&library_error, 0, NULL);
+	}
 #else
-    library_error = dlerror();
-    new_plugin.create =         (aaediclock_plugin_api*(*)())dlsym(new_plugin.library, "createPlugin");
-    library_error = dlerror();
+	library_error = dlerror();
+	new_plugin.create =         (aaediclock_plugin_api*(*)())dlsym(new_plugin.library, "createPlugin");
+	library_error = dlerror();
 #endif
-    if (!new_plugin.create) {
-        std::cout << "Error Loading Plugin Constructor: " << module_lib;
-        if (library_error) {
-            std::cout << " Error Code: " << library_error;
-            #ifdef _WIN32
-            LocalFree(library_error);
-            library_error = nullptr;
-            #endif
-        }
-        std::cout << "\n";
-        unregister_module(&new_plugin);
-        return false;
-    }
-#ifdef _WIN32
-    SetLastError(0);
-    new_plugin.destroy = (void(*)(aaediclock_plugin_api*))GetProcAddress(new_plugin.library, "destroyPlugin");
-    if (!new_plugin.destroy) {
-        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&library_error, 0, NULL);
-    }
-#else
-    library_error = dlerror();
-    new_plugin.destroy =        (void(*)(aaediclock_plugin_api*))dlsym(new_plugin.library, "destroyPlugin");
-    library_error = dlerror();
-#endif
-    if (!new_plugin.destroy) {
-        std::cout << "Error Loading Plugin Destructor: " << module_lib;
-        if (library_error) {
-            std::cout << " Error Code: " << library_error;
-            #ifdef _WIN32
-            LocalFree(library_error);
-            library_error = nullptr;
-            #endif
-        }
-        std::cout << "\n";
-        unregister_module(&new_plugin);
-        return false;
-    }
-    // create the plugin object
-    try {
-        new_plugin.plugin = new_plugin.create();
-    } catch (std::exception& e) {
-        std::cout << "Exception " << e.what() << " while creating plugin: " << module_lib << "\n";
-        unregister_module(&new_plugin);
-        return false;
-    } catch (...) {
-        std::cout << "Unknown Exception while creating plugin: " << module_lib << "\n";
-        unregister_module(&new_plugin);
-        return false;
-    }
-    if (!new_plugin.plugin) {
-        std::cout << "Plugin Error Creating plugin object: " << module_lib << "\n";
-        unregister_module(&new_plugin);
-        return false;
-    }
-    // get the plugin name
-    try {
-        new_plugin.name = new_plugin.plugin->getName();
-    } catch (...) {
-        std::cout << "Plugin Error Getting Plugin Name: " << module_lib << "\n";
-        unregister_module(&new_plugin);
-        return false;
-    }
+	if (!new_plugin.create) {
+		user_log << "Error Loading Plugin Constructor: " << module_lib;
+		std::cerr << "Error Loading Plugin Constructor: " << module_lib;
 
-    // assign an ID
-    if (loaded_plugins.empty()) {
-        new_plugin.id = 0;
-    } else {
-        new_plugin.id = static_cast<uint16_t>(loaded_plugins.size());
-    }
-    // make it official
-    loaded_plugins.push_back(new_plugin);
-    loaded_plugins.back().host_api = new HostAPI(new_plugin.id);
-    // init panel
-    loaded_plugins.back().host_api->panel = nullptr;
-    loaded_plugins.back().host_api->set_plugin_name(loaded_plugins.back().name);
-    loaded_plugins.back().plugin->set_host((loaded_plugins.back().host_api));
-    loaded_plugins.back().plugin->plugin_init();
-    std::cout << "Loaded "<< loaded_plugins.back().name << "\n";
-    std::cout.flush();
-    return true;
+		if (library_error) {
+			user_log << " Error Code: " << library_error;
+			std::cerr << " Error Code: " << library_error;
+			#ifdef _WIN32
+			LocalFree(library_error);
+			library_error = nullptr;
+			#endif
+		}
+		std::cout << "\n";
+		unregister_module(&new_plugin);
+		return false;
+	}
+#ifdef _WIN32
+	SetLastError(0);
+	new_plugin.destroy = (void(*)(aaediclock_plugin_api*))GetProcAddress(new_plugin.library, "destroyPlugin");
+	if (!new_plugin.destroy) {
+		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+		    NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&library_error, 0, NULL);
+	}
+#else
+	library_error = dlerror();
+	new_plugin.destroy =        (void(*)(aaediclock_plugin_api*))dlsym(new_plugin.library, "destroyPlugin");
+	library_error = dlerror();
+#endif
+	if (!new_plugin.destroy) {
+		user_log << "Error Loading Plugin Destructor: " << module_lib;
+		std::cerr << "Error Loading Plugin Destructor: " << module_lib;
+		
+		if (library_error) {
+			user_log << " Error Code: " << library_error;
+			std::cerr << " Error Code: " << library_error;
+			
+			#ifdef _WIN32
+			LocalFree(library_error);
+			library_error = nullptr;
+			#endif
+		}
+		user_log << "\n";
+		std::cerr << "\n";
+		unregister_module(&new_plugin);
+		return false;
+	}
+	// create the plugin object
+	try {
+		new_plugin.plugin = new_plugin.create();
+	} catch (std::exception& e) {
+		user_log << "Exception " << e.what() << " while creating plugin: " << module_lib << "\n";
+		std::cerr << "Exception " << e.what() << " while creating plugin: " << module_lib << "\n";
+		unregister_module(&new_plugin);
+		return false;
+	} catch (...) {
+		user_log << "Unknown Exception while creating plugin: " << module_lib << "\n";
+		std::cerr << "Unknown Exception while creating plugin: " << module_lib << "\n";
+		unregister_module(&new_plugin);
+		return false;
+	}
+	if (!new_plugin.plugin) {
+		user_log << "Plugin Error Creating plugin object: " << module_lib << "\n";
+		std::cerr << "Plugin Error Creating plugin object: " << module_lib << "\n";
+		unregister_module(&new_plugin);
+		return false;
+	}
+	// get the plugin name
+	try {
+		new_plugin.name = new_plugin.plugin->getName();
+	} catch (...) {
+		user_log << "Plugin Error Getting Plugin Name: " << module_lib << "\n";
+		std::cerr << "Plugin Error Getting Plugin Name: " << module_lib << "\n";
+		unregister_module(&new_plugin);
+		return false;
+	}
+	
+	// assign an ID
+	if (loaded_plugins.empty()) {
+	    new_plugin.id = 0;
+	} else {
+	    new_plugin.id = static_cast<uint16_t>(loaded_plugins.size());
+	}
+	// make it official
+	loaded_plugins.push_back(new_plugin);
+	loaded_plugins.back().host_api = new HostAPI(new_plugin.id);
+	// init panel
+	loaded_plugins.back().host_api->panel = nullptr;
+	loaded_plugins.back().host_api->set_plugin_name(loaded_plugins.back().name);
+	loaded_plugins.back().plugin->set_host((loaded_plugins.back().host_api));
+	loaded_plugins.back().plugin->plugin_init();
+	user_log << "Loaded "<< loaded_plugins.back().name << "\n";
+	std::cout.flush();
+	return true;
 }
 
 //********************************************************************************

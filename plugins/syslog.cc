@@ -50,13 +50,13 @@ void syslog_plugin::plugin_main(const aaediclock_FRect& dims) const {
 			log_tex_id = host_api->AaediHAM_TextureCreateString (lastlog, aaediclock_Color({200,0,0,255}));
 			toast_length = strlen(lastlog);
 			toast_age = time(NULL);
-			std::cout << "Creating Texture for " << lastlog << "\n";
+//			std::cout << "Creating Texture for " << lastlog << "\n";
 		}
 	
 	}
 
 	bar_box.y = map_dims.h*0.8;
-	float height_multiplier = 0.12;
+	float height_multiplier = 0.06;
 	bar_box.x = map_dims.w*2;
 	
 	if (log_tex_id) {

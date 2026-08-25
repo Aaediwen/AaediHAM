@@ -260,14 +260,15 @@ namespace AaediClock_Init {
 			FcPatternGetString(font, FC_FILE, 0, &file);
 			FcPatternGetString(font, FC_FAMILY, 0, &family);
 			FcPatternGetString(font, FC_STYLE, 0, &style);
-			printf("Font Filename: %s (family %s, style %s)\n", file, family, style);
+			std::cout << "Font Filename: " << file << " (family " << family << ", style " << style << ")\n";
+			user_log << "Font Filename: " << file << " (family " << family << ", style " << style << ")\n";
 			path = reinterpret_cast<char*>(file);
 			FcPatternDestroy(font);
 		} else {
-			SDL_Log("No valid font found!");
+			std::cerr << "No valid font found!";
 		}
 		} else {
-			SDL_Log("FontConfig Substitute Check Failure!");
+			std::cerr <<"FontConfig Substitute Check Failure!";
 		}
 		FcPatternDestroy(pat);
 		FcFini();
