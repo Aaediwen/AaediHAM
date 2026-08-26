@@ -202,7 +202,7 @@ void aurora_plugin::plugin_main(const aaediclock_FRect& dims) const {
          host_api->AaediHAM_GraphicsDrawImage(aurora_tex_id);
     }
     // reset the mouse event
-    struct plugin_mouse_event mouse_event = host_api->AaediHAM_GetMouseEvent();
+//    struct plugin_mouse_event mouse_event = host_api->AaediHAM_GetMouseEvent();
     *(host_api->AaediHAM_LogDebug) << "AURORA: Complete\n";
     return;
 }

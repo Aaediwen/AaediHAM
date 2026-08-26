@@ -479,18 +479,21 @@ void HostAPI::AaediHAM_GraphicsClear(const aaediclock_Color& color) {
 //********************************************************************************
 
 const struct plugin_mouse_event HostAPI::AaediHAM_GetMouseEvent() {
-    struct plugin_mouse_event result;
-    result.coords.x = clock_mouse_event.mod_cords.x;
-    result.coords.y = clock_mouse_event.mod_cords.y;
-    result.coords.h = 0.0f;
-    result.coords.w = 0.0f;
-    result.click_count = clock_mouse_event.mod_count;
-    result.valid = (clock_mouse_event.plugin_owner == plugin_id);
-    if (result.valid) {
-        clock_mouse_event.plugin_owner = -1;
-        clock_mouse_event.mod_owner = MOD_NULL;
-    }
-    return result;
+	struct plugin_mouse_event result;
+	result.coords.x = clock_mouse_event.mod_cords.x;
+	result.coords.y = clock_mouse_event.mod_cords.y;
+	result.coords.h = 0.0f;
+	result.coords.w = 0.0f;
+	result.click_count = clock_mouse_event.mod_count;
+	result.timestamp = clock_mouse_event.key_timestamp;
+	result.keycode = clock_mouse_event.key_keycode;
+	result.keymod = clock_mouse_event.key_keymod;
+	result.valid = (clock_mouse_event.plugin_owner == plugin_id);
+	if (result.valid) {
+	    clock_mouse_event.plugin_owner = -1;
+	    clock_mouse_event.mod_owner = MOD_NULL;
+	}
+	return result;
 }
 
 const char* HostAPI::AaediHAM_ConfigGetCall() {
@@ -856,7 +859,7 @@ uint16_t HostAPI::AaediHAM_TextureCreateString (const char* string, const aaedic
 	SDL_Surface* textsurface = nullptr;
  	SDL_Texture* TextTexture = nullptr;
 
-	textsurface = TTF_RenderText_Shaded(Sans, str.c_str(), str.size(), SDL_Color{foreground.r, foreground.g, foreground.b, foreground.a}, SDL_Color{0,0,0,0});
+	textsurface = TTF_RenderText_Shaded_Wrapped(Sans, str.c_str(), str.size(), SDL_Color{foreground.r, foreground.g, foreground.b, foreground.a}, SDL_Color{0,0,0,0},0);
 	if (textsurface==NULL) {
  		debug_log << debug_log_buffer.plugin_name << ": Text render error: " << SDL_GetError() << "\n";
 		return result;
@@ -1064,7 +1067,8 @@ uint16_t HostAPI::AaediHAM_LogGetCount() {
 const char* HostAPI::AaediHAM_LogGetIndex(uint16_t index) {
 	uint16_t log_size = ((sysuserbuf*)user_log.rdbuf())->size();
 	if (index < log_size) {
-		return ((sysuserbuf*)user_log.rdbuf())->read_index(index).c_str();
+		last_log_str =  ((sysuserbuf*)user_log.rdbuf())->read_index(index);
+		return last_log_str.c_str();
 	} else {
 		return nullptr;
 	}

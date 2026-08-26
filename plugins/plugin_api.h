@@ -59,9 +59,12 @@ struct aaediclock_dx {
 };
 
 struct plugin_mouse_event {
-    struct aaediclock_FRect coords;
-    int click_count;
-    bool valid = false;
+	struct aaediclock_FRect coords;
+	int click_count;
+	bool valid = false;
+	uint64_t timestamp;
+	uint32_t keycode;
+	uint16_t keymod;
 };
 
 struct plugin_server_info {

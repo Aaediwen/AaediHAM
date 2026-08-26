@@ -60,6 +60,9 @@ struct internal_mouse_event {
 	SDL_FPoint			mod_cords;
 	int				mod_count;
 	enum mod_name			mod_owner;
+	time_t 				key_timestamp	= 0;
+	SDL_Keycode			key_keycode	= 0;
+	SDL_Keymod			key_keymod	= 0;
 	int				plugin_owner;
 };
 
