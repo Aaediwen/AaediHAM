@@ -165,7 +165,7 @@ void merge_json (const char* k_index_list, const char* solar_wind_list) {
 			*(host_api->AaediHAM_LogDebug) << "density String: " << new_node.density << "\n";
 			new_node.speed = spot["proton_speed"].get<float>();
 			*(host_api->AaediHAM_LogDebug) << "speed String: " << new_node.speed << "\n";
-			new_node.temperature = spot["proton_temperature"].get<float>();
+			new_node.temperature = spot["proton_temperature"].get<uint32_t>();
 			*(host_api->AaediHAM_LogDebug) << "Temperature String: " << new_node.temperature << "\n";
 			//                  if (solar_wind_cache.empty() || new_node.timestamp > solar_wind_cache.back().timestamp) {
 			new_solar_wind_cache.push_back(new_node);

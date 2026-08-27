@@ -100,7 +100,7 @@ class HostAPI final : public aaediclock_host_api {
      private:
           struct scroller_section {
               int offset = 0;
-              SDL_Texture* segment;
+              SDL_Texture* segment = nullptr;
           };
 		debugbuf debug_log_buffer;
 		userbuf user_log_buffer;

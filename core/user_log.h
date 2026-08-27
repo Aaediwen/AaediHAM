@@ -15,7 +15,7 @@ class sysuserbuf : public std::streambuf {
 	private:
 		struct log_entry {
 			std::string log_entry;
-			bool fetched;
+			bool fetched = false;
 		};
 		void buffer_stuff();
 		std::string strbuf;

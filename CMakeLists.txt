@@ -131,8 +131,10 @@ endif()
 
 
 
-target_link_libraries(clock PRIVATE dl aaediclock_path LibXml2::LibXml2)
-
+target_link_libraries(clock PRIVATE aaediclock_path LibXml2::LibXml2)
+if (NOT WIN32) 
+    target_link_libraries(clock PRIVATE dl)
+endif()
 #---------------------------
 # libraries start here
 #---------------------------
@@ -299,6 +301,7 @@ set(PLUGIN_TARGETS
     pskreporter_plugin
     rss_plugin
     muf_plugin
+    syslog_plugin
 )
 
 # ================================================================================

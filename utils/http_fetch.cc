@@ -114,9 +114,9 @@ uint64_t disk_cache_read (const std::string full_cache_path, void** result, cons
 		if ((sdl_now - fileinfo.modify_time) < max_age ) {
 			uint64_t data_size = fileinfo.size;
 			void* temp = *result;
-   			*result = realloc(*result, data_size+1);
+   			*result = realloc(*result, static_cast<size_t>(data_size+1));
 			if (*result) {
-				memset(*result, 0,  data_size + 1);
+				memset(*result, 0,  static_cast<size_t>(data_size + 1));
 				disk_file.open(full_cache_path.c_str(), (std::fstream::binary | std::fstream::in ));
 				if (disk_file.is_open()) {
 					if (disk_file.read(static_cast<char*>(*result), fileinfo.size)) {

@@ -14,7 +14,7 @@ const std::string sysuserbuf::readline() {
 
 uint16_t sysuserbuf::size() {
 	if (!log_buffer.empty()) {
-		return (0+log_buffer.size());
+		return (0+static_cast<uint16_t>(log_buffer.size()));
 	} else {
 		return 0;
 	}

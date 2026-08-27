@@ -1001,10 +1001,10 @@ void HostAPI::AaediHAM_ScrollerPosition(const aaediclock_FRect source, const aae
     for (auto& segment : scroll_buffer) {
         target_source.x = 0;
         target_source.y = 0;
-        target_dest.w = segment.segment->w;
+        target_dest.w = segment.segment->w + 0.0f;
         target_dest.h = dest.h;
-        target_source.w = segment.segment->w;
-        target_source.h = segment.segment->h;
+        target_source.w = segment.segment->w + 0.0f;
+        target_source.h = segment.segment->h + 0.0f;
         float segment_offset = 0;
         if (string_offset >0) {
             if (string_offset > target_source.w) {
