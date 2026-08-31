@@ -55,7 +55,9 @@ void de_plugin::plugin_main(const aaediclock_FRect& dims) const {
     sprintf(de_pin.label, "DE");
     struct plugin_mouse_event mouse_event = host_api->AaediHAM_GetMouseEvent();
     if (mouse_event.valid) {
-        std::cout << "Click event in DE/DX module at " << mouse_event.coords.x << ", "<< mouse_event.coords.y << "\n";
+//        std::cout << "Click event in DE/DX module at " << mouse_event.coords.x << ", "<< mouse_event.coords.y << "\n";
+	*(host_api->AaediHAM_LogUser)  << "Click event in DE/DX module at " << mouse_event.coords.x << ", "<< mouse_event.coords.y << "\n";
+
     }
     de_pin.lat=location.lat;
     de_pin.lon=location.lon;

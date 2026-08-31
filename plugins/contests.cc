@@ -106,7 +106,7 @@ int SDLCALL fetch_contests (void* data) {
 		}
 
 		*(host_api->AaediHAM_LogDebug) <<"Fetching Contests from WA7BNM via timer\n";
-		SDL_Log("Fetching contests from WA7BNM via timer");
+		*(host_api->AaediHAM_LogUser) << "Fetching contests from WA7BNM via timer\n";
 		struct http_payload payload;
 		payload.source_url = web_source;
 		payload.result = (void**)&fetch_spots;

@@ -143,7 +143,7 @@ void resize_panels(std::array<pager_node, 12>& panels) {
 		}
 		// clear the window at its new size
 		SDL_GetCurrentRenderOutputSize(clock_renderer, &win_x, &win_y);
-		printf("Resizing Window to %i X %i\n", win_x, win_y);
+		user_log << "Window size: "<< win_x << " X "<< win_y << "\n";
 		debug_log << "RESIZE: Resizing Window to " << win_x << " X " << win_y << "\n";
 		debug_log.flush();
 		SDL_SetRenderDrawColor(clock_renderer, 0, 0, 0, 0);

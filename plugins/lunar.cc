@@ -120,12 +120,12 @@ SDL_Surface* gen_moon_phase_mask(aaediclock_FRect size) {
              *(host_api->AaediHAM_LogDebug) << "LUNAR: Done Creating Moon Phase Alpha mask \n";
         } else {
              *(host_api->AaediHAM_LogDebug) << "LUNAR: Error Creating Moon Phase Alpha mask: " << SDL_GetError() << "\n";
-             SDL_Log ("No MOON MASK!");
+//             SDL_Log ("No MOON MASK!");
              return (nullptr);
         }
     } else {
         // moon_illumination global is invalid
-        SDL_Log ("No lunar timestamp! skipping mask");
+        *(host_api->AaediHAM_LogUser)  << "No Lunar timestamp! skipping mask\n";
     }
     return (result);
 }
@@ -222,8 +222,8 @@ int SDLCALL regen_lunar_surface(void* data) {
                 regen_moon_texture = true;
             } else {
                 // missing phase, no phase mask to show
-                *(host_api->AaediHAM_LogDebug) << "LUNAR: We have no MOON MASK in the parent!\n";
-                SDL_Log ("We have no MOON MASK in the parent!");
+                *(host_api->AaediHAM_LogDebug) << "We have no MOON MASK in the parent!\n";
+                 *(host_api->AaediHAM_LogUser) <<"We have no MOON MASK in the parent!\n";
             }
             // set transparancy
             SDL_SetSurfaceColorKey(moon_image, 1, 0);

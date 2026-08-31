@@ -59,9 +59,12 @@ struct aaediclock_dx {
 };
 
 struct plugin_mouse_event {
-    struct aaediclock_FRect coords;
-    int click_count;
-    bool valid = false;
+    struct aaediclock_FRect coords = {};
+	int click_count = 0;
+	bool valid = false;
+	uint64_t timestamp =0;
+	uint32_t keycode = 0;
+	uint16_t keymod = 0;
 };
 
 struct plugin_server_info {
@@ -83,7 +86,7 @@ class aaediclock_host_api {
         virtual void 				AaediHAM_GraphicsDrawLine	(const aaediclock_Color color, const aaediclock_FRect line) 			= 0;
         virtual void 				AaediHAM_GraphicsDrawLines	(const aaediclock_Color color, const aaediclock_FPoint* point_list, int count)	= 0;
         virtual void 				AaediHAM_GraphicsClear		(const aaediclock_Color& color = {0, 0, 0, 255}) 				= 0;
-        virtual void				AaediHAM_GraphicsDrawImage	(uint16_t index)								= 0;
+        virtual void				AaediHAM_GraphicsDrawImage	(uint16_t index, aaediclock_FRect* destrect = nullptr)				= 0;
         // config calls
         virtual const char* 			AaediHAM_ConfigGetQRZKey	(bool refresh) 									= 0;
         virtual const char* 			AaediHAM_ConfigGetCall		() 										= 0;
@@ -118,14 +121,20 @@ class aaediclock_host_api {
         // texture cache calls
         virtual bool				AaediHAM_TextureCheck		(uint16_t icon_index)								= 0;
         virtual uint16_t			AaediHAM_TextureCreate		(const aaediclock_image& image_data)						= 0;
+	virtual uint16_t			AaediHAM_TextureCreateString	(const char* string, const aaediclock_Color& foreground)			= 0;
         virtual bool				AaediHAM_TextureUpdate		(uint16_t index, const aaediclock_image& image_data)				= 0;
         virtual void				AaediHAM_TextureDelete		(uint16_t index)								= 0;
         // scroller calls
         virtual const struct aaediclock_FRect	AaediHAM_ScrollerInit		(const char* string, aaediclock_Color fg, aaediclock_Color bg)			= 0;
         virtual void				AaediHAM_ScrollerPosition	(const aaediclock_FRect source, const aaediclock_FRect dest)			= 0;
         virtual void				AaediHAM_ScrollerDelete		()										= 0;
+	// user log reads
+	virtual const char*			AaediHAM_LogGetNew		()										= 0;
+	virtual uint16_t			AaediHAM_LogGetCount		()										= 0;
+	virtual const char*			AaediHAM_LogGetIndex		(uint16_t index)								= 0;
 
 
+	std::ostream* AaediHAM_LogUser = nullptr;
         std::ostream* AaediHAM_LogDebug = nullptr;
         const uint32_t API_VERSION = 0050;
 };

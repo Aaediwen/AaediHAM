@@ -160,7 +160,7 @@ void rss_feed::fetch_rss() {
      char* raw_xml = 0 ;
      Uint64 data_size = 0;
      xmlDocPtr xml_tree = 0;
-     SDL_Log("RSS: Fetching RSS feed for: %s", m_url.c_str());
+	*(host_api->AaediHAM_LogDebug) << "RSS: Fetching RSS feed for: " << m_url.c_str() << "\n";
      data_size = http_loader(m_url.c_str(), (void**)&raw_xml);
      if (data_size > 50) {
           *(host_api->AaediHAM_LogDebug) << "RSS: Calling XML ReadMemory\n";

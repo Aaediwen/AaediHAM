@@ -9,7 +9,9 @@
 #include <winhttp.h>
 #else
 #include <poll.h>
+#ifndef __APPLE__
 #include <error.h>
+#endif
 #include <curl/curl.h>
 #endif
 

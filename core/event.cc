@@ -180,6 +180,9 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 				}
 				break;
 			default:
+				clock_mouse_event.key_timestamp = event->key.timestamp;
+				clock_mouse_event.key_keymod = event->key.mod;
+				clock_mouse_event.key_keycode = event->key.key;				
 				break;
 		}
 	}

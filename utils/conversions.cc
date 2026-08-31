@@ -40,7 +40,7 @@ bool isLeapYear(int year) {
 }
 
 void doy_to_mmdd(const int year, uint16_t doy, int* mm, int* dd) {
-    static int months[14]={0, 31, 28,  31, 30, 31, 30, 31, 31, 30, 31, 30, 31, 0};
+    static uint16_t months[14]={0, 31, 28,  31, 30, 31, 30, 31, 31, 30, 31, 30, 31, 0};
     if ((!mm) || (!dd)) {
 //        std::cout << "Invalid result locations\n";
         return;
@@ -53,7 +53,7 @@ void doy_to_mmdd(const int year, uint16_t doy, int* mm, int* dd) {
     *mm=0;
     *dd=0;
     for (int x = 1 ; x < 13 ; x++) {
-        int monthdays = months[x];
+        uint16_t monthdays = months[x];
         if (isleap && x==2) {
             monthdays++;
         }

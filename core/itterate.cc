@@ -2,6 +2,7 @@
 #include "core/core.h"
 #include "core/quit.h"
 #include "core/event.h"
+#include "core/user_log.h"
 #include "utils/conversions.h"
 #include <SDL3_image/SDL_image.h>
 #include "sdl_callbacks.h"
@@ -324,6 +325,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 		winboxes[PANEL_FLEXBOX5].panel.present();
 		SDL_UnlockMutex(mutexes[MUTEX_MASTER_CLOCK]);
 		SDL_RenderPresent(clock_renderer);
+
 		//if (headless && (!outfile.empty())) {
 		// this if (write_surface && savesurface) acts to drop disk frames if the system is having trouble keeping up with disk output
 		if (write_image && savesurface) {

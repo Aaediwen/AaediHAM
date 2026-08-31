@@ -225,7 +225,7 @@ int SDLCALL regen_night_mask(void* userdata) {
                 alpha = (Uint8)(255.0 * (alt + softness) / (2.0 * softness));
             }
             // Write a pixel with the computed alpha
-            source_cords.x = static_cast<int>((panel_cords.x/dims.w)*night_map.surface->w);
+            source_cords.x = (panel_cords.x/dims.w)*(night_map.surface->w + 0.0f);
             int source_pixel_index = ( night_map.surface->pitch * (int)source_cords.y ) + ( source_bpp * (int)source_cords.x );
             int dest_pixel_index =   ( (int)dims.w * 4 * (int)panel_cords.y ) + ( 4 * (int)panel_cords.x );
 //            *(host_api->AaediHAM_LogDebug) << "src: " << source_cords.x << ", " << source_cords.y << "\tdst: "
@@ -389,9 +389,9 @@ void map_plugin::plugin_main(const aaediclock_FRect& dims) const {
     // draw equator and tropics
     aaediclock_FRect tropic;
     tropic.x = 0.0;
-    tropic.y = dims.h/2.0;
+    tropic.y = dims.h/2.0f;
     tropic.w = dims.w;
-    tropic.h = dims.h/2.0;
+    tropic.h = dims.h/2.0f;
     host_api->AaediHAM_GraphicsDrawLine(aaediclock_Color{128, 128, 128, 64}, tropic);
 //    *(host_api->AaediHAM_LogDebug) << "Equatorial dims: " << tropic.x << ", " << tropic.y << " " << tropic.w << ", " << tropic.h << "\n";
 

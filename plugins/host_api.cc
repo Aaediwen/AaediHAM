@@ -1,8 +1,10 @@
 #include "host_api.h"
+#include "core/user_log.h"
 #include <iostream>
 #ifndef _WIN32
 #include <dlfcn.h>
 #endif
+
 
 //********************************************************************************
 // Library Loading / Unloading
@@ -18,7 +20,7 @@ bool unregister_module (struct PluginModule* module) {
                 module->destroy(module->plugin);
             }
         } catch (...) {
-            std::cout << "Error Unloading module\n";
+            user_log << "Error Unloading module\n";
         }
         module->plugin = nullptr;
     }
@@ -50,134 +52,198 @@ bool unregister_module (struct PluginModule* module) {
 }
 
 bool register_module(const std::string& module_lib) {
-    struct PluginModule new_plugin;
-    char* library_error = nullptr;
-    if (module_lib.empty()) {
-        return false;
-    }
-    std::cout << "Loading Plugin: " << module_lib << "\n";
-    std::cout.flush();
-    // load library file
+	struct PluginModule new_plugin;
+	char* library_error = nullptr;
+	if (module_lib.empty()) {
+		return false;
+	}
+	user_log << "Loading Plugin: " << module_lib << "\n";
+	user_log.flush();
+	// load library file
 #ifdef _WIN32
-    SetLastError(0);
-    new_plugin.library = LoadLibraryA(module_lib.c_str());
-    if (!new_plugin.library) {
-        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&library_error, 0, NULL);
-    }
+	SetLastError(0);
+	new_plugin.library = LoadLibraryA(module_lib.c_str());
+	if (!new_plugin.library) {
+		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+		    NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&library_error, 0, NULL);
+	}
 #else
-    library_error = dlerror();
-    new_plugin.library = dlopen(module_lib.c_str(), RTLD_LAZY);
-    library_error = dlerror();
+	library_error = dlerror();
+	new_plugin.library = dlopen(module_lib.c_str(), RTLD_LAZY);
+	library_error = dlerror();
 #endif
-    if (!new_plugin.library) {
-        std::cout << "Error Loading Plugin Library File: " << module_lib;
-        if (library_error) {
-            std::cout << " Error Code: " << library_error;
-            #ifdef _WIN32
-            LocalFree(library_error);
-            library_error = nullptr;
-            #endif
-        }
-        std::cout << "\n";
-        unregister_module(&new_plugin);
-        return false;
-    }
-    // load the constructor and destructor functions for the module
+	if (!new_plugin.library) {
+		user_log << "Error Loading Plugin Library File: " << module_lib;
+		std::cerr << "Error Loading Plugin Library File: " << module_lib;
+		
+		if (library_error) {
+			user_log << " Error Code: " << library_error;
+			std::cerr << " Error Code: " << library_error;
+			
+			#ifdef _WIN32
+			LocalFree(library_error);
+			library_error = nullptr;
+			#endif
+		}
+		std::cout << "\n";
+		unregister_module(&new_plugin);
+		return false;
+	}
+	// load the constructor and destructor functions for the module
 #ifdef _WIN32
-    SetLastError(0);
-    new_plugin.create   = (aaediclock_plugin_api * (*)())GetProcAddress(new_plugin.library, "createPlugin");
-    if (!new_plugin.create) {
-        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&library_error, 0, NULL);
-    }
+	SetLastError(0);
+	new_plugin.create   = (aaediclock_plugin_api * (*)())GetProcAddress(new_plugin.library, "createPlugin");
+	if (!new_plugin.create) {
+		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+		    NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&library_error, 0, NULL);
+	}
 #else
-    library_error = dlerror();
-    new_plugin.create =         (aaediclock_plugin_api*(*)())dlsym(new_plugin.library, "createPlugin");
-    library_error = dlerror();
+	library_error = dlerror();
+	new_plugin.create =         (aaediclock_plugin_api*(*)())dlsym(new_plugin.library, "createPlugin");
+	library_error = dlerror();
 #endif
-    if (!new_plugin.create) {
-        std::cout << "Error Loading Plugin Constructor: " << module_lib;
-        if (library_error) {
-            std::cout << " Error Code: " << library_error;
-            #ifdef _WIN32
-            LocalFree(library_error);
-            library_error = nullptr;
-            #endif
-        }
-        std::cout << "\n";
-        unregister_module(&new_plugin);
-        return false;
-    }
-#ifdef _WIN32
-    SetLastError(0);
-    new_plugin.destroy = (void(*)(aaediclock_plugin_api*))GetProcAddress(new_plugin.library, "destroyPlugin");
-    if (!new_plugin.destroy) {
-        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&library_error, 0, NULL);
-    }
-#else
-    library_error = dlerror();
-    new_plugin.destroy =        (void(*)(aaediclock_plugin_api*))dlsym(new_plugin.library, "destroyPlugin");
-    library_error = dlerror();
-#endif
-    if (!new_plugin.destroy) {
-        std::cout << "Error Loading Plugin Destructor: " << module_lib;
-        if (library_error) {
-            std::cout << " Error Code: " << library_error;
-            #ifdef _WIN32
-            LocalFree(library_error);
-            library_error = nullptr;
-            #endif
-        }
-        std::cout << "\n";
-        unregister_module(&new_plugin);
-        return false;
-    }
-    // create the plugin object
-    try {
-        new_plugin.plugin = new_plugin.create();
-    } catch (std::exception& e) {
-        std::cout << "Exception " << e.what() << " while creating plugin: " << module_lib << "\n";
-        unregister_module(&new_plugin);
-        return false;
-    } catch (...) {
-        std::cout << "Unknown Exception while creating plugin: " << module_lib << "\n";
-        unregister_module(&new_plugin);
-        return false;
-    }
-    if (!new_plugin.plugin) {
-        std::cout << "Plugin Error Creating plugin object: " << module_lib << "\n";
-        unregister_module(&new_plugin);
-        return false;
-    }
-    // get the plugin name
-    try {
-        new_plugin.name = new_plugin.plugin->getName();
-    } catch (...) {
-        std::cout << "Plugin Error Getting Plugin Name: " << module_lib << "\n";
-        unregister_module(&new_plugin);
-        return false;
-    }
+	if (!new_plugin.create) {
+		user_log << "Error Loading Plugin Constructor: " << module_lib;
+		std::cerr << "Error Loading Plugin Constructor: " << module_lib;
 
-    // assign an ID
-    if (loaded_plugins.empty()) {
-        new_plugin.id = 0;
-    } else {
-        new_plugin.id = static_cast<uint16_t>(loaded_plugins.size());
-    }
-    // make it official
-    loaded_plugins.push_back(new_plugin);
-    loaded_plugins.back().host_api = new HostAPI(new_plugin.id);
-    // init panel
-    loaded_plugins.back().host_api->panel = nullptr;
-    loaded_plugins.back().host_api->set_plugin_name(loaded_plugins.back().name);
-    loaded_plugins.back().plugin->set_host((loaded_plugins.back().host_api));
-    loaded_plugins.back().plugin->plugin_init();
-    std::cout << "Loaded "<< loaded_plugins.back().name << "\n";
-    std::cout.flush();
-    return true;
+		if (library_error) {
+			user_log << " Error Code: " << library_error;
+			std::cerr << " Error Code: " << library_error;
+			#ifdef _WIN32
+			LocalFree(library_error);
+			library_error = nullptr;
+			#endif
+		}
+		std::cout << "\n";
+		unregister_module(&new_plugin);
+		return false;
+	}
+#ifdef _WIN32
+	SetLastError(0);
+	new_plugin.destroy = (void(*)(aaediclock_plugin_api*))GetProcAddress(new_plugin.library, "destroyPlugin");
+	if (!new_plugin.destroy) {
+		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+		    NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&library_error, 0, NULL);
+	}
+#else
+	library_error = dlerror();
+	new_plugin.destroy =        (void(*)(aaediclock_plugin_api*))dlsym(new_plugin.library, "destroyPlugin");
+	library_error = dlerror();
+#endif
+	if (!new_plugin.destroy) {
+		user_log << "Error Loading Plugin Destructor: " << module_lib;
+		std::cerr << "Error Loading Plugin Destructor: " << module_lib;
+		
+		if (library_error) {
+			user_log << " Error Code: " << library_error;
+			std::cerr << " Error Code: " << library_error;
+			
+			#ifdef _WIN32
+			LocalFree(library_error);
+			library_error = nullptr;
+			#endif
+		}
+		user_log << "\n";
+		std::cerr << "\n";
+		unregister_module(&new_plugin);
+		return false;
+	}
+	// create the plugin object
+	try {
+		new_plugin.plugin = new_plugin.create();
+	} catch (std::exception& e) {
+		user_log << "Exception " << e.what() << " while creating plugin: " << module_lib << "\n";
+		std::cerr << "Exception " << e.what() << " while creating plugin: " << module_lib << "\n";
+		unregister_module(&new_plugin);
+		return false;
+	} catch (...) {
+		user_log << "Unknown Exception while creating plugin: " << module_lib << "\n";
+		std::cerr << "Unknown Exception while creating plugin: " << module_lib << "\n";
+		unregister_module(&new_plugin);
+		return false;
+	}
+	if (!new_plugin.plugin) {
+		user_log << "Plugin Error Creating plugin object: " << module_lib << "\n";
+		std::cerr << "Plugin Error Creating plugin object: " << module_lib << "\n";
+		unregister_module(&new_plugin);
+		return false;
+	}
+	// get the plugin name
+	try {
+		new_plugin.name = new_plugin.plugin->getName();
+	} catch (...) {
+		user_log << "Plugin Error Getting Plugin Name: " << module_lib << "\n";
+		std::cerr << "Plugin Error Getting Plugin Name: " << module_lib << "\n";
+		unregister_module(&new_plugin);
+		return false;
+	}
+	
+	// assign an ID
+	if (loaded_plugins.empty()) {
+	    new_plugin.id = 0;
+	} else {
+	    new_plugin.id = static_cast<uint16_t>(loaded_plugins.size());
+	}
+	// make it official
+	loaded_plugins.push_back(new_plugin);
+	loaded_plugins.back().host_api = new HostAPI(new_plugin.id);
+	// init panel
+	loaded_plugins.back().host_api->panel = nullptr;
+	loaded_plugins.back().host_api->set_plugin_name(loaded_plugins.back().name);
+	loaded_plugins.back().plugin->set_host((loaded_plugins.back().host_api));
+	loaded_plugins.back().plugin->plugin_init();
+	user_log << "Loaded "<< loaded_plugins.back().name << "\n";
+	std::cout.flush();
+	return true;
 }
+
+//********************************************************************************
+// User Log
+//********************************************************************************
+
+int userbuf::overflow(int c) {
+    const std::lock_guard<std::recursive_mutex>char_lock(user_lock);
+    if (c != EOF) {
+        strbuf.push_back(static_cast<char>(c));
+    }
+    if (c == '\n') {
+        user_log << plugin_name << ": " << strbuf;
+        strbuf.clear();
+    }
+    if (strbuf.size() > 1024) {
+        user_log << plugin_name << ": " << strbuf << "\n";
+        strbuf.clear();
+    }
+    if (c == EOF) {
+        user_log << plugin_name << ": " << strbuf << "\n";
+        strbuf.clear();
+    }
+    return c;
+}
+
+std::streamsize userbuf::xsputn (const char* s, std::streamsize n) {
+    std::streamsize count = 0;
+    const std::lock_guard<std::recursive_mutex>str_lock(user_lock);
+    for (std::streamsize i = 0; i < n; i++) {
+        int result = overflow(static_cast<unsigned char>(s[i]));
+        if (result != EOF) {
+            count++;
+        }
+    }
+    return count;
+}
+
+int userbuf::sync() {
+    if (!strbuf.empty()) {
+        user_log << plugin_name << ": " << strbuf << "\n";
+        strbuf.clear();
+    }
+    user_log.flush();
+//	std::cout << user_log.str();
+    return 0;
+}
+
+
 
 //********************************************************************************
 // Debug Log
@@ -232,6 +298,9 @@ int debugbuf::sync() {
 HostAPI::HostAPI(uint16_t new_id) {
     api_debug_log 	= new std::istream(&debug_log_buffer);
     AaediHAM_LogDebug 	= new std::ostream(&debug_log_buffer);
+    api_user_log 	= new std::istream(&user_log_buffer);
+    AaediHAM_LogUser 	= new std::ostream(&user_log_buffer);
+
     plugin_id = new_id;
     texture_cache.clear();
     text_surface = nullptr;
@@ -245,6 +314,11 @@ HostAPI::~HostAPI() {
     if (AaediHAM_LogDebug) {
         delete (AaediHAM_LogDebug);
     }
+
+    if (AaediHAM_LogUser) {
+        delete (AaediHAM_LogUser);
+    }
+
     if (text_surface) {
         SDL_DestroySurface(text_surface);
     }
@@ -261,8 +335,9 @@ HostAPI::~HostAPI() {
 }
 
 void HostAPI::set_plugin_name(const std::string& new_name) {
-    debug_log_buffer.plugin_name = new_name;
-    return;
+	debug_log_buffer.plugin_name = new_name;
+	user_log_buffer.plugin_name = new_name;
+	return;
 }
 
 void HostAPI::AaediHAM_SetTarget() {
@@ -358,7 +433,7 @@ void HostAPI::AaediHAM_GraphicsDrawLines(const aaediclock_Color color, const aae
     return;
 }
 
-void HostAPI::AaediHAM_GraphicsDrawImage (uint16_t index) {
+void HostAPI::AaediHAM_GraphicsDrawImage (uint16_t index, aaediclock_FRect* destrect) {
     if ((static_cast<size_t>(index) > texture_cache.size()) || texture_cache.empty()) {
         return;
     }
@@ -369,7 +444,17 @@ void HostAPI::AaediHAM_GraphicsDrawImage (uint16_t index) {
     index--;
     if (texture_cache[index]) {
         debug_log << "HostAPI: Drawing Texture ID: "<< index << " for plugin "<< plugin_id << "\n";
-        SDL_RenderTexture(this->panel->GetRenderer(), texture_cache[index], nullptr, nullptr);
+	SDL_FRect SDLDest;
+	if (destrect != nullptr) {
+		SDLDest.w = destrect->w;
+		SDLDest.h = destrect->h;
+		SDLDest.x = destrect->x;
+		SDLDest.y = destrect->y;
+		 SDL_RenderTexture(this->panel->GetRenderer(), texture_cache[index], nullptr, &SDLDest);
+
+	} else {
+	        SDL_RenderTexture(this->panel->GetRenderer(), texture_cache[index], nullptr, nullptr);
+	}
     }
     return;
 }
@@ -394,18 +479,21 @@ void HostAPI::AaediHAM_GraphicsClear(const aaediclock_Color& color) {
 //********************************************************************************
 
 const struct plugin_mouse_event HostAPI::AaediHAM_GetMouseEvent() {
-    struct plugin_mouse_event result;
-    result.coords.x = clock_mouse_event.mod_cords.x;
-    result.coords.y = clock_mouse_event.mod_cords.y;
-    result.coords.h = 0.0f;
-    result.coords.w = 0.0f;
-    result.click_count = clock_mouse_event.mod_count;
-    result.valid = (clock_mouse_event.plugin_owner == plugin_id);
-    if (result.valid) {
-        clock_mouse_event.plugin_owner = -1;
-        clock_mouse_event.mod_owner = MOD_NULL;
-    }
-    return result;
+	struct plugin_mouse_event result;
+	result.coords.x = clock_mouse_event.mod_cords.x;
+	result.coords.y = clock_mouse_event.mod_cords.y;
+	result.coords.h = 0.0f;
+	result.coords.w = 0.0f;
+	result.click_count = clock_mouse_event.mod_count;
+	result.timestamp = clock_mouse_event.key_timestamp;
+	result.keycode = clock_mouse_event.key_keycode;
+	result.keymod = clock_mouse_event.key_keymod;
+	result.valid = (clock_mouse_event.plugin_owner == plugin_id);
+	if (result.valid) {
+	    clock_mouse_event.plugin_owner = -1;
+	    clock_mouse_event.mod_owner = MOD_NULL;
+	}
+	return result;
 }
 
 const char* HostAPI::AaediHAM_ConfigGetCall() {
@@ -730,6 +818,9 @@ uint16_t HostAPI::AaediHAM_TextureCreate (const aaediclock_image& image_data) {
            debug_log << debug_log_buffer.plugin_name << ": Texture call from non-parent thread. ignoring\n";
            return result;
     }
+    if (!this->panel) {
+        return result;
+    }
     if ((image_data.width < 1) || (image_data.height < 1)) {
         return result;
     }
@@ -752,6 +843,45 @@ uint16_t HostAPI::AaediHAM_TextureCreate (const aaediclock_image& image_data) {
 //        SDL_DestroySurface(new_image);
 //    }
     return result;
+}
+
+uint16_t HostAPI::AaediHAM_TextureCreateString (const char* string, const aaediclock_Color& foreground) {
+	uint16_t result = 0;
+	if (SDL_GetCurrentThreadID() != main_thread_id) {
+		debug_log << debug_log_buffer.plugin_name << ": Texture call from non-parent thread. ignoring\n";
+		return result;
+	}
+	if (!string || string[0] ==0) {
+		return result;
+	}
+    if (!this->panel) {
+        return result;
+    }
+    if (!Sans) {
+        return result;
+    }
+	std::string str (string);
+	if (str.size() > 2048) {
+		debug_log << debug_log_buffer.plugin_name << ": Text Render input overflow. Discarded\n";
+ 		return result;
+ 	}
+	SDL_Surface* textsurface = nullptr;
+ 	SDL_Texture* TextTexture = nullptr;
+
+	textsurface = TTF_RenderText_Shaded_Wrapped(Sans, str.c_str(), str.size(), SDL_Color{foreground.r, foreground.g, foreground.b, foreground.a}, SDL_Color{0,0,0,0},0);
+	if (textsurface==NULL) {
+ 		debug_log << debug_log_buffer.plugin_name << ": Text render error: " << SDL_GetError() << "\n";
+		return result;
+	}
+	TextTexture = SDL_CreateTextureFromSurface(this->panel->GetRenderer(), textsurface);
+	if (TextTexture) {
+		texture_cache.push_back(TextTexture);
+		result =  static_cast<uint16_t>(texture_cache.size());
+		
+	}
+    SDL_DestroySurface(textsurface);
+	return result;
+
 }
 
 bool HostAPI::AaediHAM_TextureUpdate (uint16_t index, const aaediclock_image& image_data) {
@@ -881,10 +1011,10 @@ void HostAPI::AaediHAM_ScrollerPosition(const aaediclock_FRect source, const aae
     for (auto& segment : scroll_buffer) {
         target_source.x = 0;
         target_source.y = 0;
-        target_dest.w = segment.segment->w;
+        target_dest.w = segment.segment->w + 0.0f;
         target_dest.h = dest.h;
-        target_source.w = segment.segment->w;
-        target_source.h = segment.segment->h;
+        target_source.w = segment.segment->w + 0.0f;
+        target_source.h = segment.segment->h + 0.0f;
         float segment_offset = 0;
         if (string_offset >0) {
             if (string_offset > target_source.w) {
@@ -929,4 +1059,27 @@ void HostAPI::AaediHAM_ScrollerDelete() {
     }
     scroll_buffer.clear();
     return;
+}
+
+//********************************************************************************
+//Log Read  Calls
+//********************************************************************************
+
+const char* HostAPI::AaediHAM_LogGetNew() {
+	last_log_str =  ((sysuserbuf*)user_log.rdbuf())->readline();
+	return last_log_str.c_str();
+}
+
+uint16_t HostAPI::AaediHAM_LogGetCount() {
+	return ((sysuserbuf*)user_log.rdbuf())->size();
+}
+
+const char* HostAPI::AaediHAM_LogGetIndex(uint16_t index) {
+	uint16_t log_size = ((sysuserbuf*)user_log.rdbuf())->size();
+	if (index < log_size) {
+		last_log_str =  ((sysuserbuf*)user_log.rdbuf())->read_index(index);
+		return last_log_str.c_str();
+	} else {
+		return nullptr;
+	}
 }

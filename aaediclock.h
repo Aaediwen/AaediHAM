@@ -38,7 +38,7 @@ extern std::array<SDL_Mutex*, 10> 	mutexes;
 //extern SDL_TimerID 			map_timer;
 extern TTF_Font*			Sans;
 extern std::ostream&			debug_log;
-
+extern std::ostream			user_log;
 extern Sint64				max_tex_size;
 extern SDL_ThreadID			main_thread_id;
 extern std::atomic<bool>		interrupt_flag;
@@ -60,6 +60,9 @@ struct internal_mouse_event {
 	SDL_FPoint			mod_cords;
 	int				mod_count;
 	enum mod_name			mod_owner;
+	time_t 				key_timestamp	= 0;
+	SDL_Keycode			key_keycode	= 0;
+	SDL_Keymod			key_keymod	= 0;
 	int				plugin_owner;
 };
 

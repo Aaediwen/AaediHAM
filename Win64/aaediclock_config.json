@@ -1,6 +1,10 @@
 {
      "CallSign": "N0CALL",
      "PSKCall":  "N0CALL",
+	 "PluginPath": "plugins",
+     "AssetPath": "images",
+     "CachePath": "cache",
+     "SiteCacheServer": "",
      "DE": {
           "Latitude": 36.978,
           "Longitude": -82.495
@@ -50,89 +54,101 @@
     ],
     "Plugins": [
         {
-            "plugin": "plugins\\map_plugin.dll",
+            "plugin": "map_plugin.dll",
             "panel": 2,
             "interval": 10
         },
        {
-            "plugin": "plugins\\clock_plugin.dll",
+            "plugin": "clock_plugin.dll",
             "panel": 1,
             "interval": 2
         },
         {
-            "plugin": "plugins\\callsign_plugin.dll",
+            "plugin": "callsign_plugin.dll",
             "panel": 0,
             "interval": 300
         },
-        {
-            "plugin": "plugins\\ncdxf_plugin.dll",
+                {
+            "plugin": "muf_plugin.dll",
             "panel": 5,
             "interval": 50
         },
         {
-            "plugin": "plugins\\pota_plugin.dll",
+            "plugin": "ncdxf_plugin.dll",
+            "panel": 5,
+            "interval": 50
+        },
+
+        {
+            "plugin": "pota_plugin.dll",
             "panel": 5,
             "interval": 50
         },
         {
-            "plugin": "plugins\\de_plugin.dll",
+            "plugin": "de_plugin.dll",
             "panel": 3,
             "interval": 50
         },
         {
-            "plugin": "plugins\\libdx_plugin.dll",
+            "plugin": "libdx_plugin.dll",
             "panel": 4,
             "interval": 50
         },
         {
-            "plugin": "plugins\\libdx_cluster_plugin.dll",
+            "plugin": "dx_cluster_plugin.dll",
             "panel": 7,
             "interval": 50
         },
         {
-            "plugin": "plugins\\libsat_tracker_plugin.dll",
+            "plugin": "sat_tracker_plugin.dll",
             "panel": 6,
             "interval": 10
         },
         {
-            "plugin": "plugins\\libaurora_plugin.dll",
+            "plugin": "aurora_plugin.dll",
             "panel": 10,
             "interval": 170
         },
         {
-            "plugin": "plugins\\librss_plugin.dll",
+            "plugin": "rss_plugin.dll",
             "panel": 10,
             "interval": 1
         },
         {
-            "plugin": "plugins\\libsdo_plugin.dll",
+            "plugin": "sdo_plugin.dll",
             "panel": 9,
             "interval": 50
         },
         {
-            "plugin": "plugins\\libcontest_plugin.dll",
+            "plugin": "contest_plugin.dll",
             "panel": 8,
             "interval": 50
         },
         {
-            "plugin": "plugins\\libkindex_plugin.dll",
+            "plugin": "kindex_plugin.dll",
             "panel": 8,
             "interval": 50
         },
         {
-            "plugin": "plugins\\liblunar_plugin.dll",
+            "plugin": "lunar_plugin.dll",
             "panel": 9,
             "interval": 50
         },
         {
-            "plugin": "plugins\\libwspr_plugin.dll",
+            "plugin": "wspr_plugin.dll",
             "panel": 9,
             "interval": 50
         },
         {
-            "plugin": "plugins\\libpskreporter_plugin.dll",
+            "plugin": "pskreporter_plugin.dll",
             "panel": 6,
             "interval": 50
+        },
+        {
+            "plugin": "syslog_plugin.dll",
+            "panel": 10,
+            "interval": 20
         }
+
     ]
 }

@@ -104,7 +104,6 @@ void aurora_json_parser(const char* input_string) {
 
 static int SDLCALL fetch_aurora (void* data) {
      (void)data;
-     std::cout << "THREAD fetch_aurora entered\n";
      std::cout.flush();
 
      char* aurora_data = 0 ;
@@ -114,7 +113,7 @@ static int SDLCALL fetch_aurora (void* data) {
 
      if (data_size) {
           aurora_json_parser(aurora_data);
-          SDL_Log("finished aurora parser AURORA");
+		*(host_api->AaediHAM_LogDebug) <<"finished aurora parser AURORA\n";
           if(aurora_data) {
                free (aurora_data);
                aurora_data=0;
@@ -203,7 +202,7 @@ void aurora_plugin::plugin_main(const aaediclock_FRect& dims) const {
          host_api->AaediHAM_GraphicsDrawImage(aurora_tex_id);
     }
     // reset the mouse event
-    struct plugin_mouse_event mouse_event = host_api->AaediHAM_GetMouseEvent();
+//    struct plugin_mouse_event mouse_event = host_api->AaediHAM_GetMouseEvent();
     *(host_api->AaediHAM_LogDebug) << "AURORA: Complete\n";
     return;
 }
