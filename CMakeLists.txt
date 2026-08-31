@@ -93,7 +93,7 @@ elseif(APPLE)
         	$<$<CONFIG:Debug>:CLOCK_DEBUG>
     	)
 	target_compile_options(aaediclock_path INTERFACE 
-		-fno-omit-frame-pointer -rdynamic
+		-fno-omit-frame-pointer -rdynamic -Wno-psabi
 	)
 else()
 	if (ASAN_ENABLE)
@@ -119,7 +119,7 @@ else()
         	$<$<CONFIG:Debug>:CLOCK_DEBUG>
     	)
 	target_compile_options(aaediclock_path INTERFACE 
-		-fno-omit-frame-pointer
+		-fno-omit-frame-pointer -Wno-psabi
 	)
 endif()
 
