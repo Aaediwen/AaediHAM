@@ -32,6 +32,7 @@ In light of recent news, I want to specifically post my respects for Elwood Down
 | **Alt + Enter** | Toggle fullscreen                                |
 | **Q**           | Quit                                             |
 | **Alt + F4**    | Quit                                             |
+| **L**           | Toggle the user log view                         |
 
 ---
 
@@ -310,7 +311,10 @@ The program now requires a config file (default: aaediclock_config.json in the C
 
  ---
  ## Build Instructions:
-CMake will attempt to fetch the direct dependancies as listed above. However, it may be up to the user to fetch sub depenancies not included in the CMakeLists for that library.  
+CMake will attempt to fetch the direct dependencies as listed above. 
+However, it may be up to the user to fetch sub dependencies not included in the CMakeLists for that library.  
+Also, Some of the dependency libs do throw build warnings (Perticularly Nlohmann on ARM). 
+
  **Linux:**
  ```bash
       cd <source tree>
@@ -320,6 +324,7 @@ CMake will attempt to fetch the direct dependancies as listed above. However, it
       make
       cp -r ../images . 
       cp -r ../aaediclock_config.json .
+      mkdir cache
       mkdir plugins
       cp *.so plugins/
       edit aaediclock_config.json to reflect how you want the plugins configured
@@ -334,7 +339,26 @@ CMake will attempt to fetch the direct dependancies as listed above. However, it
   
   However, it's not a big deal if you choose to do that in the source tree as shown above, and run from there. That's what I do a lot during development
       
+**Mac OSX:**
 
+     Build with Brew, may need LibFreeType2 already in your Brew environment. 
+     See the note in CMakeLists.txt to point Cmake to local freetype2 if needed.
+     This process is still being refined
+
+ ```bash
+      cd <source tree>
+      mkdir build
+      cd build 
+      cmake .. 
+      make
+      cp -r ../images . 
+      cp -r ../aaediclock_config.json .
+      mkdir cache
+      mkdir plugins
+      cp *.dylib plugins/
+      edit aaediclock_config.json to reflect how you want the plugins configured
+      ./clock
+```
  **Windows:**
  
       Built using MSVC22
@@ -347,6 +371,7 @@ CMake will attempt to fetch the direct dependancies as listed above. However, it
       after building:
       The binaries will be collected to a binary/ directory in the build tree
       Copy the `images` directory into the same folder as `clock.exe`
+      Create a `cache` directory in the same folder as `clock.exe`
       Copy the plugin DLL files where you want them to live, and add them to your aaediclock_config.json
       Copy or create an aaediclock_config.json file in the same directory
   ```
@@ -363,6 +388,7 @@ By default, the directory that contains the clock or clock.exe binary must also 
   - Moon image
   - Satellite icon images
 - plugin libraries for the plugins you want to load
+- a cache directory
 
   The Image path, plugin path, and cache location can now be specified in the config file. The config file to use can itself now be specified via `--config` on the command line
 
