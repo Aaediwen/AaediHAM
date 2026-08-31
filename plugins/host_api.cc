@@ -818,6 +818,9 @@ uint16_t HostAPI::AaediHAM_TextureCreate (const aaediclock_image& image_data) {
            debug_log << debug_log_buffer.plugin_name << ": Texture call from non-parent thread. ignoring\n";
            return result;
     }
+    if (!this->panel) {
+        return result;
+    }
     if ((image_data.width < 1) || (image_data.height < 1)) {
         return result;
     }
@@ -851,6 +854,12 @@ uint16_t HostAPI::AaediHAM_TextureCreateString (const char* string, const aaedic
 	if (!string || string[0] ==0) {
 		return result;
 	}
+    if (!this->panel) {
+        return result;
+    }
+    if (!Sans) {
+        return result;
+    }
 	std::string str (string);
 	if (str.size() > 2048) {
 		debug_log << debug_log_buffer.plugin_name << ": Text Render input overflow. Discarded\n";
@@ -868,8 +877,9 @@ uint16_t HostAPI::AaediHAM_TextureCreateString (const char* string, const aaedic
 	if (TextTexture) {
 		texture_cache.push_back(TextTexture);
 		result =  static_cast<uint16_t>(texture_cache.size());
-		SDL_DestroySurface(textsurface);
+		
 	}
+    SDL_DestroySurface(textsurface);
 	return result;
 
 }

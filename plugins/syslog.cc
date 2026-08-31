@@ -3,28 +3,42 @@
 aaediclock_host_api* host_api = nullptr;
 bool show_log = false;
 time_t last_event = 0;
-
-
-extern "C" DllExport aaediclock_plugin_api* createPlugin() {
-    return new syslog_plugin();
-}
-extern "C" DllExport void destroyPlugin(aaediclock_plugin_api* target) {
-    if (target) {
-        delete target;
-    }
-}
-
-void syslog_plugin::plugin_init() const {
-    return;
-}
-
-void syslog_plugin::plugin_exit() const {
-    return;
-}
 uint16_t log_tex_id = 0;
 uint16_t test_tex_id = 0;
 size_t toast_length = 0;
 time_t toast_age = 0;
+
+
+extern "C" DllExport aaediclock_plugin_api* createPlugin() {
+	return new syslog_plugin();
+}
+extern "C" DllExport void destroyPlugin(aaediclock_plugin_api* target) {
+	if (target) {
+		delete target;
+	}
+}
+
+void syslog_plugin::plugin_init() const {
+	show_log = false;
+	log_tex_id = 0;
+	test_tex_id = 0;
+	toast_length = 0;
+	toast_age = 0;
+
+	return;
+}
+
+void syslog_plugin::plugin_exit() const {
+	if (log_tex_id) {
+		host_api->AaediHAM_TextureDelete(log_tex_id);
+		log_tex_id = 0;
+	}
+	if (test_tex_id) {
+		host_api->AaediHAM_TextureDelete(test_tex_id);
+		test_tex_id = 0;
+	}
+	return;
+}
 void syslog_plugin::plugin_main(const aaediclock_FRect& dims) const {
 	(void)dims;
 	aaediclock_FRect map_dims = host_api->AaediHAM_GetMapSize();
@@ -37,7 +51,7 @@ void syslog_plugin::plugin_main(const aaediclock_FRect& dims) const {
 		last_event = mouse_event.timestamp;
 //		std::cout << "Updated keycode timestamp\n";
 		if (mouse_event.keycode == SDLK_L) {
-			std::cout << "Toggling log\n";
+//			std::cout << "Toggling log\n";
 			show_log = !show_log;
 			if (test_tex_id) {
 				host_api->AaediHAM_TextureDelete(test_tex_id);
@@ -47,7 +61,6 @@ void syslog_plugin::plugin_main(const aaediclock_FRect& dims) const {
 		}
 	}
 	aaediclock_FRect bar_box;
-	bar_box.y=map_dims.y+10;
 	if (toast_age >0) {
 		if ((time(NULL) - toast_age) > 5) {
 			host_api->AaediHAM_TextureDelete(log_tex_id);
@@ -72,7 +85,9 @@ void syslog_plugin::plugin_main(const aaediclock_FRect& dims) const {
 
 			logstring += buffer.substr(0,64);
 		}
-		test_tex_id =  host_api->AaediHAM_TextureCreateString (logstring.c_str(), aaediclock_Color({200,0,0,255}));
+		if (!logstring.empty()) {
+			test_tex_id =  host_api->AaediHAM_TextureCreateString (logstring.c_str(), aaediclock_Color({200,0,0,255}));
+		}
 
 	}
 	if (!log_tex_id) {
@@ -87,10 +102,12 @@ void syslog_plugin::plugin_main(const aaediclock_FRect& dims) const {
 	}
 	bar_box.y = map_dims.h*0.8;
 	float height_multiplier = 0.06;
+	// make sure the loop runs at least once
 	bar_box.x = map_dims.w*2;
-	
+	bar_box.w = 0;
+	bar_box.h = 0;
 	if (log_tex_id) {
-		while (bar_box.x + bar_box.w > map_dims.w) {
+		while (((bar_box.x + bar_box.w) > map_dims.w) && height_multiplier > 0.00001) {
 			bar_box.h = map_dims.h*height_multiplier;
 			bar_box.w = bar_box.h* toast_length;
 			bar_box.x = (map_dims.w - bar_box.w) /2;

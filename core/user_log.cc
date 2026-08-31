@@ -4,6 +4,7 @@
 // System User Log
 //*******************************************************************************i*
 const std::string sysuserbuf::readline() {
+	const std::lock_guard<std::recursive_mutex> lock(user_lock);
 	if (!log_buffer.empty() && !(log_buffer.back().fetched)) {
 		log_buffer.back().fetched = true;
 		return (log_buffer.back().log_entry);
@@ -13,6 +14,7 @@ const std::string sysuserbuf::readline() {
 }
 
 uint16_t sysuserbuf::size() {
+const std::lock_guard<std::recursive_mutex> lock(user_lock);
 	if (!log_buffer.empty()) {
 		return (0+static_cast<uint16_t>(log_buffer.size()));
 	} else {
@@ -22,6 +24,7 @@ uint16_t sysuserbuf::size() {
 
 const std::string sysuserbuf::read_index(uint16_t index) {
 	if (index < log_buffer.size()) {
+		const std::lock_guard<std::recursive_mutex> lock(user_lock);
 		return log_buffer[index].log_entry;
 	} else {
 		return "";
@@ -32,7 +35,7 @@ void sysuserbuf::buffer_stuff() {
 	struct log_entry new_log;
 	new_log.fetched = false;
 	new_log.log_entry = strbuf;
-	std::cout << "USER LOG: "<< new_log.log_entry;
+//	std::cout << "USER LOG: "<< new_log.log_entry;
 	log_buffer.push_back(new_log);
 
 	strbuf.clear();
